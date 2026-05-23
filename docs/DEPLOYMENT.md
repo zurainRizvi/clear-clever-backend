@@ -49,7 +49,7 @@ Override locally with `SEED_PASSWORD=your-secret npm run seed` if needed.
 | Setting | Value |
 |---------|--------|
 | Runtime | Node **22** (repo has `.node-version`; optional env `NODE_VERSION=22`) |
-| Build | `npm ci && npm run build` |
+| Build | `npm ci --include=dev && npm run build` |
 | Start | `npm start` |
 | Health check path | `/api/health` |
 
@@ -120,7 +120,7 @@ Comma-separated, no trailing slashes.
 | Issue | Fix |
 |-------|-----|
 | Build fails `TS5107` / `moduleResolution` | Pull latest `main` (Node 22 + pinned TypeScript); use `npm ci && npm run build` |
-| Build fails `tsc: not found` | Remove manual `NODE_ENV=production` from Render env; redeploy |
+| Build fails `tsc: not found` / missing `@types/node` | Use build command `npm ci --include=dev && npm run build`; remove manual `NODE_ENV` from Render env |
 | Health 503 / DB `disconnected` | Check `MONGODB_URI`, Atlas IP allowlist, URL-encode `!` in password |
 | Login 403 “verify email” | Re-run `npm run seed` so status is `active` |
 | OTP signup fails on Render | Configure SMTP; never use `OTP_DEBUG` in production |

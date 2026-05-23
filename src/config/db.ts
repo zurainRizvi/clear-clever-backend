@@ -4,9 +4,7 @@ import type { Env } from './env';
 export async function connectDatabase(env: Env): Promise<void> {
   mongoose.set('strictQuery', true);
 
-  await mongoose.connect(env.MONGODB_URI, {
-    serverSelectionTimeoutMS: 10_000,
-  });
+  await mongoose.connect(env.MONGODB_URI);
 }
 
 export function getDatabaseStatus(): 'connected' | 'disconnected' | 'connecting' | 'disconnecting' {

@@ -4,7 +4,7 @@ services:
   - type: web
     name: clearclever-api
     runtime: node
-    buildCommand: npm ci && npm run build
+    buildCommand: npm ci --include=dev && npm run build
     startCommand: npm start
     healthCheckPath: /api/health
     # NODE_ENV=production is set by Render at runtime — do not set at build time (skips devDependencies).
