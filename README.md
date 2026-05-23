@@ -3,7 +3,8 @@
 Express + TypeScript + MongoDB API for ClearClever (FYP).
 
 **Module 1:** health, env validation, CORS, error handling.  
-**Module 2:** signup, login, OTP verify/resend, JWT, `/api/auth/me`, role selection.
+**Module 2:** signup, login, OTP verify/resend, JWT, `/api/auth/me`, role selection.  
+**Module 3:** Atlas user seed, Render deploy config, production smoke script — see [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Setup
 
@@ -46,7 +47,23 @@ Health: http://localhost:5000/api/health
 | `npm run dev` | Start API with hot reload |
 | `npm run build` | Compile TypeScript |
 | `npm run start` | Run compiled `dist/` |
+| `npm run seed` | Upsert demo users into Atlas (see DEPLOYMENT.md) |
+| `npm run smoke:prod` | Health + login check against deployed API (`API_URL=...`) |
 | `npm test` | Jest tests |
+
+## Demo accounts (after `npm run seed`)
+
+| Email | Role |
+|-------|------|
+| `syedzurainrizvi@gmail.com` | user |
+| `seeker@clearclever.com` | user |
+| `insurer.tpl@clearclever.com` | insurer |
+| `insurer.jubilee@clearclever.com` | insurer |
+| `insurer.adamjee@clearclever.com` | insurer |
+| `admin@clearclever.com` | admin |
+| `superadmin@clearclever.com` | superadmin |
+
+Password for all: `password` (change in production after FYP demo).
 
 ## Repository
 
