@@ -72,8 +72,12 @@ Override locally with `SEED_PASSWORD=your-secret npm run seed` if needed.
 | `SMTP_USER` | Gmail address |
 | `SMTP_PASS` | Gmail **App Password** (16 chars) |
 | `SMTP_FROM` | `ClearClever <your.gmail@gmail.com>` |
+| `API_PUBLIC_URL` | **`https://clear-clever-backend.onrender.com`** (your Render service URL, **with `https://`**) — used for affiliate purchase redirects |
+| `CLIENT_URL` | **`https://your-app.vercel.app`** (Vercel production URL, **with `https://`**) — post-purchase redirect back to the SPA |
 
 Do **not** set `OTP_DEBUG=true` on Render.
+
+**Module 7:** If `API_PUBLIC_URL` is missing, purchase `redirectUrl` will incorrectly point to `http://localhost:5000` and affiliate checkout will break. Host-only values like `clear-clever-backend.onrender.com` are auto-prefixed with `https://` on startup.
 
 ### Gmail App Password (OTP)
 
@@ -127,6 +131,8 @@ Comma-separated, no trailing slashes.
 | Login 403 “verify email” | Re-run `npm run seed` so status is `active` |
 | OTP signup fails on Render | Configure SMTP; never use `OTP_DEBUG` in production |
 | CORS error in browser | Add frontend URL to `CORS_ORIGINS`, redeploy API |
+| Deploy fails on start / “Invalid environment” | `CLIENT_URL` / `API_PUBLIC_URL` must be valid URLs — use `https://...` or host-only (`your-app.vercel.app`); avoid bare `localhost` on Render |
+| Purchase redirect goes to localhost | Set `API_PUBLIC_URL` on Render to your service URL, **Save**, then **Manual Deploy** |
 | Render cold start | Free tier sleeps; first request may take ~30s |
 | Request hangs / times out (0 bytes, HTTP 000) | App stuck before `listen` — usually **MongoDB**. Check Render **Logs** for `[ClearClever] Failed to start server`. Fix `MONGODB_URI` (include `/clearclever` db name), URL-encode special chars in password (`!` → `%21`), Atlas **Network Access** `0.0.0.0/0`, then **Manual Deploy** |
 | Wrong hostname (`x-render-routing: no-server`) | Use the exact URL from Render dashboard (e.g. `https://clear-clever-backend.onrender.com`), not a guessed name |

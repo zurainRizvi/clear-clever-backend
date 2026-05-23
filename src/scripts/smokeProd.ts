@@ -62,6 +62,65 @@ async function main(): Promise<void> {
     process.exit(1);
   }
   console.log('[smoke:prod] Auth me OK');
+
+  const seekerLogin = await requestJson('POST', '/api/auth/login', {
+    email: process.env.SMOKE_SEEKER_EMAIL ?? 'seeker@clearclever.com',
+    password: SMOKE_PASSWORD,
+  });
+  const seekerToken = (seekerLogin.body.data as Record<string, unknown> | undefined)?.token;
+  if (seekerLogin.status !== 200 || typeof seekerToken !== 'string') {
+    console.error('[smoke:prod] Seeker login failed:', seekerLogin.status, seekerLogin.body);
+    process.exit(1);
+  }
+
+  const recommendRes = await fetch(`${API_URL}/api/recommend`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+    body: JSON.stringify({
+      category: 'home',
+      answers: { property_type: 'Apartment', property_value_pkr: 5000000 },
+    }),
+  });
+  const recommendBody = (await recommendRes.json()) as {
+    data?: { recommendations?: { policy: { id: string } }[] };
+  };
+  const policyId = recommendBody.data?.recommendations?.[0]?.policy?.id;
+  if (!policyId) {
+    console.error('[smoke:prod] No approved home policy for purchase smoke');
+    process.exit(1);
+  }
+
+  const purchaseRes = await fetch(`${API_URL}/api/purchase`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      Authorization: `Bearer ${seekerToken}`,
+    },
+    body: JSON.stringify({ policyId, answers: { property_type: 'Apartment' } }),
+  });
+  const purchaseBody = (await purchaseRes.json()) as {
+    success?: boolean;
+    data?: { redirectUrl?: string; purchaseId?: string };
+  };
+  const redirectUrl = purchaseBody.data?.redirectUrl ?? '';
+  if (purchaseRes.status !== 201 || !redirectUrl) {
+    console.error('[smoke:prod] Purchase create failed:', purchaseRes.status, purchaseBody);
+    process.exit(1);
+  }
+  if (/localhost|127\.0\.0\.1/.test(redirectUrl)) {
+    console.error(
+      '[smoke:prod] redirectUrl still points to localhost — set API_PUBLIC_URL on Render to your service URL (include https://).'
+    );
+    console.error(`  Got: ${redirectUrl}`);
+    process.exit(1);
+  }
+  if (!redirectUrl.includes('/affiliate/')) {
+    console.error('[smoke:prod] redirectUrl missing /affiliate/ path:', redirectUrl);
+    process.exit(1);
+  }
+  console.log('[smoke:prod] Purchase redirect URL OK');
+
   console.log('[smoke:prod] All checks passed');
 }
 

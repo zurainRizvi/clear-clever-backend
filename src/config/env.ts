@@ -1,5 +1,20 @@
 import { z } from 'zod';
 
+/** Accepts `https://app.vercel.app` or `app.vercel.app` (adds https). */
+export function normalizePublicUrl(value: string | undefined, fallback: string): string {
+  const raw = (value?.trim() || fallback).trim();
+  if (!raw) return fallback;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  return `https://${raw.replace(/^\/+/, '')}`;
+}
+
+const urlFromEnv = (fallback: string) =>
+  z
+    .string()
+    .optional()
+    .transform((value) => normalizePublicUrl(value, fallback))
+    .pipe(z.string().url());
+
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.coerce.number().int().positive().default(5000),
@@ -29,14 +44,8 @@ const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().optional(),
-  CLIENT_URL: z
-    .string()
-    .url('CLIENT_URL must be a valid URL')
-    .default('http://localhost:5173'),
-  API_PUBLIC_URL: z
-    .string()
-    .url('API_PUBLIC_URL must be a valid URL')
-    .default('http://localhost:5000'),
+  CLIENT_URL: urlFromEnv('http://localhost:5173'),
+  API_PUBLIC_URL: urlFromEnv('http://localhost:5000'),
 });
 
 export type Env = z.infer<typeof envSchema> & {
@@ -64,6 +73,21 @@ export function loadEnv(): Env {
   }
 
   cached = parsed.data as Env;
+
+  if (cached.NODE_ENV === 'production') {
+    const localhostPattern = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
+    if (localhostPattern.test(cached.API_PUBLIC_URL)) {
+      console.warn(
+        '[ClearClever] WARNING: API_PUBLIC_URL is still localhost in production. Set it to your Render URL (e.g. https://clear-clever-backend.onrender.com).'
+      );
+    }
+    if (localhostPattern.test(cached.CLIENT_URL)) {
+      console.warn(
+        '[ClearClever] WARNING: CLIENT_URL is still localhost in production. Set it to your Vercel URL (e.g. https://your-app.vercel.app).'
+      );
+    }
+  }
+
   return cached;
 }
 
