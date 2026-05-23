@@ -52,7 +52,13 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
       .set('Authorization', `Bearer ${seekerToken}`)
       .send({
         policyId: String(policy!._id),
-        answers: { property_type: 'Apartment', property_value_pkr: 5000000 },
+        answers: {
+          property_type: 'Apartment',
+          occupancy: 'Owner occupied',
+          property_value_pkr: 5000000,
+          contents_cover: 'Yes — full contents',
+          city: 'Karachi',
+        },
       });
 
     expect(createRes.status).toBe(201);
@@ -91,7 +97,7 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
 
       expect(res.status).toBe(200);
       expect(res.headers['content-type']).toMatch(/html/);
-      expect(res.text).toContain('Step 1 — Review policy');
+      expect(res.text).toContain('Step 1 — Review your policy');
       expect(res.text).toContain('TPL Home Essential');
     });
   });

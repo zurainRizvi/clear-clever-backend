@@ -78,7 +78,13 @@ async function main(): Promise<void> {
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({
       category: 'home',
-      answers: { property_type: 'Apartment', property_value_pkr: 5000000 },
+      answers: {
+        property_type: 'Apartment',
+        occupancy: 'Owner occupied',
+        property_value_pkr: 5000000,
+        contents_cover: 'Yes — full contents',
+        city: 'Karachi',
+      },
     }),
   });
   const recommendBody = (await recommendRes.json()) as {

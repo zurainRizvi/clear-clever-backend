@@ -114,7 +114,13 @@ describe('Module 6 — Insurer & admin modules', () => {
         .post('/api/recommend')
         .send({
           category: 'home',
-          answers: { property_type: 'Apartment', property_value_pkr: 5000000 },
+          answers: {
+            property_type: 'Apartment',
+            occupancy: 'Owner occupied',
+            property_value_pkr: 5000000,
+            contents_cover: 'Yes — full contents',
+            city: 'Karachi',
+          },
         });
 
       const idsBefore = recommendBefore.body.data.recommendations.map(
@@ -130,7 +136,13 @@ describe('Module 6 — Insurer & admin modules', () => {
         .post('/api/recommend')
         .send({
           category: 'home',
-          answers: { property_type: 'Apartment', property_value_pkr: 5000000 },
+          answers: {
+            property_type: 'Apartment',
+            occupancy: 'Owner occupied',
+            property_value_pkr: 5000000,
+            contents_cover: 'Yes — full contents',
+            city: 'Karachi',
+          },
         });
 
       const idsAfter = recommendAfter.body.data.recommendations.map(

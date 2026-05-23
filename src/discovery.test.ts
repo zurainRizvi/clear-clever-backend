@@ -41,7 +41,10 @@ describe('Module 5 — Questionnaire, recommend, compare, favorites', () => {
 
   const homeAnswers = {
     property_type: 'Apartment',
+    occupancy: 'Owner occupied',
     property_value_pkr: 5000000,
+    contents_cover: 'Yes — full contents',
+    city: 'Karachi',
   };
 
   async function getApprovedHomePolicyIds(limit = 4): Promise<string[]> {

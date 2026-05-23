@@ -3,8 +3,7 @@ import { loadEnv } from '../config/env';
 import { InsurerProfile } from '../models/InsurerProfile';
 import { Policy } from '../models/Policy';
 import { Purchase } from '../models/Purchase';
-import { AppError } from '../utils/apiResponse';
-import { renderAffiliatePage } from '../views/affiliatePage';
+import { renderAffiliateErrorPage, renderAffiliatePage } from '../views/affiliatePage';
 
 export async function renderAffiliateWizard(req: Request, res: Response): Promise<void> {
   const env = loadEnv();
@@ -13,26 +12,69 @@ export async function renderAffiliateWizard(req: Request, res: Response): Promis
   const token = typeof req.query.token === 'string' ? req.query.token : '';
 
   if (!purchaseId) {
-    throw new AppError(400, 'purchaseId query parameter is required');
+    res
+      .status(400)
+      .type('html')
+      .send(
+        renderAffiliateErrorPage(
+          'Missing purchase reference',
+          'This checkout link is incomplete. Start again from Compare Policies on ClearClever.',
+          env.CLIENT_URL
+        )
+      );
+    return;
   }
 
   const purchase = await Purchase.findById(purchaseId);
   if (!purchase) {
-    throw new AppError(404, 'Purchase not found');
+    res
+      .status(404)
+      .type('html')
+      .send(
+        renderAffiliateErrorPage(
+          'Purchase not found',
+          'We could not find this purchase. It may have expired or the link is invalid.',
+          env.CLIENT_URL
+        )
+      );
+    return;
   }
 
   const insurer = await InsurerProfile.findById(purchase.insurerProfileId);
   if (!insurer || insurer.slug !== insurerSlug) {
-    throw new AppError(404, 'Affiliate page not found for this purchase');
+    res
+      .status(404)
+      .type('html')
+      .send(
+        renderAffiliateErrorPage(
+          'Checkout unavailable',
+          'This insurer checkout link does not match your purchase. Return to ClearClever and try again.',
+          env.CLIENT_URL
+        )
+      );
+    return;
   }
 
   const policy = await Policy.findById(purchase.policyId);
   if (!policy) {
-    throw new AppError(404, 'Policy not found for this purchase');
+    res
+      .status(404)
+      .type('html')
+      .send(
+        renderAffiliateErrorPage(
+          'Policy not found',
+          'The policy for this purchase is no longer available.',
+          env.CLIENT_URL
+        )
+      );
+    return;
   }
 
   const answerSummary = Object.entries(purchase.answers ?? {})
-    .map(([key, value]) => `<li><strong>${escapeHtml(key)}:</strong> ${escapeHtml(String(value))}</li>`)
+    .map(
+      ([key, value]) =>
+        `<li><strong>${escapeHtml(formatAnswerKey(key))}:</strong> ${escapeHtml(String(value))}</li>`
+    )
     .join('');
 
   const html = renderAffiliatePage({
@@ -51,6 +93,12 @@ export async function renderAffiliateWizard(req: Request, res: Response): Promis
   });
 
   res.status(200).type('html').send(html);
+}
+
+function formatAnswerKey(key: string): string {
+  return key
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
 }
 
 function escapeHtml(value: string): string {
