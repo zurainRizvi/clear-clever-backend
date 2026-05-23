@@ -1,5 +1,7 @@
 # ClearClever — Backend
 
+[![CI](https://github.com/zurainRizvi/clear-clever-backend/actions/workflows/ci.yml/badge.svg)](https://github.com/zurainRizvi/clear-clever-backend/actions/workflows/ci.yml)
+
 Express + TypeScript + MongoDB API for ClearClever (FYP).
 
 **Module 1:** health, env validation, CORS, error handling.  
@@ -47,9 +49,27 @@ Health: http://localhost:5000/api/health
 | `npm run dev` | Start API with hot reload |
 | `npm run build` | Compile TypeScript |
 | `npm run start` | Run compiled `dist/` |
+| `npm run typecheck` | `tsc --noEmit` (used by CI) |
 | `npm run seed` | Upsert demo users into Atlas (see DEPLOYMENT.md) |
 | `npm run smoke:prod` | Health + login check against deployed API (`API_URL=...`) |
-| `npm test` | Jest tests |
+| `npm test` | Jest tests (local) |
+| `npm run test:ci` | Jest in CI mode (`--ci --runInBand --forceExit`) |
+
+## CI / CD
+
+GitHub Actions: [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
+
+| Trigger | Job | Steps |
+|---------|-----|-------|
+| `push` / `pull_request` to `main` | `test` | `npm ci` → `typecheck` → `build` → `test:ci` (Jest + supertest + mongodb-memory-server, with binary cache) |
+| `push` to `main` after `test` passes | `deploy-trigger` | Render auto-deploys via the Git integration; if you set `RENDER_DEPLOY_HOOK` as a repo secret, the workflow will also POST it explicitly |
+
+Render deploy is gated by the `test` job — failing tests will not deploy because Render only redeploys on green commits to `main` (you also have `render.yaml` for blueprint deploys).
+
+### Optional: explicit Render deploy hook
+
+1. Render dashboard → your service → **Settings** → **Deploy Hook** → copy URL.
+2. GitHub repo → **Settings** → **Secrets and variables** → **Actions** → **New repository secret** → name `RENDER_DEPLOY_HOOK`, value = the URL.
 
 ## Demo accounts (after `npm run seed`)
 
