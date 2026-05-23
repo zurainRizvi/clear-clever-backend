@@ -10,6 +10,8 @@ export function applyTestEnv(overrides: Record<string, string> = {}): void {
   process.env.JWT_SECRET = TEST_JWT_SECRET;
   process.env.JWT_EXPIRES_IN = '1h';
   process.env.CORS_ORIGINS = 'http://localhost:5173';
+  process.env.CLIENT_URL = overrides.CLIENT_URL ?? 'http://localhost:5173';
+  process.env.API_PUBLIC_URL = overrides.API_PUBLIC_URL ?? 'http://localhost:5000';
   process.env.OTP_DEBUG = overrides.OTP_DEBUG ?? 'true';
   delete process.env.SMTP_HOST;
   delete process.env.SMTP_USER;

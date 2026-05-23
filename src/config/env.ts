@@ -29,6 +29,14 @@ const envSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().optional(),
+  CLIENT_URL: z
+    .string()
+    .url('CLIENT_URL must be a valid URL')
+    .default('http://localhost:5173'),
+  API_PUBLIC_URL: z
+    .string()
+    .url('API_PUBLIC_URL must be a valid URL')
+    .default('http://localhost:5000'),
 });
 
 export type Env = z.infer<typeof envSchema> & {

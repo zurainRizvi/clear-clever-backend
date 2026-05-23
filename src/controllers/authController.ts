@@ -1,4 +1,4 @@
-import type { Response } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 import { loadEnv } from '../config/env';
 import type { AuthenticatedRequest } from '../middleware/authenticate';
 import { User } from '../models/User';
@@ -175,11 +175,18 @@ export async function setRole(req: AuthenticatedRequest, res: Response): Promise
   );
 }
 
-/** Express async wrapper */
+/** Express async wrapper for authenticated routes */
 export function asyncHandler(
   fn: (req: AuthenticatedRequest, res: Response) => Promise<void>
 ) {
-  return (req: AuthenticatedRequest, res: Response, next: (err?: unknown) => void) => {
+  return (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
+    fn(req, res).catch(next);
+  };
+}
+
+/** Express async wrapper for public routes */
+export function asyncPublicHandler(fn: (req: Request, res: Response) => Promise<void>) {
+  return (req: Request, res: Response, next: NextFunction) => {
     fn(req, res).catch(next);
   };
 }

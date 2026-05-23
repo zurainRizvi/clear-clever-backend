@@ -14,13 +14,27 @@ import {
 } from './routes/discovery';
 import { favoritesRouter } from './routes/favorites';
 import { healthRouter } from './routes/health';
+import { renderAffiliateWizard } from './controllers/affiliateController';
+import { asyncPublicHandler } from './controllers/authController';
 import { insurerRouter } from './routes/insurer';
 import { adminRouter } from './routes/admin';
+import { notificationsRouter } from './routes/notifications';
+import { purchaseRouter } from './routes/purchase';
+import { purchasesRouter } from './routes/purchases';
 
 export function createApp(env: Env) {
   const app = express();
 
-  app.use(helmet());
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        useDefaults: true,
+        directives: {
+          'script-src': ["'self'", "'unsafe-inline'"],
+        },
+      },
+    })
+  );
   app.use(
     cors({
       origin: env.CORS_ORIGINS,
@@ -52,6 +66,11 @@ export function createApp(env: Env) {
   app.use('/api/favorites', favoritesRouter);
   app.use('/api/insurer', insurerRouter);
   app.use('/api/admin', adminRouter);
+  app.use('/api/purchase', purchaseRouter);
+  app.use('/api/purchases', purchasesRouter);
+  app.use('/api/notifications', notificationsRouter);
+
+  app.get('/affiliate/:insurerSlug', asyncPublicHandler(renderAffiliateWizard));
 
   app.use(notFoundHandler);
   app.use(errorHandler);
