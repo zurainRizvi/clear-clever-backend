@@ -4,6 +4,9 @@ export type UserRole = (typeof USER_ROLES)[number];
 /** Roles a new user may choose after OTP (Figma role-selection screen). */
 export const SELF_SERVICE_ROLES: UserRole[] = ['user', 'insurer'];
 
+/** Staff roles that may access admin APIs (superadmin has full admin access). */
+export const ADMIN_ROLES: UserRole[] = ['admin', 'superadmin'];
+
 export const USER_STATUSES = ['pendingVerification', 'active', 'inactive'] as const;
 export type UserStatus = (typeof USER_STATUSES)[number];
 

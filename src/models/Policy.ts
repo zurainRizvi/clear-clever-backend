@@ -26,6 +26,9 @@ export interface IPolicy {
   deductiblePkr: number;
   questions: IPolicyQuestion[];
   status: PolicyStatus;
+  rejectionReason?: string;
+  reviewedAt?: Date;
+  reviewedBy?: Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -62,6 +65,9 @@ const policySchema = new Schema<IPolicyDocument>(
     deductiblePkr: { type: Number, required: true, min: 0 },
     questions: { type: [policyQuestionSchema], default: [] },
     status: { type: String, enum: POLICY_STATUSES, default: 'pending', index: true },
+    rejectionReason: { type: String, trim: true, maxlength: 1000 },
+    reviewedAt: { type: Date },
+    reviewedBy: { type: Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }
 );

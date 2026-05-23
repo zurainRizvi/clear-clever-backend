@@ -14,6 +14,8 @@ import {
 } from './routes/discovery';
 import { favoritesRouter } from './routes/favorites';
 import { healthRouter } from './routes/health';
+import { insurerRouter } from './routes/insurer';
+import { adminRouter } from './routes/admin';
 
 export function createApp(env: Env) {
   const app = express();
@@ -48,6 +50,8 @@ export function createApp(env: Env) {
   app.use('/api/compare', compareRouter);
   app.use('/api/policies', policiesRouter);
   app.use('/api/favorites', favoritesRouter);
+  app.use('/api/insurer', insurerRouter);
+  app.use('/api/admin', adminRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
