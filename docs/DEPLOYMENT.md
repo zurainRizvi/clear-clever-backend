@@ -49,11 +49,13 @@ Override locally with `SEED_PASSWORD=your-secret npm run seed` if needed.
 | Setting | Value |
 |---------|--------|
 | Runtime | Node **22** (repo has `.node-version`; optional env `NODE_VERSION=22`) |
-| Build | `npm ci --include=dev && npm run build` |
-| Start | `npm start` |
+| Build Command | **`npm ci --include=dev && npm run build:render`** |
+| Start Command | `npm start` |
 | Health check path | `/api/health` |
 
-**Important:** Do **not** add `NODE_ENV=production` as a manual env var on Render. It makes `npm ci` skip devDependencies during build (no `tsc`). Render sets production at runtime automatically.
+**Do not use** `npm install; npm run build` — it skips devDependencies and breaks TypeScript (TS5107).
+
+**Do not** add `NODE_ENV=production` as a manual env var on Render. It makes installs skip devDependencies during build. Render sets production at runtime automatically.
 
 ### Required environment variables
 

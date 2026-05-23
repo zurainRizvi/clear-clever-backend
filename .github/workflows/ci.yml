@@ -47,6 +47,19 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Guard — build must fail without devDependencies
+        run: |
+          rm -rf node_modules
+          npm ci --omit=dev
+          if npm run build 2>/dev/null; then
+            echo "Build unexpectedly succeeded without devDependencies"
+            exit 1
+          fi
+          echo "OK: build correctly requires devDependencies (Render: npm ci --include=dev && npm run build:render)"
+
+      - name: Reinstall for tests
+        run: npm ci
+
       - name: Test (Jest + supertest + mongodb-memory-server)
         run: npm run test:ci
 

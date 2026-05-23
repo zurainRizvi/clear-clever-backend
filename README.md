@@ -49,7 +49,8 @@ Health: http://localhost:5000/api/health
 | Command | Description |
 |---------|-------------|
 | `npm run dev` | Start API with hot reload |
-| `npm run build` | Compile TypeScript |
+| `npm run build` | Compile TypeScript (runs prebuild toolchain check) |
+| `npm run build:render` | Same as build — **use this command on Render** |
 | `npm run start` | Run compiled `dist/` |
 | `npm run typecheck` | `tsc --noEmit` (used by CI) |
 | `npm run seed` | Upsert demo users into Atlas (see DEPLOYMENT.md) |
