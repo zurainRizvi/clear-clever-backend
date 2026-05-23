@@ -48,10 +48,12 @@ Override locally with `SEED_PASSWORD=your-secret npm run seed` if needed.
 
 | Setting | Value |
 |---------|--------|
-| Runtime | Node |
+| Runtime | Node **22** (repo has `.node-version`; optional env `NODE_VERSION=22`) |
 | Build | `npm ci && npm run build` |
 | Start | `npm start` |
 | Health check path | `/api/health` |
+
+**Important:** Do **not** add `NODE_ENV=production` as a manual env var on Render. It makes `npm ci` skip devDependencies during build (no `tsc`). Render sets production at runtime automatically.
 
 ### Required environment variables
 
@@ -117,7 +119,9 @@ Comma-separated, no trailing slashes.
 
 | Issue | Fix |
 |-------|-----|
-| Health 503 / DB `disconnected` | Check `MONGODB_URI`, Atlas IP allowlist, cluster running |
+| Build fails `TS5107` / `moduleResolution` | Pull latest `main` (Node 22 + pinned TypeScript); use `npm ci && npm run build` |
+| Build fails `tsc: not found` | Remove manual `NODE_ENV=production` from Render env; redeploy |
+| Health 503 / DB `disconnected` | Check `MONGODB_URI`, Atlas IP allowlist, URL-encode `!` in password |
 | Login 403 “verify email” | Re-run `npm run seed` so status is `active` |
 | OTP signup fails on Render | Configure SMTP; never use `OTP_DEBUG` in production |
 | CORS error in browser | Add frontend URL to `CORS_ORIGINS`, redeploy API |
