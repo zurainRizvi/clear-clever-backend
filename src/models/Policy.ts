@@ -1,0 +1,70 @@
+import mongoose, { Schema, type Document, type Model, type Types } from 'mongoose';
+import { POLICY_CATEGORY_SLUGS, type PolicyCategorySlug } from '../constants/categories';
+import { POLICY_STATUSES, type PolicyStatus } from '../constants/policyStatus';
+
+export const POLICY_QUESTION_TYPES = ['single', 'number', 'text'] as const;
+export type PolicyQuestionType = (typeof POLICY_QUESTION_TYPES)[number];
+
+export interface IPolicyQuestion {
+  id: string;
+  text: string;
+  type: PolicyQuestionType;
+  options?: string[];
+  required?: boolean;
+}
+
+export interface IPolicy {
+  insurerProfileId: Types.ObjectId;
+  slug: string;
+  name: string;
+  category: PolicyCategorySlug;
+  description: string;
+  premiumMonthlyPkr: number;
+  premiumYearlyPkr: number;
+  coverageSummary: string;
+  features: string[];
+  deductiblePkr: number;
+  questions: IPolicyQuestion[];
+  status: PolicyStatus;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface IPolicyDocument extends IPolicy, Document {}
+
+const policyQuestionSchema = new Schema<IPolicyQuestion>(
+  {
+    id: { type: String, required: true, trim: true },
+    text: { type: String, required: true, trim: true, maxlength: 500 },
+    type: { type: String, enum: POLICY_QUESTION_TYPES, required: true },
+    options: [{ type: String, trim: true }],
+    required: { type: Boolean, default: true },
+  },
+  { _id: false }
+);
+
+const policySchema = new Schema<IPolicyDocument>(
+  {
+    insurerProfileId: {
+      type: Schema.Types.ObjectId,
+      ref: 'InsurerProfile',
+      required: true,
+      index: true,
+    },
+    slug: { type: String, required: true, unique: true, lowercase: true, trim: true },
+    name: { type: String, required: true, trim: true, maxlength: 200 },
+    category: { type: String, enum: POLICY_CATEGORY_SLUGS, required: true, index: true },
+    description: { type: String, required: true, trim: true, maxlength: 4000 },
+    premiumMonthlyPkr: { type: Number, required: true, min: 0 },
+    premiumYearlyPkr: { type: Number, required: true, min: 0 },
+    coverageSummary: { type: String, required: true, trim: true, maxlength: 1000 },
+    features: [{ type: String, trim: true, maxlength: 200 }],
+    deductiblePkr: { type: Number, required: true, min: 0 },
+    questions: { type: [policyQuestionSchema], default: [] },
+    status: { type: String, enum: POLICY_STATUSES, default: 'pending', index: true },
+  },
+  { timestamps: true }
+);
+
+export const Policy: Model<IPolicyDocument> =
+  mongoose.models.Policy ?? mongoose.model<IPolicyDocument>('Policy', policySchema);

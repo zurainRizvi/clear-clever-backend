@@ -5,6 +5,7 @@ import morgan from 'morgan';
 import type { Env } from './config/env';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { authRouter } from './routes/auth';
+import { categoriesRouter } from './routes/categories';
 import { healthRouter } from './routes/health';
 
 export function createApp(env: Env) {
@@ -34,6 +35,7 @@ export function createApp(env: Env) {
 
   app.use('/api/health', healthRouter);
   app.use('/api/auth', authRouter);
+  app.use('/api/categories', categoriesRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
