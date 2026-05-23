@@ -1,10 +1,15 @@
 import mongoose from 'mongoose';
 import type { Env } from './env';
 
+const MONGO_TIMEOUT_MS = 15_000;
+
 export async function connectDatabase(env: Env): Promise<void> {
   mongoose.set('strictQuery', true);
 
-  await mongoose.connect(env.MONGODB_URI);
+  await mongoose.connect(env.MONGODB_URI, {
+    serverSelectionTimeoutMS: MONGO_TIMEOUT_MS,
+    connectTimeoutMS: MONGO_TIMEOUT_MS,
+  });
 }
 
 export function getDatabaseStatus(): 'connected' | 'disconnected' | 'connecting' | 'disconnecting' {

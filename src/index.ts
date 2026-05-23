@@ -12,9 +12,9 @@ async function main(): Promise<void> {
 
   await connectDatabase(env);
 
-  const server = app.listen(env.PORT, () => {
-    console.log(`[ClearClever] API listening on http://localhost:${env.PORT}`);
-    console.log(`[ClearClever] Health check: http://localhost:${env.PORT}/api/health`);
+  const server = app.listen(env.PORT, '0.0.0.0', () => {
+    console.log(`[ClearClever] API listening on port ${env.PORT}`);
+    console.log(`[ClearClever] Health check: /api/health`);
   });
 
   const shutdown = async (signal: string) => {

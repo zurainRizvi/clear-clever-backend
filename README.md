@@ -18,6 +18,8 @@ npm run dev
 
 Health: http://localhost:5000/api/health
 
+**Production (Render):** https://clear-clever-backend.onrender.com/api/health
+
 ## Environment
 
 | Variable | Required | Description |

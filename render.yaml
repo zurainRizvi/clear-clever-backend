@@ -1,8 +1,9 @@
 # Render Blueprint — ClearClever API (Module 3)
 # Connect this repo in Render → New → Blueprint, or create a Web Service manually with the same settings.
+# Live service URL example: https://clear-clever-backend.onrender.com
 services:
   - type: web
-    name: clearclever-api
+    name: clear-clever-backend
     runtime: node
     buildCommand: npm ci --include=dev && npm run build
     startCommand: npm start

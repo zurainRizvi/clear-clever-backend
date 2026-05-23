@@ -85,7 +85,7 @@ Do **not** set `OTP_DEBUG=true` on Render.
 2. Smoke test:
 
 ```bash
-API_URL=https://<your-service>.onrender.com npm run smoke:prod
+API_URL=https://clear-clever-backend.onrender.com npm run smoke:prod
 ```
 
 Optional: `SMOKE_EMAIL=seeker@clearclever.com SMOKE_PASSWORD=password`
@@ -126,6 +126,8 @@ Comma-separated, no trailing slashes.
 | OTP signup fails on Render | Configure SMTP; never use `OTP_DEBUG` in production |
 | CORS error in browser | Add frontend URL to `CORS_ORIGINS`, redeploy API |
 | Render cold start | Free tier sleeps; first request may take ~30s |
+| Request hangs / times out (0 bytes, HTTP 000) | App stuck before `listen` — usually **MongoDB**. Check Render **Logs** for `[ClearClever] Failed to start server`. Fix `MONGODB_URI` (include `/clearclever` db name), URL-encode special chars in password (`!` → `%21`), Atlas **Network Access** `0.0.0.0/0`, then **Manual Deploy** |
+| Wrong hostname (`x-render-routing: no-server`) | Use the exact URL from Render dashboard (e.g. `https://clear-clever-backend.onrender.com`), not a guessed name |
 
 ---
 
