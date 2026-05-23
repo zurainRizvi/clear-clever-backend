@@ -1,14 +1,10 @@
 import request from 'supertest';
 import { createApp } from './app';
-import { resetEnvCache } from './config/env';
+import { applyTestEnv } from './test/setupEnv';
 
 describe('GET /api/health', () => {
   beforeEach(() => {
-    resetEnvCache();
-    process.env.NODE_ENV = 'test';
-    process.env.PORT = '5000';
-    process.env.MONGODB_URI = 'mongodb://localhost:27017/clearclever-test';
-    process.env.CORS_ORIGINS = 'http://localhost:5173';
+    applyTestEnv();
   });
 
   it('returns 200 with healthy payload', async () => {
@@ -27,10 +23,7 @@ describe('GET /api/health', () => {
 
 describe('Unknown routes', () => {
   beforeEach(() => {
-    resetEnvCache();
-    process.env.NODE_ENV = 'test';
-    process.env.PORT = '5000';
-    process.env.MONGODB_URI = 'mongodb://localhost:27017/clearclever-test';
+    applyTestEnv();
   });
 
   it('returns 404 JSON for unknown routes', async () => {

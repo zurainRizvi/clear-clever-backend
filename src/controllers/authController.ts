@@ -1,0 +1,185 @@
+import type { Response } from 'express';
+import { loadEnv } from '../config/env';
+import type { AuthenticatedRequest } from '../middleware/authenticate';
+import { User } from '../models/User';
+import { comparePassword, hashPassword, sanitizeUser, signToken } from '../services/auth';
+import { createAndSendOtp, verifyOtpAndConsume } from '../services/otp';
+import { AppError, successResponse } from '../utils/apiResponse';
+import { normalizePkPhone } from '../validators/authValidators';
+
+export async function signup(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const env = loadEnv();
+  const { fullName, email, phone, password } = req.body as {
+    fullName: string;
+    email: string;
+    phone: string;
+    password: string;
+  };
+
+  const normalizedEmail = email.toLowerCase().trim();
+  const existing = await User.findOne({ email: normalizedEmail });
+  if (existing) {
+    throw new AppError(409, 'An account with this email already exists');
+  }
+
+  const passwordHash = await hashPassword(password);
+  await User.create({
+    fullName: fullName.trim(),
+    email: normalizedEmail,
+    phone: normalizePkPhone(phone),
+    passwordHash,
+    role: 'user',
+    status: 'pendingVerification',
+  });
+
+  const delivery = await createAndSendOtp(env, normalizedEmail, 'signup');
+
+  const payload: Record<string, unknown> = {
+    email: normalizedEmail,
+    message: 'Verification code sent',
+  };
+  if (
+    delivery.debugCode &&
+    (env.NODE_ENV === 'development' || env.NODE_ENV === 'test') &&
+    env.OTP_DEBUG
+  ) {
+    payload.debugCode = delivery.debugCode;
+  }
+
+  res.status(201).json(successResponse('Account created. Please verify your email.', payload));
+}
+
+export async function sendOtp(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const env = loadEnv();
+  const { email, purpose } = req.body as { email: string; purpose: 'signup' | 'reset' };
+
+  const normalizedEmail = email.toLowerCase().trim();
+  const user = await User.findOne({ email: normalizedEmail });
+
+  if (purpose === 'signup') {
+    if (!user) {
+      throw new AppError(404, 'No account found for this email');
+    }
+    if (user.status === 'active') {
+      throw new AppError(400, 'Account is already verified');
+    }
+  }
+
+  const delivery = await createAndSendOtp(env, normalizedEmail, purpose);
+
+  const payload: Record<string, unknown> = { email: normalizedEmail };
+  if (
+    delivery.debugCode &&
+    (env.NODE_ENV === 'development' || env.NODE_ENV === 'test') &&
+    env.OTP_DEBUG
+  ) {
+    payload.debugCode = delivery.debugCode;
+  }
+
+  res.status(200).json(successResponse('Verification code sent', payload));
+}
+
+export async function verifyOtp(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const env = loadEnv();
+  const { email, purpose, code } = req.body as {
+    email: string;
+    purpose: 'signup' | 'reset';
+    code: string;
+  };
+
+  const normalizedEmail = email.toLowerCase().trim();
+  await verifyOtpAndConsume(normalizedEmail, purpose, code);
+
+  const user = await User.findOne({ email: normalizedEmail });
+  if (!user) {
+    throw new AppError(404, 'No account found for this email');
+  }
+
+  if (purpose === 'signup') {
+    user.status = 'active';
+    await user.save();
+  }
+
+  const token = signToken(env, user);
+
+  res.status(200).json(
+    successResponse('Email verified successfully', {
+      token,
+      user: sanitizeUser(user),
+    })
+  );
+}
+
+export async function login(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const env = loadEnv();
+  const { email, password } = req.body as { email: string; password: string };
+
+  const normalizedEmail = email.toLowerCase().trim();
+  const user = await User.findOne({ email: normalizedEmail }).select('+passwordHash');
+
+  if (!user) {
+    throw new AppError(401, 'Invalid email or password');
+  }
+
+  if (user.status === 'pendingVerification') {
+    throw new AppError(403, 'Please verify your email before signing in');
+  }
+
+  if (user.status === 'inactive') {
+    throw new AppError(403, 'Account is inactive');
+  }
+
+  const passwordHash = user.passwordHash;
+  if (!passwordHash) {
+    throw new AppError(401, 'Invalid email or password');
+  }
+
+  const match = await comparePassword(password, passwordHash);
+  if (!match) {
+    throw new AppError(401, 'Invalid email or password');
+  }
+
+  const token = signToken(env, user);
+
+  res.status(200).json(
+    successResponse('Signed in successfully', {
+      token,
+      user: sanitizeUser(user),
+    })
+  );
+}
+
+export async function getMe(req: AuthenticatedRequest, res: Response): Promise<void> {
+  if (!req.user) {
+    throw new AppError(401, 'Authentication required');
+  }
+  res.status(200).json(successResponse('Profile retrieved', { user: sanitizeUser(req.user) }));
+}
+
+export async function setRole(req: AuthenticatedRequest, res: Response): Promise<void> {
+  if (!req.user) {
+    throw new AppError(401, 'Authentication required');
+  }
+
+  const { role } = req.body as { role: 'user' | 'insurer' };
+
+  if (req.user.status !== 'active') {
+    throw new AppError(403, 'Verify your email before selecting a role');
+  }
+
+  req.user.role = role;
+  await req.user.save();
+
+  res.status(200).json(
+    successResponse('Role updated', { user: sanitizeUser(req.user) })
+  );
+}
+
+/** Express async wrapper */
+export function asyncHandler(
+  fn: (req: AuthenticatedRequest, res: Response) => Promise<void>
+) {
+  return (req: AuthenticatedRequest, res: Response, next: (err?: unknown) => void) => {
+    fn(req, res).catch(next);
+  };
+}
