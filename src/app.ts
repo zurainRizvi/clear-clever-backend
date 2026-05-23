@@ -6,6 +6,13 @@ import type { Env } from './config/env';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import { authRouter } from './routes/auth';
 import { categoriesRouter } from './routes/categories';
+import {
+  compareRouter,
+  policiesRouter,
+  questionsRouter,
+  recommendRouter,
+} from './routes/discovery';
+import { favoritesRouter } from './routes/favorites';
 import { healthRouter } from './routes/health';
 
 export function createApp(env: Env) {
@@ -36,6 +43,11 @@ export function createApp(env: Env) {
   app.use('/api/health', healthRouter);
   app.use('/api/auth', authRouter);
   app.use('/api/categories', categoriesRouter);
+  app.use('/api/questions', questionsRouter);
+  app.use('/api/recommend', recommendRouter);
+  app.use('/api/compare', compareRouter);
+  app.use('/api/policies', policiesRouter);
+  app.use('/api/favorites', favoritesRouter);
 
   app.use(notFoundHandler);
   app.use(errorHandler);
