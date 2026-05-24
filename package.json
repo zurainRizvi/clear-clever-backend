@@ -14,6 +14,7 @@
     "start": "node dist/index.js",
     "seed": "tsx src/scripts/seed.ts",
     "smoke:prod": "tsx src/scripts/smokeProd.ts",
+    "test:smtp": "tsx src/scripts/testSmtp.ts",
     "typecheck": "tsc --noEmit",
     "test": "NODE_ENV=test jest --runInBand --forceExit",
     "test:ci": "NODE_ENV=test jest --runInBand --forceExit --ci"

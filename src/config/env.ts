@@ -1,5 +1,12 @@
 import { z } from 'zod';
 
+/** Trim and strip accidental wrapping quotes from dashboard copy-paste. */
+export function stripEnvValue(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) return undefined;
+  return trimmed.replace(/^['"]+|['"]+$/g, '');
+}
+
 /** Accepts `https://app.vercel.app` or `app.vercel.app` (adds https). */
 export function normalizePublicUrl(value: string | undefined, fallback: string): string {
   const raw = (value?.trim() || fallback).trim();
@@ -38,7 +45,7 @@ const envSchema = z.object({
   SMTP_HOST: z
     .string()
     .optional()
-    .transform((v) => v?.trim() || undefined),
+    .transform((v) => stripEnvValue(v)),
   SMTP_PORT: z.coerce.number().optional(),
   SMTP_SECURE: z
     .string()
@@ -47,15 +54,15 @@ const envSchema = z.object({
   SMTP_USER: z
     .string()
     .optional()
-    .transform((v) => v?.trim() || undefined),
+    .transform((v) => stripEnvValue(v)),
   SMTP_PASS: z
     .string()
     .optional()
-    .transform((v) => v?.trim() || undefined),
+    .transform((v) => stripEnvValue(v)),
   SMTP_FROM: z
     .string()
     .optional()
-    .transform((v) => v?.trim() || undefined),
+    .transform((v) => stripEnvValue(v)),
   CLIENT_URL: urlFromEnv('http://localhost:5173'),
   API_PUBLIC_URL: urlFromEnv('http://localhost:5000'),
 });

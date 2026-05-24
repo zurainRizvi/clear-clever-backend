@@ -5,7 +5,7 @@ import { isSmtpConfigured } from '../config/env';
 import type { OtpPurpose } from '../constants/roles';
 import { OtpVerification } from '../models/OtpVerification';
 import { AppError } from '../utils/apiResponse';
-import { sendOtpEmail } from './mail';
+import { formatSmtpError, sendOtpEmail } from './mail';
 
 const OTP_TTL_MS = 10 * 60 * 1000;
 const RESEND_COOLDOWN_MS = 60 * 1000;
@@ -75,7 +75,7 @@ export async function createAndSendOtp(
       await sendOtpEmail(env, normalizedEmail, code, purpose);
       return { emailSent: true };
     } catch (error) {
-      console.error('[ClearClever] Failed to send OTP email:', error);
+      console.error('[ClearClever] Failed to send OTP email:', formatSmtpError(error));
       return { emailSent: false };
     }
   }

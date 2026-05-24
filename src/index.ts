@@ -2,7 +2,9 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { createApp } from './app';
 import { connectDatabase, disconnectDatabase } from './config/db';
-import { loadEnv } from './config/env';
+import { isSmtpConfigured, loadEnv } from './config/env';
+import { setSmtpProbeResult } from './config/smtpStatus';
+import { probeSmtp } from './services/mail';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
@@ -11,6 +13,21 @@ async function main(): Promise<void> {
   const app = createApp(env);
 
   await connectDatabase(env);
+
+  if (isSmtpConfigured(env)) {
+    const probe = await probeSmtp(env);
+    setSmtpProbeResult(probe);
+    if (probe.ok) {
+      console.log('[ClearClever] SMTP connection verified');
+    } else {
+      console.error('[ClearClever] SMTP verification failed:', probe.error);
+      console.error(
+        '[ClearClever] OTP emails will not send until SMTP_PASS is a valid Gmail App Password on Render.'
+      );
+    }
+  } else if (env.NODE_ENV === 'production') {
+    console.error('[ClearClever] SMTP is not configured — OTP emails will not be sent');
+  }
 
   const server = app.listen(env.PORT, '0.0.0.0', () => {
     console.log(`[ClearClever] API listening on port ${env.PORT}`);
