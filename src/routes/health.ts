@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { getDatabaseStatus } from '../config/db';
-import { loadEnv } from '../config/env';
+import { isBrevoConfigured, isSmtpConfigured, loadEnv } from '../config/env';
 import { getSmtpProbeResult } from '../config/smtpStatus';
 import { getEmailProvider, isOutboundEmailConfigured } from '../services/emailDelivery';
 import { successResponse } from '../utils/apiResponse';
@@ -23,6 +23,15 @@ healthRouter.get('/', (_req, res) => {
         configured: isOutboundEmailConfigured(env),
         ready: emailProbe?.ok === true,
         error: emailProbe && !emailProbe.ok ? emailProbe.error : undefined,
+        /** Helps debug Render env without exposing secrets */
+        brevoKeySet: isBrevoConfigured(env),
+        smtpVarsSet: isSmtpConfigured(env),
+        hint:
+          !isBrevoConfigured(env) && env.NODE_ENV === 'production'
+            ? 'Add BREVO_API_KEY on Render, Save, then Manual Deploy (env changes do not apply until redeploy).'
+            : !emailProbe?.ok && isBrevoConfigured(env)
+              ? 'Brevo key is set but verify failed — check API key and that sender Gmail is verified in Brevo.'
+              : undefined,
         renderFreeTierNote:
           provider === 'smtp' && env.NODE_ENV === 'production'
             ? 'Gmail SMTP is blocked on Render free tier; set BREVO_API_KEY or upgrade Render.'
