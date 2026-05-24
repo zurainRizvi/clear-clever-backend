@@ -38,10 +38,10 @@ export const CATEGORY_QUESTION_TEMPLATES: Record<PolicyCategorySlug, IPolicyQues
       required: true,
     },
     {
-      id: 'ownership_status',
-      text: 'Do you own or rent this property?',
-      type: 'single',
-      options: ['Owner', 'Tenant', 'Family-owned', 'Company-provided'],
+      id: 'property_documents',
+      text: 'Which property documents can you provide if the insurer asks?',
+      type: 'multi',
+      options: ['CNIC', 'Ownership/allotment papers', 'Utility bill', 'Rent agreement', 'Photos/videos of property'],
       required: false,
     },
     {
@@ -54,15 +54,15 @@ export const CATEGORY_QUESTION_TEMPLATES: Record<PolicyCategorySlug, IPolicyQues
     {
       id: 'security_features',
       text: 'Which security features are installed?',
-      type: 'single',
-      options: ['Guarded building / society', 'CCTV or alarm', 'Secure locks only', 'No special security'],
+      type: 'multi',
+      options: ['Guarded building / society', 'CCTV', 'Alarm system', 'Secure locks', 'Fire extinguisher', 'No special security'],
       required: false,
     },
     {
       id: 'risk_area',
-      text: 'Is the property exposed to flood, fire, or high-theft risk?',
-      type: 'single',
-      options: ['No known risk', 'Flood / rainwater risk', 'Fire / electrical risk', 'High-theft area'],
+      text: 'Which risks should your home policy pay close attention to?',
+      type: 'multi',
+      options: ['No known risk', 'Flood / rainwater', 'Fire / electrical', 'Theft / burglary', 'Earthquake', 'Liability for guests'],
       required: false,
     },
     {
@@ -74,16 +74,16 @@ export const CATEGORY_QUESTION_TEMPLATES: Record<PolicyCategorySlug, IPolicyQues
     },
     {
       id: 'owns_vehicle',
-      text: 'Do you own a car or motorcycle that may need insurance too?',
-      type: 'single',
-      options: ['Yes — car', 'Yes — motorcycle', 'Yes — both', 'No'],
+      text: 'Do you own any vehicle that may need insurance too?',
+      type: 'multi',
+      options: ['Car', 'Motorcycle', 'Commercial vehicle', 'No vehicle'],
       required: false,
     },
     {
       id: 'has_pet',
       text: 'Do you have a pet at home?',
-      type: 'single',
-      options: ['Dog', 'Cat', 'Other pet', 'No'],
+      type: 'multi',
+      options: ['Dog', 'Cat', 'Bird', 'Other pet', 'No pet'],
       required: false,
     },
     {
@@ -123,9 +123,9 @@ export const CATEGORY_QUESTION_TEMPLATES: Record<PolicyCategorySlug, IPolicyQues
     },
     {
       id: 'coverage_type',
-      text: 'Preferred coverage level?',
-      type: 'single',
-      options: ['Comprehensive', 'Third-party only', 'Third-party + theft'],
+      text: 'What coverage do you want included?',
+      type: 'multi',
+      options: ['Comprehensive', 'Third-party liability', 'Theft protection', 'Accidental damage', 'Roadside assistance'],
       required: true,
     },
     {
@@ -143,8 +143,15 @@ export const CATEGORY_QUESTION_TEMPLATES: Record<PolicyCategorySlug, IPolicyQues
     {
       id: 'vehicle_use',
       text: 'How is the vehicle mostly used?',
-      type: 'single',
-      options: ['Personal commute', 'Family use', 'Ride-hailing / delivery', 'Business / commercial'],
+      type: 'multi',
+      options: ['Personal commute', 'Family use', 'Ride-hailing / delivery', 'Business / commercial', 'Weekend rides'],
+      required: false,
+    },
+    {
+      id: 'vehicle_safety_needs',
+      text: 'Which vehicle support features matter to you?',
+      type: 'multi',
+      options: ['Tracker support', 'Cashless repairs', 'Roadside help', 'Agency repair', 'Fast claim survey', 'Lowest premium'],
       required: false,
     },
     {
@@ -184,9 +191,9 @@ export const CATEGORY_QUESTION_TEMPLATES: Record<PolicyCategorySlug, IPolicyQues
     },
     {
       id: 'has_pet',
-      text: 'Do you travel with pets or own a pet?',
-      type: 'single',
-      options: ['Yes', 'No'],
+      text: 'Do you travel with or own pets?',
+      type: 'multi',
+      options: ['Dog', 'Cat', 'Other pet', 'No pet'],
       required: false,
     },
   ],
@@ -260,8 +267,8 @@ export const CATEGORY_QUESTION_TEMPLATES: Record<PolicyCategorySlug, IPolicyQues
     {
       id: 'owns_vehicle',
       text: 'Do you own a car or motorcycle?',
-      type: 'single',
-      options: ['Car', 'Motorcycle', 'Both', 'No'],
+      type: 'multi',
+      options: ['Car', 'Motorcycle', 'Both', 'No vehicle'],
       required: false,
     },
     {
@@ -274,17 +281,17 @@ export const CATEGORY_QUESTION_TEMPLATES: Record<PolicyCategorySlug, IPolicyQues
     {
       id: 'has_pet',
       text: 'Do you own a pet?',
-      type: 'single',
-      options: ['Dog', 'Cat', 'Other pet', 'No'],
+      type: 'multi',
+      options: ['Dog', 'Cat', 'Bird', 'Other pet', 'No pet'],
       required: false,
     },
   ],
   pet: [
     {
       id: 'pet_type',
-      text: 'What type of pet do you have?',
+      text: 'What type of pet do you want covered?',
       type: 'single',
-      options: ['Dog', 'Cat', 'Bird', 'Other'],
+      options: ['Dog', 'Cat', 'Bird', 'Other pet'],
       required: true,
     },
     {
@@ -329,8 +336,15 @@ export const CATEGORY_QUESTION_TEMPLATES: Record<PolicyCategorySlug, IPolicyQues
     {
       id: 'pet_lifestyle',
       text: 'Pet lifestyle?',
-      type: 'single',
-      options: ['Indoor only', 'Outdoor mostly', 'Both indoor and outdoor', 'Travels frequently'],
+      type: 'multi',
+      options: ['Indoor only', 'Outdoor walks', 'Both indoor and outdoor', 'Travels frequently', 'Boarding/daycare'],
+      required: false,
+    },
+    {
+      id: 'pet_cover_needs',
+      text: 'What should the pet policy help with?',
+      type: 'multi',
+      options: ['Vet visits', 'Vaccinations', 'Emergency surgery', 'Medicines', 'Lab tests', 'Accident care'],
       required: false,
     },
     {
@@ -349,8 +363,8 @@ export const CATEGORY_QUESTION_TEMPLATES: Record<PolicyCategorySlug, IPolicyQues
     {
       id: 'owns_vehicle',
       text: 'Do you use a car/motorcycle for pet travel?',
-      type: 'single',
-      options: ['Car', 'Motorcycle', 'Both', 'No'],
+      type: 'multi',
+      options: ['Car', 'Motorcycle', 'Both', 'No vehicle'],
       required: false,
     },
   ],

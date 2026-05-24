@@ -22,8 +22,8 @@ export const createClaimValidators = [
     .withMessage('Estimated amount must be a positive number'),
   body('description')
     .trim()
-    .isLength({ min: 10, max: 4000 })
-    .withMessage('Description must be between 10 and 4000 characters'),
+    .isLength({ min: 5, max: 4000 })
+    .withMessage('Description must be between 5 and 4000 characters'),
 ];
 
 export const claimIdParamValidator = param('id')

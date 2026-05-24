@@ -2,7 +2,7 @@ import mongoose, { Schema, type Document, type Model, type Types } from 'mongoos
 import { POLICY_CATEGORY_SLUGS, type PolicyCategorySlug } from '../constants/categories';
 import { POLICY_STATUSES, type PolicyStatus } from '../constants/policyStatus';
 
-export const POLICY_QUESTION_TYPES = ['single', 'number', 'text'] as const;
+export const POLICY_QUESTION_TYPES = ['single', 'multi', 'number', 'text'] as const;
 export type PolicyQuestionType = (typeof POLICY_QUESTION_TYPES)[number];
 
 export interface IPolicyQuestion {

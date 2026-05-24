@@ -43,6 +43,16 @@ function numericAnswerValues(answers: Record<string, unknown>): number[] {
     .filter((value): value is number => value !== null && value > 0);
 }
 
+function answerTokens(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => answerTokens(item));
+  }
+  if (typeof value === 'string') {
+    return [value.toLowerCase()];
+  }
+  return [];
+}
+
 function coverageFitScore(policy: IPolicyDocument, answers: Record<string, unknown>): number {
   const numericValues = numericAnswerValues(answers);
   if (numericValues.length === 0) {
@@ -95,16 +105,18 @@ function singleChoiceBonus(
 ): number {
   let bonus = 0;
   for (const question of questions) {
-    if (question.type !== 'single') {
+    if (question.type !== 'single' && question.type !== 'multi') {
       continue;
     }
     const answer = answers[question.id];
-    if (typeof answer !== 'string') {
+    const normalizedAnswers = answerTokens(answer);
+    if (normalizedAnswers.length === 0) {
       continue;
     }
-    const normalized = answer.toLowerCase();
-    const featureHit = policy.features.some((feature) =>
-      feature.toLowerCase().includes(normalized.split(' ')[0] ?? '')
+    const featureHit = normalizedAnswers.some((normalized) =>
+      policy.features.some((feature) =>
+        feature.toLowerCase().includes(normalized.split(' ')[0] ?? '')
+      )
     );
     if (featureHit) {
       bonus += 2;
@@ -114,9 +126,24 @@ function singleChoiceBonus(
 }
 
 function buildMatchReasons(
-  scores: { affordability: number; coverageFit: number; featureRichness: number }
+  scores: { affordability: number; coverageFit: number; featureRichness: number },
+  answers: Record<string, unknown>
 ): string[] {
   const reasons: string[] = [];
+  const vehicleType = answerTokens(answers.vehicle_type)[0];
+  const vehicleModel = typeof answers.vehicle_make_model === 'string' ? answers.vehicle_make_model : '';
+  const petType = answerTokens(answers.pet_type)[0] ?? answerTokens(answers.has_pet)[0];
+
+  if (vehicleType?.includes('motorcycle') || vehicleModel.toLowerCase().includes('motorcycle')) {
+    reasons.push('Motorcycle-focused recommendation based on your answers');
+  } else if (vehicleType && !vehicleType.includes('no')) {
+    reasons.push(`Built around your ${vehicleType.replace(/\s*\/.*$/, '')} need`);
+  }
+
+  if (petType && !petType.includes('no')) {
+    reasons.push(`${petType.split(' ')[0]} care preference included`);
+  }
+
   if (scores.affordability >= WEIGHTS.affordability * 0.7) {
     reasons.push('Competitive monthly premium');
   }
@@ -158,11 +185,14 @@ export function scorePolicies(
     return {
       policy: publicById.get(String(policy._id))!,
       score,
-      matchReasons: buildMatchReasons({
-        affordability,
-        coverageFit,
-        featureRichness,
-      }),
+      matchReasons: buildMatchReasons(
+        {
+          affordability,
+          coverageFit,
+          featureRichness,
+        },
+        answers
+      ),
     };
   });
 

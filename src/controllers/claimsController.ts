@@ -36,6 +36,7 @@ export async function createClaim(req: AuthenticatedRequest, res: Response): Pro
   if (!purchase) {
     throw new AppError(400, 'Claims can only be created for your completed purchases');
   }
+  const insurer = await InsurerProfile.findById(purchase.insurerProfileId);
 
   const claim = await ClaimRequest.create({
     userId: purchase.userId,
@@ -49,17 +50,35 @@ export async function createClaim(req: AuthenticatedRequest, res: Response): Pro
     status: 'submitted',
   });
 
-  await Notification.create({
-    userId: purchase.userId,
-    type: 'claim_submitted',
-    title: 'Claim request submitted',
-    body: 'Your claim request was submitted and is now under review.',
-    metadata: {
-      claimId: String(claim._id),
-      purchaseId: String(purchase._id),
-      policyId: String(purchase.policyId),
-    },
-  });
+  await Notification.insertMany(
+    [
+      {
+        userId: purchase.userId,
+        type: 'claim_submitted',
+        title: 'Claim request submitted',
+        body: 'Your claim request was submitted and is now pending agent review.',
+        metadata: {
+          claimId: String(claim._id),
+          purchaseId: String(purchase._id),
+          policyId: String(purchase.policyId),
+        },
+      },
+      insurer
+        ? {
+            userId: insurer.userId,
+            type: 'claim_submitted',
+            title: 'New claim needs review',
+            body: 'A policy seeker submitted a claim. Review details and contact them if more information is needed.',
+            metadata: {
+              claimId: String(claim._id),
+              purchaseId: String(purchase._id),
+              policyId: String(purchase.policyId),
+              seekerId: String(purchase.userId),
+            },
+          }
+        : null,
+    ].filter((item): item is NonNullable<typeof item> => item !== null)
+  );
 
   res.status(201).json(
     successResponse('Claim submitted', {

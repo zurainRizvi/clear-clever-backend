@@ -67,9 +67,13 @@ export function assertAnswersForQuestions(
     throw new AppError(400, 'Validation failed', ['answers: must be an object']);
   }
 
-  const providedKeys = Object.keys(answers).filter(
-    (key) => answers[key] !== undefined && answers[key] !== null && answers[key] !== ''
-  );
+  const isAnswered = (value: unknown) =>
+    value !== undefined &&
+    value !== null &&
+    value !== '' &&
+    (!Array.isArray(value) || value.length > 0);
+
+  const providedKeys = Object.keys(answers).filter((key) => isAnswered(answers[key]));
 
   if (providedKeys.length === 0) {
     throw new AppError(400, 'Validation failed', ['answers: at least one answer is required']);
@@ -81,7 +85,7 @@ export function assertAnswersForQuestions(
       continue;
     }
     const value = answers[question.id];
-    if (value === undefined || value === null || value === '') {
+    if (!isAnswered(value)) {
       errors.push(`${question.id}: required`);
     }
   }
