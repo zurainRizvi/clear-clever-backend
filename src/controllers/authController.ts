@@ -4,6 +4,7 @@ import type { AuthenticatedRequest } from '../middleware/authenticate';
 import { User } from '../models/User';
 import { comparePassword, hashPassword, sanitizeUser, signToken } from '../services/auth';
 import { createAndSendOtp, verifyOtpAndConsume } from '../services/otp';
+import { ensureUserProfile, sanitizeUserProfile } from '../services/userProfile';
 import { AppError, successResponse } from '../utils/apiResponse';
 import { normalizePkPhone } from '../validators/authValidators';
 
@@ -23,7 +24,7 @@ export async function signup(req: AuthenticatedRequest, res: Response): Promise<
   }
 
   const passwordHash = await hashPassword(password);
-  await User.create({
+  const user = await User.create({
     fullName: fullName.trim(),
     email: normalizedEmail,
     phone: normalizePkPhone(phone),
@@ -31,11 +32,13 @@ export async function signup(req: AuthenticatedRequest, res: Response): Promise<
     role: 'user',
     status: 'pendingVerification',
   });
+  const profile = await ensureUserProfile(user._id);
 
   const delivery = await createAndSendOtp(env, normalizedEmail, 'signup');
 
   const payload: Record<string, unknown> = {
     email: normalizedEmail,
+    profile: sanitizeUserProfile(profile),
     emailSent: delivery.emailSent,
     message: delivery.emailSent
       ? 'Verification code sent'
@@ -111,7 +114,10 @@ export async function verifyOtp(req: AuthenticatedRequest, res: Response): Promi
   res.status(200).json(
     successResponse('Email verified successfully', {
       token,
-      user: sanitizeUser(user),
+      user: {
+        ...sanitizeUser(user),
+        profile: sanitizeUserProfile(await ensureUserProfile(user._id)),
+      },
     })
   );
 }
@@ -150,7 +156,10 @@ export async function login(req: AuthenticatedRequest, res: Response): Promise<v
   res.status(200).json(
     successResponse('Signed in successfully', {
       token,
-      user: sanitizeUser(user),
+      user: {
+        ...sanitizeUser(user),
+        profile: sanitizeUserProfile(await ensureUserProfile(user._id)),
+      },
     })
   );
 }
@@ -159,7 +168,60 @@ export async function getMe(req: AuthenticatedRequest, res: Response): Promise<v
   if (!req.user) {
     throw new AppError(401, 'Authentication required');
   }
-  res.status(200).json(successResponse('Profile retrieved', { user: sanitizeUser(req.user) }));
+  const profile = await ensureUserProfile(req.user._id);
+  res.status(200).json(
+    successResponse('Profile retrieved', {
+      user: {
+        ...sanitizeUser(req.user),
+        profile: sanitizeUserProfile(profile),
+      },
+    })
+  );
+}
+
+export async function updateMe(req: AuthenticatedRequest, res: Response): Promise<void> {
+  if (!req.user) {
+    throw new AppError(401, 'Authentication required');
+  }
+
+  const profile = await ensureUserProfile(req.user._id);
+  const body = req.body as {
+    profilePhotoDataUrl?: string | null;
+    notificationPreferences?: Partial<{
+      emailUpdates: boolean;
+      claimAlerts: boolean;
+      policyReminders: boolean;
+    }>;
+  };
+
+  if (Object.prototype.hasOwnProperty.call(body, 'profilePhotoDataUrl')) {
+    profile.profilePhotoDataUrl = body.profilePhotoDataUrl || undefined;
+  }
+
+  if (body.notificationPreferences) {
+    profile.notificationPreferences = {
+      emailUpdates:
+        body.notificationPreferences.emailUpdates ??
+        profile.notificationPreferences.emailUpdates,
+      claimAlerts:
+        body.notificationPreferences.claimAlerts ??
+        profile.notificationPreferences.claimAlerts,
+      policyReminders:
+        body.notificationPreferences.policyReminders ??
+        profile.notificationPreferences.policyReminders,
+    };
+  }
+
+  await profile.save();
+
+  res.status(200).json(
+    successResponse('Profile updated', {
+      user: {
+        ...sanitizeUser(req.user),
+        profile: sanitizeUserProfile(profile),
+      },
+    })
+  );
 }
 
 export async function setRole(req: AuthenticatedRequest, res: Response): Promise<void> {
@@ -176,8 +238,15 @@ export async function setRole(req: AuthenticatedRequest, res: Response): Promise
   req.user.role = role;
   await req.user.save();
 
+  const profile = await ensureUserProfile(req.user._id);
+
   res.status(200).json(
-    successResponse('Role updated', { user: sanitizeUser(req.user) })
+    successResponse('Role updated', {
+      user: {
+        ...sanitizeUser(req.user),
+        profile: sanitizeUserProfile(profile),
+      },
+    })
   );
 }
 

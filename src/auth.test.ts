@@ -2,6 +2,7 @@ import request from 'supertest';
 import { createApp } from './app';
 import { loadEnv, resetEnvCache } from './config/env';
 import { OtpVerification } from './models/OtpVerification';
+import { UserProfile } from './models/UserProfile';
 import * as mailService from './services/mail';
 import { applyTestEnv } from './test/setupEnv';
 import {
@@ -47,6 +48,7 @@ describe('Module 2 — Authentication & OTP', () => {
     const res = await request(app).post('/api/auth/signup').send(signupBody);
     expect(res.status).toBe(201);
     expect(res.body.data.debugCode).toMatch(/^\d{6}$/);
+    expect(res.body.data.profile.notificationPreferences.emailUpdates).toBe(true);
     return { app, code: res.body.data.debugCode as string };
   }
 
@@ -85,6 +87,19 @@ describe('Module 2 — Authentication & OTP', () => {
 
     expect(loginRes.status).toBe(403);
     expect(loginRes.body.message).toMatch(/verify your email/i);
+  });
+
+  it('creates a durable user profile during signup', async () => {
+    const env = loadEnv();
+    const app = createApp(env);
+    const signupRes = await request(app).post('/api/auth/signup').send(signupBody);
+
+    expect(signupRes.status).toBe(201);
+    expect(signupRes.body.data.profile).toBeDefined();
+
+    const profile = await UserProfile.findOne({ userId: signupRes.body.data.profile.userId });
+    expect(profile).toBeTruthy();
+    expect(profile?.notificationPreferences.policyReminders).toBe(true);
   });
 
   it('returns 409 for duplicate email', async () => {
@@ -230,5 +245,32 @@ describe('Module 2 — Authentication & OTP', () => {
 
     expect(roleRes.status).toBe(200);
     expect(roleRes.body.data.user.role).toBe('insurer');
+  });
+
+  it('persists authenticated profile settings', async () => {
+    const { app, code } = await signupAndGetCode();
+    const verifyRes = await request(app)
+      .post('/api/auth/otp/verify')
+      .send({ email: signupBody.email, purpose: 'signup', code });
+
+    const token = verifyRes.body.data.token as string;
+    const updateRes = await request(app)
+      .patch('/api/auth/me')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        profilePhotoDataUrl: 'data:image/png;base64,abc123',
+        notificationPreferences: { claimAlerts: false },
+      });
+
+    expect(updateRes.status).toBe(200);
+    expect(updateRes.body.data.user.profile.profilePhotoDataUrl).toBe(
+      'data:image/png;base64,abc123'
+    );
+    expect(updateRes.body.data.user.profile.notificationPreferences.claimAlerts).toBe(false);
+
+    const meRes = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${token}`);
+    expect(meRes.body.data.user.profile.notificationPreferences.claimAlerts).toBe(false);
   });
 });
