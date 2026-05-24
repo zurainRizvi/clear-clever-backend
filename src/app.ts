@@ -18,6 +18,7 @@ import { renderAffiliateWizard } from './controllers/affiliateController';
 import { asyncPublicHandler } from './controllers/authController';
 import { insurerRouter } from './routes/insurer';
 import { adminRouter } from './routes/admin';
+import { claimsRouter } from './routes/claims';
 import { notificationsRouter } from './routes/notifications';
 import { purchaseRouter } from './routes/purchase';
 import { purchasesRouter } from './routes/purchases';
@@ -68,6 +69,7 @@ export function createApp(env: Env) {
   app.use('/api/admin', adminRouter);
   app.use('/api/purchase', purchaseRouter);
   app.use('/api/purchases', purchasesRouter);
+  app.use('/api/claims', claimsRouter);
   app.use('/api/notifications', notificationsRouter);
 
   app.get('/affiliate/:insurerSlug', asyncPublicHandler(renderAffiliateWizard));

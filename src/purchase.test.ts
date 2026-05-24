@@ -2,6 +2,7 @@ import request from 'supertest';
 import { createApp } from './app';
 import { loadEnv, resetEnvCache } from './config/env';
 import { CallSchedule } from './models/CallSchedule';
+import { ClaimRequest } from './models/ClaimRequest';
 import { EmailLog } from './models/EmailLog';
 import { Lead } from './models/Lead';
 import { Notification } from './models/Notification';
@@ -69,6 +70,13 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
     };
   }
 
+  function futurePktDateTime() {
+    const future = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    const pkt = new Date(future.getTime() + 5 * 60 * 60 * 1000);
+    const date = pkt.toISOString().slice(0, 10);
+    return { scheduledDate: date, scheduledTime: '14:30' };
+  }
+
   describe('POST /api/purchase', () => {
     it('returns an absolute affiliate redirect URL', async () => {
       const { redirectUrl } = await startPurchase();
@@ -103,6 +111,22 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
   });
 
   describe('Purchase completion flow', () => {
+    it('rejects expired card expiry dates', async () => {
+      const { purchaseId } = await startPurchase();
+
+      const res = await request(app)
+        .post(`/api/purchase/${purchaseId}/process-payment`)
+        .set('Authorization', `Bearer ${seekerToken}`)
+        .send({
+          cardholderName: 'Ali Khan',
+          cardLast4: '4242',
+          cardExpiry: '11/19',
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.errors).toContain('cardExpiry: Enter a valid active card expiry date');
+    });
+
     it('returns 400 when completing before payment is processed', async () => {
       const { purchaseId } = await startPurchase();
 
@@ -210,6 +234,92 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
       expect(listRes.body.data.purchases[0].timeline.paymentProcessed).toBe(true);
       expect(listRes.body.data.purchases[0].timeline.completed).toBe(true);
       expect(listRes.body.data.purchases[0].timeline.notifications.length).toBe(3);
+      expect(listRes.body.data.purchases[0].policy.features.length).toBeGreaterThan(0);
+      expect(listRes.body.data.purchases[0].policy.documentSummary.policyNumber).toMatch(/^CC-/);
+    });
+
+    it('reschedules an agent call for a completed purchase', async () => {
+      const { purchaseId } = await startPurchase();
+
+      await request(app)
+        .post(`/api/purchase/${purchaseId}/process-payment`)
+        .set('Authorization', `Bearer ${seekerToken}`)
+        .send({
+          cardholderName: 'Ali Khan',
+          cardLast4: '4242',
+          cardExpiry: '12/28',
+        });
+
+      await request(app)
+        .get('/api/purchase/complete')
+        .query({ purchaseId, token: seekerToken })
+        .set('Accept', 'application/json');
+
+      const res = await request(app)
+        .patch(`/api/purchases/${purchaseId}/call-schedule`)
+        .set('Authorization', `Bearer ${seekerToken}`)
+        .send(futurePktDateTime());
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.purchase.timeline.callScheduled.agentLabel).toBe('ClearClever agent');
+
+      const schedule = await CallSchedule.findOne({ purchaseId });
+      expect(schedule?.notes).toBe('Rescheduled by policy seeker');
+
+      const notification = await Notification.findOne({ type: 'call_rescheduled' });
+      expect(notification?.metadata?.purchaseId).toBe(purchaseId);
+    });
+
+    it('creates claims only for completed purchases', async () => {
+      const { purchaseId } = await startPurchase();
+
+      const blocked = await request(app)
+        .post('/api/claims')
+        .set('Authorization', `Bearer ${seekerToken}`)
+        .send({
+          purchaseId,
+          claimType: 'damage',
+          incidentDate: new Date().toISOString(),
+          estimatedAmountPkr: 100000,
+          description: 'Water damage after heavy rainfall.',
+        });
+      expect(blocked.status).toBe(400);
+
+      await request(app)
+        .post(`/api/purchase/${purchaseId}/process-payment`)
+        .set('Authorization', `Bearer ${seekerToken}`)
+        .send({
+          cardholderName: 'Ali Khan',
+          cardLast4: '4242',
+          cardExpiry: '12/28',
+        });
+
+      await request(app)
+        .get('/api/purchase/complete')
+        .query({ purchaseId, token: seekerToken })
+        .set('Accept', 'application/json');
+
+      const created = await request(app)
+        .post('/api/claims')
+        .set('Authorization', `Bearer ${seekerToken}`)
+        .send({
+          purchaseId,
+          claimType: 'damage',
+          incidentDate: new Date().toISOString(),
+          estimatedAmountPkr: 100000,
+          description: 'Water damage after heavy rainfall.',
+        });
+
+      expect(created.status).toBe(201);
+      expect(created.body.data.claim.status).toBe('submitted');
+
+      const stored = await ClaimRequest.findById(created.body.data.claim.id);
+      expect(stored?.purchaseId.toString()).toBe(purchaseId);
+
+      const list = await request(app)
+        .get('/api/claims')
+        .set('Authorization', `Bearer ${seekerToken}`);
+      expect(list.body.data.claims).toHaveLength(1);
     });
 
     it('marks a notification as read', async () => {
@@ -241,6 +351,52 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
 
       expect(readRes.status).toBe(200);
       expect(readRes.body.data.notification.read).toBe(true);
+    });
+
+    it('marks all notifications read and clears them for the current user', async () => {
+      const { purchaseId } = await startPurchase();
+
+      await request(app)
+        .post(`/api/purchase/${purchaseId}/process-payment`)
+        .set('Authorization', `Bearer ${seekerToken}`)
+        .send({
+          cardholderName: 'Ali Khan',
+          cardLast4: '4242',
+          cardExpiry: '12/28',
+        });
+
+      await request(app)
+        .get('/api/purchase/complete')
+        .query({ purchaseId, token: seekerToken })
+        .set('Accept', 'application/json');
+
+      const before = await request(app)
+        .get('/api/notifications')
+        .set('Authorization', `Bearer ${seekerToken}`);
+      expect(before.body.data.unreadCount).toBe(3);
+      expect(before.body.data.notifications[0].target.path).toBe('/dashboard/purchases');
+
+      const readAll = await request(app)
+        .patch('/api/notifications/read-all')
+        .set('Authorization', `Bearer ${seekerToken}`);
+      expect(readAll.status).toBe(200);
+      expect(readAll.body.data.modifiedCount).toBe(3);
+
+      const afterRead = await request(app)
+        .get('/api/notifications')
+        .set('Authorization', `Bearer ${seekerToken}`);
+      expect(afterRead.body.data.unreadCount).toBe(0);
+
+      const clear = await request(app)
+        .delete('/api/notifications/clear')
+        .set('Authorization', `Bearer ${seekerToken}`);
+      expect(clear.status).toBe(200);
+      expect(clear.body.data.deletedCount).toBe(3);
+
+      const afterClear = await request(app)
+        .get('/api/notifications')
+        .set('Authorization', `Bearer ${seekerToken}`);
+      expect(afterClear.body.data.count).toBe(0);
     });
   });
 });

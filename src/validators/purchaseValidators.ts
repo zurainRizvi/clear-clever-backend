@@ -1,5 +1,20 @@
 import { body, param, query } from 'express-validator';
 
+function isActiveCardExpiry(value: string): boolean {
+  const match = /^(0[1-9]|1[0-2])\/(\d{2})$/.exec(value);
+  if (!match) {
+    return false;
+  }
+
+  const month = Number(match[1]);
+  const year = 2000 + Number(match[2]);
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+
+  return year > currentYear || (year === currentYear && month >= currentMonth);
+}
+
 export const createPurchaseValidators = [
   body('policyId')
     .trim()
@@ -32,7 +47,10 @@ export const processPaymentValidators = [
   body('cardExpiry')
     .trim()
     .matches(/^(0[1-9]|1[0-2])\/\d{2}$/)
-    .withMessage('Card expiry must be in MM/YY format'),
+    .withMessage('Card expiry must be in MM/YY format')
+    .bail()
+    .custom((value: string) => isActiveCardExpiry(value))
+    .withMessage('Enter a valid active card expiry date'),
 ];
 
 export const completePurchaseQueryValidators = [
@@ -42,6 +60,18 @@ export const completePurchaseQueryValidators = [
     .withMessage('purchaseId query parameter is required')
     .isMongoId()
     .withMessage('purchaseId must be a valid id'),
+];
+
+export const rescheduleCallValidators = [
+  purchaseIdParamValidator,
+  body('scheduledDate')
+    .trim()
+    .matches(/^\d{4}-\d{2}-\d{2}$/)
+    .withMessage('Scheduled date must be in YYYY-MM-DD format'),
+  body('scheduledTime')
+    .trim()
+    .matches(/^([01]\d|2[0-3]):[0-5]\d$/)
+    .withMessage('Scheduled time must be in HH:mm format'),
 ];
 
 export const notificationIdValidator = param('id')

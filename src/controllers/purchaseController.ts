@@ -1,7 +1,9 @@
 import type { Response } from 'express';
 import { loadEnv } from '../config/env';
 import type { AuthenticatedRequest } from '../middleware/authenticate';
+import { CallSchedule } from '../models/CallSchedule';
 import { InsurerProfile } from '../models/InsurerProfile';
+import { Notification } from '../models/Notification';
 import { Policy } from '../models/Policy';
 import { Purchase } from '../models/Purchase';
 import { signToken } from '../services/auth';
@@ -115,4 +117,63 @@ export async function listPurchases(req: AuthenticatedRequest, res: Response): P
       purchases: items,
     })
   );
+}
+
+export async function rescheduleCall(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const { scheduledDate, scheduledTime } = req.body as {
+    scheduledDate: string;
+    scheduledTime: string;
+  };
+
+  const purchase = await Purchase.findOne({
+    _id: req.params.id,
+    userId: req.user!._id,
+    status: 'completed',
+  });
+  if (!purchase) {
+    throw new AppError(404, 'Completed purchase not found');
+  }
+
+  const scheduledAt = parsePktDateTime(scheduledDate, scheduledTime);
+  if (!scheduledAt || scheduledAt.getTime() <= Date.now()) {
+    throw new AppError(400, 'Validation failed', [
+      'scheduledAt: Choose a future date and time in Pakistan Standard Time',
+    ]);
+  }
+
+  const callSchedule = await CallSchedule.findOneAndUpdate(
+    { purchaseId: purchase._id },
+    {
+      userId: purchase.userId,
+      insurerId: purchase.insurerProfileId,
+      purchaseId: purchase._id,
+      scheduledAt,
+      status: 'scheduled',
+      notes: 'Rescheduled by policy seeker',
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+
+  await Notification.create({
+    userId: purchase.userId,
+    type: 'call_rescheduled',
+    title: 'Agent call rescheduled',
+    body: `Your ClearClever agent call is now scheduled for ${scheduledAt.toISOString()}.`,
+    metadata: {
+      purchaseId: String(purchase._id),
+      scheduledAt: scheduledAt.toISOString(),
+      callScheduleId: String(callSchedule._id),
+    },
+  });
+
+  res.status(200).json(
+    successResponse('Agent call rescheduled', {
+      purchase: await toPurchaseSummary(purchase),
+    })
+  );
+}
+
+function parsePktDateTime(scheduledDate: string, scheduledTime: string): Date | null {
+  const date = new Date(`${scheduledDate}T${scheduledTime}:00+05:00`);
+  return Number.isNaN(date.getTime()) ? null : date;
 }

@@ -4,8 +4,10 @@ import {
   comparePolicies,
   getPolicyById,
   getQuestions,
+  getStoredQuestionnaireResponse,
   recommendPolicies,
 } from '../controllers/discoveryController';
+import { authenticate, optionalAuthenticate } from '../middleware/authenticate';
 import { validate } from '../middleware/validate';
 import {
   categoryParamValidator,
@@ -24,7 +26,18 @@ questionsRouter.get(
 
 export const recommendRouter = Router();
 
-recommendRouter.post('/', validate(recommendValidators), asyncHandler(recommendPolicies));
+recommendRouter.get(
+  '/answers/:category',
+  authenticate,
+  validate([categoryParamValidator]),
+  asyncHandler(getStoredQuestionnaireResponse)
+);
+recommendRouter.post(
+  '/',
+  optionalAuthenticate,
+  validate(recommendValidators),
+  asyncHandler(recommendPolicies)
+);
 
 export const compareRouter = Router();
 

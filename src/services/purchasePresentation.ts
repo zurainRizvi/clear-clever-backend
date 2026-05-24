@@ -1,4 +1,5 @@
 import { CallSchedule } from '../models/CallSchedule';
+import { ClaimRequest } from '../models/ClaimRequest';
 import { EmailLog } from '../models/EmailLog';
 import { InsurerProfile } from '../models/InsurerProfile';
 import { Notification } from '../models/Notification';
@@ -6,12 +7,13 @@ import { Policy } from '../models/Policy';
 import type { IPurchaseDocument } from '../models/Purchase';
 
 export async function toPurchaseSummary(purchase: IPurchaseDocument) {
-  const [policy, insurer, notifications, emailLog, callSchedule] = await Promise.all([
+  const [policy, insurer, notifications, emailLog, callSchedule, claims] = await Promise.all([
     Policy.findById(purchase.policyId),
     InsurerProfile.findById(purchase.insurerProfileId),
     Notification.find({ 'metadata.purchaseId': String(purchase._id) }).sort({ createdAt: 1 }),
     EmailLog.findOne({ purchaseId: purchase._id }),
     CallSchedule.findOne({ purchaseId: purchase._id }),
+    ClaimRequest.find({ purchaseId: purchase._id }).sort({ createdAt: -1 }),
   ]);
 
   return {
@@ -28,7 +30,17 @@ export async function toPurchaseSummary(purchase: IPurchaseDocument) {
           slug: policy.slug,
           name: policy.name,
           category: policy.category,
+          description: policy.description,
           premiumMonthlyPkr: policy.premiumMonthlyPkr,
+          premiumYearlyPkr: policy.premiumYearlyPkr,
+          coverageSummary: policy.coverageSummary,
+          features: policy.features,
+          deductiblePkr: policy.deductiblePkr,
+          documentSummary: {
+            policyNumber: `CC-${String(purchase._id).slice(-8).toUpperCase()}`,
+            issuedAt: purchase.completedAt?.toISOString() ?? purchase.createdAt.toISOString(),
+            coverage: policy.coverageSummary,
+          },
         }
       : undefined,
     insurer: insurer
@@ -36,9 +48,18 @@ export async function toPurchaseSummary(purchase: IPurchaseDocument) {
           id: String(insurer._id),
           slug: insurer.slug,
           companyName: insurer.companyName,
+          contactEmail: insurer.contactEmail,
           contactPhone: insurer.contactPhone,
         }
       : undefined,
+    claims: claims.map((claim) => ({
+      id: String(claim._id),
+      claimType: claim.claimType,
+      status: claim.status,
+      incidentDate: claim.incidentDate.toISOString(),
+      estimatedAmountPkr: claim.estimatedAmountPkr,
+      createdAt: claim.createdAt.toISOString(),
+    })),
     timeline: {
       paymentProcessed: Boolean(purchase.paymentProcessedAt),
       completed: Boolean(purchase.completedAt),
@@ -66,6 +87,7 @@ export async function toPurchaseSummary(purchase: IPurchaseDocument) {
             scheduledAt: callSchedule.scheduledAt.toISOString(),
             status: callSchedule.status,
             notes: callSchedule.notes,
+            agentLabel: 'ClearClever agent',
           }
         : undefined,
     },

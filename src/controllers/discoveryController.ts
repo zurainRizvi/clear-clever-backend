@@ -2,12 +2,14 @@ import type { Response } from 'express';
 import type { AuthenticatedRequest } from '../middleware/authenticate';
 import { InsurerProfile } from '../models/InsurerProfile';
 import { Policy } from '../models/Policy';
+import { QuestionnaireResponse } from '../models/QuestionnaireResponse';
 import { enrichPolicies, toPublicPolicy } from '../services/policyPresentation';
 import {
   assertAnswersForQuestions,
   getCategoryQuestions,
   parseCategoryForRecommend,
 } from '../services/questionsService';
+import { saveQuestionnaireResponse } from '../services/questionnaireMemory';
 import { scorePolicies } from '../services/recommendationService';
 import { AppError, successResponse } from '../utils/apiResponse';
 
@@ -38,6 +40,14 @@ export async function recommendPolicies(req: AuthenticatedRequest, res: Response
 
   const questionSet = await getCategoryQuestions(policyCategory);
   assertAnswersForQuestions(answers, questionSet.questions);
+  if (req.user) {
+    await saveQuestionnaireResponse({
+      userId: req.user._id,
+      category: policyCategory,
+      answers,
+      questions: questionSet.questions,
+    });
+  }
 
   const approvedPolicies = await Policy.find({
     category: policyCategory,
@@ -57,6 +67,43 @@ export async function recommendPolicies(req: AuthenticatedRequest, res: Response
       category: policyCategory,
       available: true,
       recommendations,
+    })
+  );
+}
+
+export async function getStoredQuestionnaireResponse(
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> {
+  const policyCategory = parseCategoryForRecommend(String(req.params.category));
+  if (!policyCategory) {
+    res.status(200).json(
+      successResponse('Questionnaire response retrieved', {
+        category: 'others',
+        available: false,
+        response: null,
+      })
+    );
+    return;
+  }
+
+  const response = await QuestionnaireResponse.findOne({
+    userId: req.user!._id,
+    category: policyCategory,
+  });
+
+  res.status(200).json(
+    successResponse('Questionnaire response retrieved', {
+      category: policyCategory,
+      available: true,
+      response: response
+        ? {
+            id: String(response._id),
+            answers: response.answers,
+            completedQuestionIds: response.completedQuestionIds,
+            updatedAt: response.updatedAt.toISOString(),
+          }
+        : null,
     })
   );
 }

@@ -44,3 +44,30 @@ export async function authenticate(
     next(new AppError(401, 'Invalid or expired token'));
   }
 }
+
+export async function optionalAuthenticate(
+  req: AuthenticatedRequest,
+  _res: Response,
+  next: NextFunction
+): Promise<void> {
+  const header = req.headers.authorization;
+  if (!header?.startsWith('Bearer ')) {
+    next();
+    return;
+  }
+
+  try {
+    const token = header.slice(7);
+    const env = loadEnv();
+    const payload = verifyToken(env, token);
+    const user = await User.findById(payload.sub);
+    if (user && user.status !== 'inactive') {
+      req.user = user;
+      req.tokenPayload = payload;
+    }
+  } catch {
+    // Public discovery endpoints should continue to work without a valid session.
+  }
+
+  next();
+}

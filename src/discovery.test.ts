@@ -134,6 +134,23 @@ describe('Module 5 — Questionnaire, recommend, compare, favorites', () => {
       expect(top.policy.slug).toBe('tpl-home-essential');
       expect(top.policy.premiumMonthlyPkr).toBe(3500);
     });
+
+    it('stores authenticated questionnaire answers for reuse', async () => {
+      const recommend = await request(app)
+        .post('/api/recommend')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ category: 'home', answers: homeAnswers });
+
+      expect(recommend.status).toBe(200);
+
+      const stored = await request(app)
+        .get('/api/recommend/answers/home')
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(stored.status).toBe(200);
+      expect(stored.body.data.response.answers.city).toBe('Karachi');
+      expect(stored.body.data.response.completedQuestionIds).toContain('property_type');
+    });
   });
 
   describe('POST /api/compare', () => {
