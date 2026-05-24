@@ -54,6 +54,32 @@ export const createInsurerPolicyValidators = [
     }),
 ];
 
+export const insurerClaimIdValidator = param('id')
+  .trim()
+  .notEmpty()
+  .withMessage('Claim id is required')
+  .isMongoId()
+  .withMessage('Claim id must be a valid id');
+
+export const updateInsurerClaimValidators = [
+  insurerClaimIdValidator,
+  body('status')
+    .trim()
+    .isIn(['in_review', 'approved', 'rejected'])
+    .withMessage('Status must be in_review, approved, or rejected'),
+];
+
+export const updateInsurerProfileValidators = [
+  body('contactEmail').optional().trim().isEmail().withMessage('Contact email must be valid'),
+  body('contactPhone')
+    .optional()
+    .trim()
+    .notEmpty()
+    .withMessage('Contact phone is required')
+    .isLength({ max: 20 }),
+  body('description').optional().trim().isLength({ max: 2000 }),
+];
+
 export const updateInsurerPolicyValidators = [
   insurerPolicyIdValidator,
   body('slug')

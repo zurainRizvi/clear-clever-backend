@@ -2,23 +2,42 @@ import { Router } from 'express';
 import { asyncHandler } from '../controllers/authController';
 import {
   createInsurerPolicy,
+  getInsurerPolicy,
+  getInsurerProfile,
+  listInsurerClaims,
   listInsurerLeads,
   listInsurerPolicies,
+  updateInsurerClaimStatus,
   updateInsurerPolicy,
+  updateInsurerProfile,
 } from '../controllers/insurerController';
 import { authenticate } from '../middleware/authenticate';
 import { authorize } from '../middleware/authorize';
 import { validate } from '../middleware/validate';
 import {
   createInsurerPolicyValidators,
+  insurerPolicyIdValidator,
+  updateInsurerClaimValidators,
   updateInsurerPolicyValidators,
+  updateInsurerProfileValidators,
 } from '../validators/insurerValidators';
 
 export const insurerRouter = Router();
 
 insurerRouter.use(authenticate, authorize('insurer'));
 
+insurerRouter.get('/profile', asyncHandler(getInsurerProfile));
+insurerRouter.patch(
+  '/profile',
+  validate(updateInsurerProfileValidators),
+  asyncHandler(updateInsurerProfile)
+);
 insurerRouter.get('/policies', asyncHandler(listInsurerPolicies));
+insurerRouter.get(
+  '/policies/:id',
+  validate([insurerPolicyIdValidator]),
+  asyncHandler(getInsurerPolicy)
+);
 insurerRouter.post(
   '/policies',
   validate(createInsurerPolicyValidators),
@@ -30,3 +49,9 @@ insurerRouter.put(
   asyncHandler(updateInsurerPolicy)
 );
 insurerRouter.get('/leads', asyncHandler(listInsurerLeads));
+insurerRouter.get('/claims', asyncHandler(listInsurerClaims));
+insurerRouter.patch(
+  '/claims/:id',
+  validate(updateInsurerClaimValidators),
+  asyncHandler(updateInsurerClaimStatus)
+);

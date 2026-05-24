@@ -23,7 +23,7 @@ function isParticipant(conversation: IConversationDocument, userId: Types.Object
 function canAccessConversation(conversation: IConversationDocument, req: AuthenticatedRequest): boolean {
   if (!req.user) return false;
   if (isParticipant(conversation, req.user._id)) return true;
-  return isAdminRole(req.user.role) && conversation.type !== 'user_insurer';
+  return isAdminRole(req.user.role);
 }
 
 async function getConversationForUser(req: AuthenticatedRequest): Promise<IConversationDocument> {
@@ -155,10 +155,9 @@ export async function listConversations(req: AuthenticatedRequest, res: Response
   const userId = req.user!._id;
   const query = isAdminRole(req.user!.role)
     ? {
-        $or: [
-          { participantUserIds: userId },
-          { type: { $in: ['user_support', 'insurer_support'] } },
-        ],
+        type: {
+          $in: ['user_support', 'insurer_support', 'user_insurer'],
+        },
       }
     : { participantUserIds: userId };
 

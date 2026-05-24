@@ -7,6 +7,8 @@ export const NOTIFICATION_TYPES = [
   'call_scheduled',
   'call_rescheduled',
   'claim_submitted',
+  'claim_status',
+  'policy_review',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 

@@ -1,10 +1,10 @@
 import type { Response } from 'express';
 import type { AuthenticatedRequest } from '../middleware/authenticate';
-import { ClaimRequest, type IClaimRequestDocument } from '../models/ClaimRequest';
+import { ClaimRequest } from '../models/ClaimRequest';
 import { InsurerProfile } from '../models/InsurerProfile';
 import { Notification } from '../models/Notification';
-import { Policy } from '../models/Policy';
 import { Purchase } from '../models/Purchase';
+import { toClaimSummary } from '../services/claimPresentation';
 import { AppError, successResponse } from '../utils/apiResponse';
 
 export async function listClaims(req: AuthenticatedRequest, res: Response): Promise<void> {
@@ -56,7 +56,7 @@ export async function createClaim(req: AuthenticatedRequest, res: Response): Pro
         userId: purchase.userId,
         type: 'claim_submitted',
         title: 'Claim request submitted',
-        body: 'Your claim request was submitted and is now pending agent review.',
+        body: 'Your claim was sent to your insurer for review and approval.',
         metadata: {
           claimId: String(claim._id),
           purchaseId: String(purchase._id),
@@ -67,8 +67,8 @@ export async function createClaim(req: AuthenticatedRequest, res: Response): Pro
         ? {
             userId: insurer.userId,
             type: 'claim_submitted',
-            title: 'New claim needs review',
-            body: 'A policy seeker submitted a claim. Review details and contact them if more information is needed.',
+            title: 'New claim awaiting your review',
+            body: 'A policy seeker submitted a claim on your policy. Open Claims to review and approve or reject it.',
             metadata: {
               claimId: String(claim._id),
               purchaseId: String(purchase._id),
@@ -97,37 +97,4 @@ export async function getClaim(req: AuthenticatedRequest, res: Response): Promis
   }
 
   res.status(200).json(successResponse('Claim retrieved', { claim: await toClaimSummary(claim) }));
-}
-
-async function toClaimSummary(claim: IClaimRequestDocument) {
-  const [policy, insurer] = await Promise.all([
-    Policy.findById(claim.policyId),
-    InsurerProfile.findById(claim.insurerProfileId),
-  ]);
-
-  return {
-    id: String(claim._id),
-    purchaseId: String(claim.purchaseId),
-    claimType: claim.claimType,
-    incidentDate: claim.incidentDate.toISOString(),
-    estimatedAmountPkr: claim.estimatedAmountPkr,
-    description: claim.description,
-    status: claim.status,
-    createdAt: claim.createdAt.toISOString(),
-    updatedAt: claim.updatedAt.toISOString(),
-    policy: policy
-      ? {
-          id: String(policy._id),
-          name: policy.name,
-          category: policy.category,
-        }
-      : undefined,
-    insurer: insurer
-      ? {
-          id: String(insurer._id),
-          companyName: insurer.companyName,
-          contactPhone: insurer.contactPhone,
-        }
-      : undefined,
-  };
 }

@@ -4,6 +4,7 @@ import {
   approvePolicy,
   changeUserRole,
   deactivateUser,
+  reactivateUser,
   getAnalytics,
   listPendingPolicies,
   listUsers,
@@ -46,6 +47,11 @@ adminRouter.patch(
   '/users/:id/deactivate',
   validate([adminUserIdValidator]),
   asyncHandler(deactivateUser)
+);
+adminRouter.patch(
+  '/users/:id/reactivate',
+  validate([adminUserIdValidator]),
+  asyncHandler(reactivateUser)
 );
 
 adminRouter.get('/analytics', asyncHandler(getAnalytics));

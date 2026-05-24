@@ -3,6 +3,7 @@ import { ADMIN_ROLES } from '../constants/roles';
 import type { UserRole } from '../constants/roles';
 import { InsurerProfile } from '../models/InsurerProfile';
 import { Lead } from '../models/Lead';
+import { Notification } from '../models/Notification';
 import { Policy } from '../models/Policy';
 import { User } from '../models/User';
 import type { AuthenticatedRequest } from '../middleware/authenticate';
@@ -84,6 +85,24 @@ export async function rejectPolicy(req: AuthenticatedRequest, res: Response): Pr
   policy.reviewedBy = req.user!._id;
   await policy.save();
 
+  const insurer = await InsurerProfile.findById(policy.insurerProfileId);
+  if (insurer) {
+    const reasonText = policy.rejectionReason
+      ? ` Reason: ${policy.rejectionReason}`
+      : ' Update the policy and resubmit it for review.';
+    await Notification.create({
+      userId: insurer.userId,
+      type: 'policy_review',
+      title: 'Policy needs revision',
+      body: `Your policy "${policy.name}" was rejected.${reasonText}`,
+      metadata: {
+        policyId: String(policy._id),
+        status: 'rejected',
+        rejectionReason: policy.rejectionReason,
+      },
+    });
+  }
+
   res.status(200).json(
     successResponse('Policy rejected', {
       policy: toInsurerPolicySummary(policy),
@@ -91,8 +110,10 @@ export async function rejectPolicy(req: AuthenticatedRequest, res: Response): Pr
   );
 }
 
-export async function listUsers(_req: AuthenticatedRequest, res: Response): Promise<void> {
-  const users = await User.find().sort({ createdAt: -1 });
+export async function listUsers(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const filter =
+    req.user!.role === 'superadmin' ? {} : { role: { $ne: 'superadmin' } };
+  const users = await User.find(filter).sort({ createdAt: -1 });
 
   res.status(200).json(
     successResponse('Users retrieved', {
@@ -147,6 +168,26 @@ export async function deactivateUser(req: AuthenticatedRequest, res: Response): 
 
   res.status(200).json(
     successResponse('User deactivated', {
+      user: sanitizeUser(target),
+    })
+  );
+}
+
+export async function reactivateUser(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const target = await User.findById(req.params.id);
+  if (!target) {
+    throw new AppError(404, 'User not found');
+  }
+
+  if (target.role === 'superadmin' && req.user!.role !== 'superadmin') {
+    throw new AppError(403, 'Only a superadmin may reactivate a superadmin account');
+  }
+
+  target.status = 'active';
+  await target.save();
+
+  res.status(200).json(
+    successResponse('User reactivated', {
       user: sanitizeUser(target),
     })
   );

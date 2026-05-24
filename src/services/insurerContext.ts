@@ -40,6 +40,28 @@ export function toInsurerPolicySummary(policy: {
   };
 }
 
+export function toInsurerProfileSummary(profile: {
+  _id: Types.ObjectId;
+  companyName: string;
+  slug: string;
+  contactEmail: string;
+  contactPhone: string;
+  description?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}) {
+  return {
+    id: String(profile._id),
+    companyName: profile.companyName,
+    slug: profile.slug,
+    contactEmail: profile.contactEmail,
+    contactPhone: profile.contactPhone,
+    description: profile.description,
+    createdAt: profile.createdAt.toISOString(),
+    updatedAt: profile.updatedAt.toISOString(),
+  };
+}
+
 export function toInsurerPolicyDetail(policy: {
   _id: Types.ObjectId;
   slug: string;

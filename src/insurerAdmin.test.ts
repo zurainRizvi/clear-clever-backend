@@ -1,9 +1,13 @@
+import mongoose from 'mongoose';
 import request from 'supertest';
 import { createApp } from './app';
 import { loadEnv, resetEnvCache } from './config/env';
+import { ClaimRequest } from './models/ClaimRequest';
 import { InsurerProfile } from './models/InsurerProfile';
 import { Lead } from './models/Lead';
+import { Notification } from './models/Notification';
 import { Policy } from './models/Policy';
+import { Purchase } from './models/Purchase';
 import { User } from './models/User';
 import { SEED_DEFAULT_PASSWORD } from './seed/userSeedData';
 import { seedAll } from './seed/seedCatalog';
@@ -70,6 +74,32 @@ describe('Module 6 — Insurer & admin modules', () => {
     jubileeToken = await login('insurer.jubilee@clearclever.com');
     adminToken = await login('admin@clearclever.com');
     seekerToken = await login('seeker@clearclever.com');
+  });
+
+  describe('Insurer profile', () => {
+    it('returns the linked insurer profile', async () => {
+      const res = await request(app)
+        .get('/api/insurer/profile')
+        .set('Authorization', `Bearer ${tplToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.profile.companyName).toBe('TPL Insurance');
+      expect(res.body.data.profile.slug).toBe('tpl-insurance');
+    });
+
+    it('updates contact fields on the insurer profile', async () => {
+      const res = await request(app)
+        .patch('/api/insurer/profile')
+        .set('Authorization', `Bearer ${tplToken}`)
+        .send({
+          contactEmail: 'updated@tplinsurance.com.pk',
+          contactPhone: '+923001112233',
+          description: 'Updated provider description for tests.',
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.profile.contactEmail).toBe('updated@tplinsurance.com.pk');
+    });
   });
 
   describe('Insurer policy CRUD', () => {
@@ -185,6 +215,101 @@ describe('Module 6 — Insurer & admin modules', () => {
     });
   });
 
+  describe('Insurer claims', () => {
+    it('lists claims for the insurer and updates review status', async () => {
+      const tplProfile = await InsurerProfile.findOne({ slug: 'tpl-insurance' });
+      const seeker = await User.findOne({ email: 'seeker@clearclever.com' });
+      const policy = await Policy.findOne({ insurerProfileId: tplProfile!._id, status: 'approved' });
+      const purchase =
+        (await Purchase.findOne({
+          userId: seeker!._id,
+          policyId: policy!._id,
+          status: 'completed',
+        })) ??
+        (await Purchase.create({
+          userId: seeker!._id,
+          policyId: policy!._id,
+          insurerProfileId: tplProfile!._id,
+          status: 'completed',
+          affiliateSlug: tplProfile!.slug,
+          answers: {},
+          completionArtifactsCreated: true,
+          completedAt: new Date(),
+        }));
+
+      const claim = await ClaimRequest.create({
+        userId: seeker!._id,
+        purchaseId: purchase._id,
+        policyId: policy!._id,
+        insurerProfileId: tplProfile!._id,
+        claimType: 'damage',
+        incidentDate: new Date(),
+        estimatedAmountPkr: 50000,
+        description: 'Ceiling damage after rain for insurer review flow.',
+        status: 'submitted',
+      });
+
+      const listRes = await request(app)
+        .get('/api/insurer/claims')
+        .set('Authorization', `Bearer ${tplToken}`);
+
+      expect(listRes.status).toBe(200);
+      expect(listRes.body.data.claims.some((item: { id: string }) => item.id === String(claim._id))).toBe(
+        true
+      );
+      expect(listRes.body.data.claims[0].seeker?.email).toBe('seeker@clearclever.com');
+
+      const reviewRes = await request(app)
+        .patch(`/api/insurer/claims/${claim._id}`)
+        .set('Authorization', `Bearer ${tplToken}`)
+        .send({ status: 'in_review' });
+
+      expect(reviewRes.status).toBe(200);
+      expect(reviewRes.body.data.claim.status).toBe('in_review');
+
+      const approveRes = await request(app)
+        .patch(`/api/insurer/claims/${claim._id}`)
+        .set('Authorization', `Bearer ${tplToken}`)
+        .send({ status: 'approved' });
+
+      expect(approveRes.status).toBe(200);
+      expect(approveRes.body.data.claim.status).toBe('approved');
+
+      const seekerList = await request(app)
+        .get('/api/claims')
+        .set('Authorization', `Bearer ${seekerToken}`);
+
+      const seekerClaim = seekerList.body.data.claims.find(
+        (item: { id: string }) => item.id === String(claim._id)
+      );
+      expect(seekerClaim.status).toBe('approved');
+    });
+
+    it('returns 403 when another insurer updates a claim', async () => {
+      const tplProfile = await InsurerProfile.findOne({ slug: 'tpl-insurance' });
+      const seeker = await User.findOne({ email: 'seeker@clearclever.com' });
+      const policy = await Policy.findOne({ insurerProfileId: tplProfile!._id });
+
+      const claim = await ClaimRequest.create({
+        userId: seeker!._id,
+        purchaseId: new mongoose.Types.ObjectId(),
+        policyId: policy!._id,
+        insurerProfileId: tplProfile!._id,
+        claimType: 'theft',
+        incidentDate: new Date(),
+        description: 'Stolen items claim.',
+        status: 'submitted',
+      });
+
+      const res = await request(app)
+        .patch(`/api/insurer/claims/${claim._id}`)
+        .set('Authorization', `Bearer ${jubileeToken}`)
+        .send({ status: 'approved' });
+
+      expect(res.status).toBe(404);
+    });
+  });
+
   describe('Insurer leads', () => {
     it('returns leads scoped to the insurer profile', async () => {
       const tplProfile = await InsurerProfile.findOne({ slug: 'tpl-insurance' });
@@ -251,6 +376,14 @@ describe('Module 6 — Insurer & admin modules', () => {
       expect(rejectRes.status).toBe(200);
       expect(rejectRes.body.data.policy.status).toBe('rejected');
       expect(rejectRes.body.data.policy.rejectionReason).toBe('Needs more underwriting detail');
+
+      const tplProfile = await InsurerProfile.findOne({ slug: 'tpl-insurance' });
+      const notice = await Notification.findOne({
+        userId: tplProfile!.userId,
+        type: 'policy_review',
+      });
+      expect(notice?.title).toBe('Policy needs revision');
+      expect(notice?.body).toContain('Needs more underwriting detail');
     });
   });
 
@@ -291,6 +424,38 @@ describe('Module 6 — Insurer & admin modules', () => {
         .send({ email: 'seeker@clearclever.com', password: SEED_DEFAULT_PASSWORD });
 
       expect(loginRes.status).toBe(403);
+    });
+
+    it('reactivates a deactivated user account', async () => {
+      const seeker = await User.findOne({ email: 'seeker@clearclever.com' });
+
+      await request(app)
+        .patch(`/api/admin/users/${seeker!._id}/deactivate`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      const reactivateRes = await request(app)
+        .patch(`/api/admin/users/${seeker!._id}/reactivate`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(reactivateRes.status).toBe(200);
+      expect(reactivateRes.body.data.user.status).toBe('active');
+
+      const loginRes = await request(app)
+        .post('/api/auth/login')
+        .send({ email: 'seeker@clearclever.com', password: SEED_DEFAULT_PASSWORD });
+
+      expect(loginRes.status).toBe(200);
+    });
+
+    it('hides superadmin accounts from admin user list', async () => {
+      const res = await request(app)
+        .get('/api/admin/users')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(200);
+      expect(
+        res.body.data.users.every((user: { role: string }) => user.role !== 'superadmin')
+      ).toBe(true);
     });
 
     it('returns analytics counts', async () => {
