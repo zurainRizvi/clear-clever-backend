@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
-import { loadEnv } from '../config/env';
+import { isSmtpConfigured, loadEnv } from '../config/env';
 import type { AuthenticatedRequest } from '../middleware/authenticate';
 import { User } from '../models/User';
 import { comparePassword, hashPassword, sanitizeUser, signToken } from '../services/auth';
@@ -34,18 +34,39 @@ export async function signup(req: AuthenticatedRequest, res: Response): Promise<
   });
   const profile = await ensureUserProfile(user._id);
 
-  const delivery = await createAndSendOtp(env, normalizedEmail, 'signup');
+  const awaitOtpForDebug =
+    (env.NODE_ENV === 'development' || env.NODE_ENV === 'test') &&
+    env.OTP_DEBUG &&
+    !isSmtpConfigured(env);
+
+  let delivery: Awaited<ReturnType<typeof createAndSendOtp>> | undefined;
+  if (awaitOtpForDebug) {
+    delivery = await createAndSendOtp(env, normalizedEmail, 'signup');
+  } else {
+    void createAndSendOtp(env, normalizedEmail, 'signup')
+      .then((result) => {
+        if (!result.emailSent && !result.debugCode) {
+          console.error(
+            `[ClearClever] OTP email not delivered to ${normalizedEmail}. Verify SMTP_* on Render (Gmail app password, SMTP_FROM matches SMTP_USER).`
+          );
+        }
+      })
+      .catch((err) => {
+        console.error('[ClearClever] Background OTP send failed:', err);
+      });
+  }
 
   const payload: Record<string, unknown> = {
     email: normalizedEmail,
     profile: sanitizeUserProfile(profile),
-    emailSent: delivery.emailSent,
-    message: delivery.emailSent
-      ? 'Verification code sent'
-      : 'Account created. Check your inbox or resend the code on the next screen.',
+    emailSent: delivery?.emailSent ?? null,
+    message:
+      delivery?.emailSent === true
+        ? 'Verification code sent'
+        : 'Account created. Check your inbox or resend the code on the next screen.',
   };
   if (
-    delivery.debugCode &&
+    delivery?.debugCode &&
     (env.NODE_ENV === 'development' || env.NODE_ENV === 'test') &&
     env.OTP_DEBUG
   ) {

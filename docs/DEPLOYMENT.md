@@ -130,6 +130,8 @@ Comma-separated, no trailing slashes.
 | Health 503 / DB `disconnected` | Check `MONGODB_URI`, Atlas IP allowlist, URL-encode `!` in password |
 | Login 403 “verify email” | Re-run `npm run seed` so status is `active` |
 | OTP signup fails on Render | Configure SMTP; never use `OTP_DEBUG` in production |
+| Signup/sign-in stuck on “Creating…” / “Signing in…” | Usually SMTP blocking the API for ~2 min. Deploy latest backend (fast signup + 10s SMTP cap). Check Render logs for `OTP email not delivered` |
+| OTP never arrives (`emailSent: false`) | Use a **Gmail App Password** (not your normal password). `SMTP_FROM` must be `ClearClever <same@gmail.as.SMTP_USER>`. Redeploy after saving env vars |
 | CORS error in browser | Add frontend URL to `CORS_ORIGINS`, redeploy API |
 | Deploy fails on start / “Invalid environment” | `CLIENT_URL` / `API_PUBLIC_URL` must be valid URLs — use `https://...` or host-only (`your-app.vercel.app`); avoid bare `localhost` on Render |
 | Purchase redirect goes to localhost | Set `API_PUBLIC_URL` on Render to your service URL, **Save**, then **Manual Deploy** |

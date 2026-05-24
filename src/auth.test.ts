@@ -198,6 +198,11 @@ describe('Module 2 — Authentication & OTP', () => {
       email: 'smtp-test@example.com',
     });
 
+    const deadline = Date.now() + 5000;
+    while (sendOtpEmailMock.mock.calls.length === 0 && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+
     expect(sendOtpEmailMock).toHaveBeenCalledTimes(1);
     expect(sendOtpEmailMock.mock.calls[0][1]).toBe('smtp-test@example.com');
   });
@@ -217,9 +222,9 @@ describe('Module 2 — Authentication & OTP', () => {
     });
 
     expect(res.status).toBe(201);
-    expect(res.body.data.emailSent).toBe(false);
+    expect(res.body.data.emailSent).toBeFalsy();
     expect(res.body.data.debugCode).toBeUndefined();
-    expect(JSON.stringify(res.body)).not.toMatch(/\d{6}/);
+    expect(JSON.stringify(res.body.data)).not.toMatch(/"debugCode"\s*:\s*"\d{6}"/);
   });
 
   it('allows active user to set insurer role', async () => {

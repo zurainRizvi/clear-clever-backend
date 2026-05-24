@@ -35,15 +35,27 @@ const envSchema = z.object({
         .map((origin) => origin.trim())
         .filter(Boolean);
     }),
-  SMTP_HOST: z.string().optional(),
+  SMTP_HOST: z
+    .string()
+    .optional()
+    .transform((v) => v?.trim() || undefined),
   SMTP_PORT: z.coerce.number().optional(),
   SMTP_SECURE: z
     .string()
     .optional()
     .transform((v) => v === 'true'),
-  SMTP_USER: z.string().optional(),
-  SMTP_PASS: z.string().optional(),
-  SMTP_FROM: z.string().optional(),
+  SMTP_USER: z
+    .string()
+    .optional()
+    .transform((v) => v?.trim() || undefined),
+  SMTP_PASS: z
+    .string()
+    .optional()
+    .transform((v) => v?.trim() || undefined),
+  SMTP_FROM: z
+    .string()
+    .optional()
+    .transform((v) => v?.trim() || undefined),
   CLIENT_URL: urlFromEnv('http://localhost:5173'),
   API_PUBLIC_URL: urlFromEnv('http://localhost:5000'),
 });
