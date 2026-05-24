@@ -61,6 +61,7 @@ async function presentConversation(conversation: IConversationDocument) {
     id: String(conversation._id),
     type: conversation.type,
     subject: conversation.subject,
+    displayTitle: conversation.displayTitle,
     participantUserIds: conversation.participantUserIds.map(String),
     participants: participants.map(userSummary),
     insurer: insurer
@@ -289,4 +290,33 @@ export async function markConversationRead(req: AuthenticatedRequest, res: Respo
       conversation: await presentConversation(conversation),
     })
   );
+}
+
+export async function updateConversation(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const conversation = await getConversationForUser(req);
+  const displayTitle = req.body.displayTitle as string | null | undefined;
+
+  if (displayTitle === null || displayTitle === '') {
+    conversation.displayTitle = undefined;
+  } else if (typeof displayTitle === 'string') {
+    const trimmed = displayTitle.trim();
+    conversation.displayTitle = trimmed || undefined;
+  }
+
+  await conversation.save();
+
+  res.status(200).json(
+    successResponse('Conversation updated', {
+      conversation: await presentConversation(conversation),
+    })
+  );
+}
+
+export async function deleteConversation(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const conversation = await getConversationForUser(req);
+
+  await Message.deleteMany({ conversationId: conversation._id });
+  await conversation.deleteOne();
+
+  res.status(200).json(successResponse('Conversation deleted'));
 }

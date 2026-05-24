@@ -42,6 +42,15 @@ export const createConversationValidators = [
     .withMessage('Initial message must be between 1 and 2000 characters'),
 ];
 
+export const updateConversationValidators = [
+  conversationIdParamValidator,
+  body('displayTitle')
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 120 })
+    .withMessage('Display title must be at most 120 characters'),
+];
+
 export const sendMessageValidators = [
   conversationIdParamValidator,
   body('body')

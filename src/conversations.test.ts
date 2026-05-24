@@ -127,4 +127,34 @@ describe('Messaging conversations', () => {
       )
     ).toBe(true);
   });
+
+  it('lets staff rename and delete a support conversation', async () => {
+    const createRes = await request(app)
+      .post('/api/conversations')
+      .set('Authorization', `Bearer ${seekerToken}`)
+      .send({
+        type: 'user_support',
+        subject: 'Need help',
+        initialMessage: 'I need help with my purchase.',
+      });
+
+    expect(createRes.status).toBe(201);
+    const conversationId = createRes.body.data.conversation.id as string;
+
+    const renameRes = await request(app)
+      .patch(`/api/conversations/${conversationId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ displayTitle: 'Seeker support thread' });
+
+    expect(renameRes.status).toBe(200);
+    expect(renameRes.body.data.conversation.displayTitle).toBe('Seeker support thread');
+
+    const deleteRes = await request(app)
+      .delete(`/api/conversations/${conversationId}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+
+    expect(deleteRes.status).toBe(200);
+    expect(await Conversation.countDocuments({ _id: conversationId })).toBe(0);
+    expect(await Message.countDocuments({ conversationId })).toBe(0);
+  });
 });
