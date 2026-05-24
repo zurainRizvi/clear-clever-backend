@@ -1,15 +1,19 @@
 import type { Response } from 'express';
 import { ADMIN_ROLES } from '../constants/roles';
 import type { UserRole } from '../constants/roles';
+import { ClaimRequest } from '../models/ClaimRequest';
+import { Conversation } from '../models/Conversation';
 import { InsurerProfile } from '../models/InsurerProfile';
 import { Lead } from '../models/Lead';
 import { Notification } from '../models/Notification';
 import { Policy } from '../models/Policy';
+import { Purchase } from '../models/Purchase';
 import { User } from '../models/User';
 import type { AuthenticatedRequest } from '../middleware/authenticate';
 import { enrichPolicies } from '../services/policyPresentation';
 import { toInsurerPolicySummary } from '../services/insurerContext';
 import { sanitizeUser } from '../services/auth';
+import { deleteInsurerAccountPermanently } from '../services/insurerDeletion';
 import { AppError, successResponse } from '../utils/apiResponse';
 
 export async function listPendingPolicies(
@@ -193,7 +197,186 @@ export async function reactivateUser(req: AuthenticatedRequest, res: Response): 
   );
 }
 
-export async function getAnalytics(_req: AuthenticatedRequest, res: Response): Promise<void> {
+function assertSuperadmin(req: AuthenticatedRequest): void {
+  if (req.user!.role !== 'superadmin') {
+    throw new AppError(403, 'Only a superadmin may perform this action');
+  }
+}
+
+async function loadInsurerTarget(userId: string) {
+  const target = await User.findById(userId);
+  if (!target || target.role !== 'insurer') {
+    throw new AppError(404, 'Insurance provider not found');
+  }
+  const profile = await InsurerProfile.findOne({ userId: target._id });
+  return { target, profile };
+}
+
+export async function listInsurers(_req: AuthenticatedRequest, res: Response): Promise<void> {
+  const insurers = await User.find({ role: 'insurer' }).sort({ createdAt: -1 });
+  const profiles = await InsurerProfile.find({
+    userId: { $in: insurers.map((insurer) => insurer._id) },
+  });
+  const profileByUserId = new Map(profiles.map((profile) => [String(profile.userId), profile]));
+  const profileIds = profiles.map((profile) => profile._id);
+  const pendingByProfile = await Policy.aggregate<{ _id: typeof profileIds[number]; count: number }>([
+    { $match: { insurerProfileId: { $in: profileIds }, status: 'pending' } },
+    { $group: { _id: '$insurerProfileId', count: { $sum: 1 } } },
+  ]);
+  const pendingMap = new Map(pendingByProfile.map((row) => [String(row._id), row.count]));
+
+  res.status(200).json(
+    successResponse('Insurance providers retrieved', {
+      count: insurers.length,
+      insurers: insurers.map((insurer) => {
+        const profile = profileByUserId.get(String(insurer._id));
+        return {
+          user: sanitizeUser(insurer),
+          profile: profile
+            ? {
+                id: String(profile._id),
+                companyName: profile.companyName,
+                slug: profile.slug,
+                contactEmail: profile.contactEmail,
+                contactPhone: profile.contactPhone,
+              }
+            : null,
+          pendingPolicies: profile ? pendingMap.get(String(profile._id)) ?? 0 : 0,
+        };
+      }),
+    })
+  );
+}
+
+export async function approveInsurer(req: AuthenticatedRequest, res: Response): Promise<void> {
+  assertSuperadmin(req);
+  const { target, profile } = await loadInsurerTarget(String(req.params.id));
+
+  if (target.status === 'active') {
+    res.status(200).json(
+      successResponse('Provider is already approved', {
+        user: sanitizeUser(target),
+        profile: profile
+          ? { id: String(profile._id), companyName: profile.companyName, slug: profile.slug }
+          : null,
+      })
+    );
+    return;
+  }
+
+  if (target.status === 'inactive') {
+    throw new AppError(
+      400,
+      'This provider was rejected or removed. Permanent deletion is required before they can re-apply with a new account.'
+    );
+  }
+
+  target.status = 'active';
+  await target.save();
+
+  if (profile) {
+    await Notification.create({
+      userId: target._id,
+      type: 'account_review',
+      title: 'Provider account approved',
+      body: `Your ClearClever provider account for ${profile.companyName} is now active. You can sign in and manage policies.`,
+      metadata: { insurerProfileId: String(profile._id), status: 'approved' },
+    });
+  }
+
+  res.status(200).json(
+    successResponse('Insurance provider approved', {
+      user: sanitizeUser(target),
+      profile: profile
+        ? { id: String(profile._id), companyName: profile.companyName, slug: profile.slug }
+        : null,
+    })
+  );
+}
+
+export async function rejectInsurer(req: AuthenticatedRequest, res: Response): Promise<void> {
+  assertSuperadmin(req);
+  const { target, profile } = await loadInsurerTarget(String(req.params.id));
+
+  if (target.status !== 'pendingVerification') {
+    throw new AppError(400, 'Only pending provider applications can be rejected');
+  }
+
+  const { reason } = req.body as { reason?: string };
+  target.status = 'inactive';
+  await target.save();
+
+  if (profile) {
+    const reasonText = reason?.trim()
+      ? ` Reason: ${reason.trim()}`
+      : ' Contact support if you have questions.';
+    await Notification.create({
+      userId: target._id,
+      type: 'account_review',
+      title: 'Provider application not approved',
+      body: `Your provider application for ${profile.companyName} was not approved.${reasonText}`,
+      metadata: {
+        insurerProfileId: String(profile._id),
+        status: 'rejected',
+        rejectionReason: reason?.trim(),
+      },
+    });
+  }
+
+  res.status(200).json(
+    successResponse('Insurance provider rejected', {
+      user: sanitizeUser(target),
+    })
+  );
+}
+
+export async function revokeInsurer(req: AuthenticatedRequest, res: Response): Promise<void> {
+  assertSuperadmin(req);
+  const { target, profile } = await loadInsurerTarget(String(req.params.id));
+
+  if (target.status !== 'active') {
+    throw new AppError(400, 'Only approved providers can be removed from the platform');
+  }
+
+  target.status = 'inactive';
+  await target.save();
+
+  if (profile) {
+    await Notification.create({
+      userId: target._id,
+      type: 'account_review',
+      title: 'Provider access removed',
+      body: `Your ClearClever provider account for ${profile.companyName} has been removed. Sign-in is disabled until a super admin reactivates or deletes the account.`,
+      metadata: { insurerProfileId: String(profile._id), status: 'revoked' },
+    });
+  }
+
+  res.status(200).json(
+    successResponse('Insurance provider removed from platform', {
+      user: sanitizeUser(target),
+    })
+  );
+}
+
+export async function deleteInsurerPermanently(
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> {
+  assertSuperadmin(req);
+  const { target } = await loadInsurerTarget(String(req.params.id));
+
+  await deleteInsurerAccountPermanently(target._id);
+
+  res.status(200).json(
+    successResponse('Insurance provider permanently deleted', {
+      deletedUserId: String(target._id),
+      message:
+        'The provider account and all related data were permanently removed. They must create a new account to return.',
+    })
+  );
+}
+
+export async function getAnalytics(req: AuthenticatedRequest, res: Response): Promise<void> {
   const [
     totalUsers,
     activeUsers,
@@ -222,24 +405,62 @@ export async function getAnalytics(_req: AuthenticatedRequest, res: Response): P
     usersByRole.map((entry) => [entry._id, entry.count])
   ) as Record<UserRole, number>;
 
-  res.status(200).json(
-    successResponse('Analytics retrieved', {
-      users: {
-        total: totalUsers,
-        active: activeUsers,
-        inactive: inactiveUsers,
-        byRole: roleCounts,
+  const payload: Record<string, unknown> = {
+    users: {
+      total: totalUsers,
+      active: activeUsers,
+      inactive: inactiveUsers,
+      byRole: roleCounts,
+    },
+    policies: {
+      pending: policiesPending,
+      approved: policiesApproved,
+      rejected: policiesRejected,
+      total: policiesPending + policiesApproved + policiesRejected,
+    },
+    leads: {
+      total: totalLeads,
+      new: leadsNew,
+    },
+  };
+
+  if (req.user!.role === 'superadmin') {
+    const [
+      insurersTotal,
+      insurersPending,
+      insurersActive,
+      insurersInactive,
+      staffAdmins,
+      purchasesTotal,
+      claimsTotal,
+      conversationsTotal,
+    ] = await Promise.all([
+      User.countDocuments({ role: 'insurer' }),
+      User.countDocuments({ role: 'insurer', status: 'pendingVerification' }),
+      User.countDocuments({ role: 'insurer', status: 'active' }),
+      User.countDocuments({ role: 'insurer', status: 'inactive' }),
+      User.countDocuments({ role: { $in: ['admin', 'superadmin'] } }),
+      Purchase.countDocuments(),
+      ClaimRequest.countDocuments(),
+      Conversation.countDocuments(),
+    ]);
+
+    payload.platform = {
+      insurers: {
+        total: insurersTotal,
+        pendingVerification: insurersPending,
+        active: insurersActive,
+        inactive: insurersInactive,
       },
-      policies: {
-        pending: policiesPending,
-        approved: policiesApproved,
-        rejected: policiesRejected,
-        total: policiesPending + policiesApproved + policiesRejected,
+      staff: {
+        admins: staffAdmins,
+        superadmins: roleCounts.superadmin ?? 0,
       },
-      leads: {
-        total: totalLeads,
-        new: leadsNew,
-      },
-    })
-  );
+      purchases: purchasesTotal,
+      claims: claimsTotal,
+      conversations: conversationsTotal,
+    };
+  }
+
+  res.status(200).json(successResponse('Analytics retrieved', payload));
 }

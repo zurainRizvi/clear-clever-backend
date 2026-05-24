@@ -1,14 +1,19 @@
 import { Router } from 'express';
 import { asyncHandler } from '../controllers/authController';
 import {
+  approveInsurer,
   approvePolicy,
   changeUserRole,
   deactivateUser,
+  deleteInsurerPermanently,
   reactivateUser,
   getAnalytics,
+  listInsurers,
   listPendingPolicies,
   listUsers,
+  rejectInsurer,
   rejectPolicy,
+  revokeInsurer,
 } from '../controllers/adminController';
 import { authenticate } from '../middleware/authenticate';
 import { authorize } from '../middleware/authorize';
@@ -18,6 +23,7 @@ import {
   adminPolicyIdValidator,
   changeUserRoleValidators,
   adminUserIdValidator,
+  rejectInsurerValidators,
   rejectPolicyValidators,
 } from '../validators/adminValidators';
 
@@ -55,3 +61,29 @@ adminRouter.patch(
 );
 
 adminRouter.get('/analytics', asyncHandler(getAnalytics));
+
+adminRouter.get('/insurers', asyncHandler(listInsurers));
+adminRouter.post(
+  '/insurers/:id/approve',
+  authorize('superadmin'),
+  validate([adminUserIdValidator]),
+  asyncHandler(approveInsurer)
+);
+adminRouter.post(
+  '/insurers/:id/reject',
+  authorize('superadmin'),
+  validate(rejectInsurerValidators),
+  asyncHandler(rejectInsurer)
+);
+adminRouter.post(
+  '/insurers/:id/revoke',
+  authorize('superadmin'),
+  validate([adminUserIdValidator]),
+  asyncHandler(revokeInsurer)
+);
+adminRouter.delete(
+  '/insurers/:id',
+  authorize('superadmin'),
+  validate([adminUserIdValidator]),
+  asyncHandler(deleteInsurerPermanently)
+);

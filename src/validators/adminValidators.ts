@@ -31,3 +31,8 @@ export const changeUserRoleValidators = [
     .isIn(staffAssignableRoles)
     .withMessage(`Role must be one of: ${staffAssignableRoles.join(', ')}`),
 ];
+
+export const rejectInsurerValidators = [
+  adminUserIdValidator,
+  body('reason').optional().trim().isLength({ max: 1000 }).withMessage('Reason must be at most 1000 characters'),
+];

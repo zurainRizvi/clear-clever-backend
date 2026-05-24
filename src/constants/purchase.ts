@@ -9,6 +9,7 @@ export const NOTIFICATION_TYPES = [
   'claim_submitted',
   'claim_status',
   'policy_review',
+  'account_review',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 

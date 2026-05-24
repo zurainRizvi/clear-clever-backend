@@ -11,6 +11,7 @@ import { Purchase } from './models/Purchase';
 import { User } from './models/User';
 import { SEED_DEFAULT_PASSWORD } from './seed/userSeedData';
 import { seedAll } from './seed/seedCatalog';
+import { hashPassword } from './services/auth';
 import { applyTestEnv } from './test/setupEnv';
 import {
   clearDatabase,
@@ -498,6 +499,123 @@ describe('Module 6 — Insurer & admin modules', () => {
         .set('Authorization', `Bearer ${superToken}`);
 
       expect(res.status).toBe(200);
+      expect(res.body.data.platform).toBeDefined();
+      expect(res.body.data.platform.insurers.total).toBeGreaterThan(0);
+    });
+
+    it('returns 403 when admin tries superadmin-only insurer delete', async () => {
+      const insurer = await User.findOne({ email: 'insurer.adamjee@clearclever.com' });
+
+      const res = await request(app)
+        .delete(`/api/admin/insurers/${insurer!._id}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(403);
+    });
+  });
+
+  describe('Superadmin provider management', () => {
+    let superToken = '';
+
+    beforeEach(async () => {
+      superToken = await login('superadmin@clearclever.com');
+    });
+
+    it('lists insurers with profile summaries', async () => {
+      const res = await request(app)
+        .get('/api/admin/insurers')
+        .set('Authorization', `Bearer ${superToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.insurers.length).toBeGreaterThan(0);
+      expect(res.body.data.insurers[0].profile?.companyName).toBeTruthy();
+    });
+
+    it('approves, revokes, and permanently deletes a pending provider', async () => {
+      const pendingUser = await User.create({
+        fullName: 'Pending Provider Co',
+        email: 'pending.provider@clearclever.com',
+        phone: '+923099887766',
+        passwordHash: await hashPassword(SEED_DEFAULT_PASSWORD),
+        role: 'insurer',
+        status: 'pendingVerification',
+      });
+      const pendingProfile = await InsurerProfile.create({
+        userId: pendingUser._id,
+        companyName: 'Pending Provider Co',
+        slug: 'pending-provider-co',
+        contactEmail: 'pending.provider@clearclever.com',
+        contactPhone: '+923099887766',
+      });
+      await Policy.create({
+        insurerProfileId: pendingProfile._id,
+        slug: 'pending-demo-policy',
+        name: 'Pending Demo Policy',
+        category: 'auto',
+        description: 'Demo policy for provider approval tests.',
+        premiumMonthlyPkr: 3000,
+        premiumYearlyPkr: 33000,
+        coverageSummary: 'Test cover',
+        features: ['Test'],
+        deductiblePkr: 5000,
+        questions: [],
+        status: 'pending',
+      });
+
+      const approveRes = await request(app)
+        .post(`/api/admin/insurers/${pendingUser._id}/approve`)
+        .set('Authorization', `Bearer ${superToken}`);
+
+      expect(approveRes.status).toBe(200);
+      expect(approveRes.body.data.user.status).toBe('active');
+
+      const revokeRes = await request(app)
+        .post(`/api/admin/insurers/${pendingUser._id}/revoke`)
+        .set('Authorization', `Bearer ${superToken}`);
+
+      expect(revokeRes.status).toBe(200);
+      expect(revokeRes.body.data.user.status).toBe('inactive');
+
+      const deleteRes = await request(app)
+        .delete(`/api/admin/insurers/${pendingUser._id}`)
+        .set('Authorization', `Bearer ${superToken}`);
+
+      expect(deleteRes.status).toBe(200);
+      expect(await User.findById(pendingUser._id)).toBeNull();
+      expect(await InsurerProfile.findById(pendingProfile._id)).toBeNull();
+      expect(await Policy.findOne({ slug: 'pending-demo-policy' })).toBeNull();
+    });
+
+    it('rejects a pending provider application', async () => {
+      const pendingUser = await User.create({
+        fullName: 'Reject Provider Co',
+        email: 'reject.provider@clearclever.com',
+        phone: '+923088776655',
+        passwordHash: await hashPassword(SEED_DEFAULT_PASSWORD),
+        role: 'insurer',
+        status: 'pendingVerification',
+      });
+      await InsurerProfile.create({
+        userId: pendingUser._id,
+        companyName: 'Reject Provider Co',
+        slug: 'reject-provider-co',
+        contactEmail: 'reject.provider@clearclever.com',
+        contactPhone: '+923088776655',
+      });
+
+      const res = await request(app)
+        .post(`/api/admin/insurers/${pendingUser._id}/reject`)
+        .set('Authorization', `Bearer ${superToken}`)
+        .send({ reason: 'Incomplete documentation' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.user.status).toBe('inactive');
+
+      const notice = await Notification.findOne({
+        userId: pendingUser._id,
+        type: 'account_review',
+      });
+      expect(notice?.body).toContain('Incomplete documentation');
     });
   });
 });
