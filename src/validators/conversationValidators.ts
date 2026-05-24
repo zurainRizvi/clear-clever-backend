@@ -45,7 +45,27 @@ export const createConversationValidators = [
 export const sendMessageValidators = [
   conversationIdParamValidator,
   body('body')
+    .optional()
     .trim()
-    .isLength({ min: 1, max: 2000 })
-    .withMessage('Message must be between 1 and 2000 characters'),
+    .isLength({ max: 2000 })
+    .withMessage('Message must be at most 2000 characters'),
+  body('attachments')
+    .optional()
+    .isArray({ max: 3 })
+    .withMessage('Attachments must be an array of up to 3 files'),
+  body('attachments.*.fileName')
+    .optional()
+    .trim()
+    .isLength({ min: 1, max: 255 })
+    .withMessage('Attachment filename is required and must be at most 255 characters'),
+  body('attachments.*.mimeType')
+    .optional()
+    .trim()
+    .isLength({ min: 1, max: 120 })
+    .withMessage('Attachment mimeType is required'),
+  body('attachments.*.dataUrl')
+    .optional()
+    .trim()
+    .isLength({ min: 20, max: 7_000_000 })
+    .withMessage('Attachment data is invalid'),
 ];

@@ -82,12 +82,17 @@ async function presentConversation(conversation: IConversationDocument) {
 async function createMessage(
   conversation: IConversationDocument,
   senderUserId: Types.ObjectId,
-  body: string
+  body: string,
+  attachments?: { fileName: string; mimeType: string; dataUrl: string }[]
 ) {
+  if (!body.trim() && (!attachments || attachments.length === 0)) {
+    throw new AppError(400, 'Message text or attachment is required');
+  }
   const message = await Message.create({
     conversationId: conversation._id,
     senderUserId,
     body: body.trim(),
+    attachments,
   });
 
   conversation.lastMessagePreview = message.body.slice(0, 240);
@@ -103,6 +108,7 @@ function presentMessage(message: {
   conversationId: Types.ObjectId;
   senderUserId: Types.ObjectId;
   body: string;
+  attachments?: { fileName: string; mimeType: string; dataUrl: string }[];
   createdAt: Date;
   updatedAt: Date;
 }) {
@@ -111,6 +117,7 @@ function presentMessage(message: {
     conversationId: String(message.conversationId),
     senderUserId: String(message.senderUserId),
     body: message.body,
+    attachments: message.attachments,
     createdAt: message.createdAt.toISOString(),
     updatedAt: message.updatedAt.toISOString(),
   };
@@ -257,7 +264,9 @@ export async function listMessages(req: AuthenticatedRequest, res: Response): Pr
 
 export async function sendMessage(req: AuthenticatedRequest, res: Response): Promise<void> {
   const conversation = await getConversationForUser(req);
-  const message = await createMessage(conversation, req.user!._id, String(req.body.body));
+  const body = String(req.body.body ?? '');
+  const attachments = Array.isArray(req.body.attachments) ? req.body.attachments : undefined;
+  const message = await createMessage(conversation, req.user!._id, body, attachments);
 
   res.status(201).json(
     successResponse('Message sent', {

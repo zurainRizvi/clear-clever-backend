@@ -36,7 +36,10 @@ export async function signup(req: AuthenticatedRequest, res: Response): Promise<
 
   const payload: Record<string, unknown> = {
     email: normalizedEmail,
-    message: 'Verification code sent',
+    emailSent: delivery.emailSent,
+    message: delivery.emailSent
+      ? 'Verification code sent'
+      : 'Account created. Check your inbox or resend the code on the next screen.',
   };
   if (
     delivery.debugCode &&
@@ -67,7 +70,10 @@ export async function sendOtp(req: AuthenticatedRequest, res: Response): Promise
 
   const delivery = await createAndSendOtp(env, normalizedEmail, purpose);
 
-  const payload: Record<string, unknown> = { email: normalizedEmail };
+  const payload: Record<string, unknown> = {
+    email: normalizedEmail,
+    emailSent: delivery.emailSent,
+  };
   if (
     delivery.debugCode &&
     (env.NODE_ENV === 'development' || env.NODE_ENV === 'test') &&

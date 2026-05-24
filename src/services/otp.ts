@@ -27,6 +27,8 @@ export async function verifyOtpCode(code: string, codeHash: string): Promise<boo
 export interface OtpDeliveryResult {
   /** Dev-only when OTP_DEBUG=true and SMTP not configured */
   debugCode?: string;
+  /** Whether the OTP was delivered via SMTP */
+  emailSent: boolean;
 }
 
 export async function createAndSendOtp(
@@ -69,22 +71,27 @@ export async function createAndSendOtp(
   const smtpReady = isSmtpConfigured(env);
 
   if (smtpReady) {
-    await sendOtpEmail(env, normalizedEmail, code, purpose);
-    return {};
+    try {
+      await sendOtpEmail(env, normalizedEmail, code, purpose);
+      return { emailSent: true };
+    } catch (error) {
+      console.error('[ClearClever] Failed to send OTP email:', error);
+      return { emailSent: false };
+    }
   }
 
   if ((env.NODE_ENV === 'development' || env.NODE_ENV === 'test') && env.OTP_DEBUG) {
     if (env.NODE_ENV === 'development') {
       console.log(`[ClearClever OTP:${purpose}] ${normalizedEmail} → ${code}`);
     }
-    return { debugCode: code };
+    return { debugCode: code, emailSent: false };
   }
 
   if (env.NODE_ENV === 'production') {
-    throw new AppError(
-      503,
-      'Email service not configured. Please contact support or try again later.'
+    console.error(
+      '[ClearClever] SMTP not configured in production — OTP saved but email was not sent'
     );
+    return { emailSent: false };
   }
 
   throw new AppError(

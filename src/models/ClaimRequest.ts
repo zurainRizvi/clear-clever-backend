@@ -9,6 +9,10 @@ export const CLAIM_TYPES = [
   'damage',
   'medical',
   'pet_care',
+  'home',
+  'auto',
+  'life',
+  'pet',
   'other',
 ] as const;
 export type ClaimType = (typeof CLAIM_TYPES)[number];

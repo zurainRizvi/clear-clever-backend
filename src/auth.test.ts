@@ -201,7 +201,9 @@ describe('Module 2 — Authentication & OTP', () => {
       email: 'prod-test@example.com',
     });
 
-    expect(res.status).toBe(503);
+    expect(res.status).toBe(201);
+    expect(res.body.data.emailSent).toBe(false);
+    expect(res.body.data.debugCode).toBeUndefined();
     expect(JSON.stringify(res.body)).not.toMatch(/\d{6}/);
   });
 
