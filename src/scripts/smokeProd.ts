@@ -39,7 +39,31 @@ async function main(): Promise<void> {
     console.error('[smoke:prod] Health check failed:', health.status, health.body);
     process.exit(1);
   }
-  console.log('[smoke:prod] Health OK');
+
+  const healthData = health.body.data as Record<string, unknown> | undefined;
+  const email = healthData?.email as
+    | { provider?: string; configured?: boolean; ready?: boolean; error?: string }
+    | undefined;
+
+  if (!email?.configured) {
+    console.error('[smoke:prod] Email not configured on server. Set BREVO_API_KEY on Render (see docs/DEPLOYMENT.md).');
+    process.exit(1);
+  }
+
+  if (email.provider === 'smtp' && email.ready === false) {
+    console.error(
+      '[smoke:prod] Gmail SMTP is blocked on Render free tier. Add BREVO_API_KEY + BREVO_SENDER_EMAIL, then Manual Deploy.'
+    );
+    console.error(`  Health: provider=${email.provider} ready=${email.ready} error=${email.error ?? 'n/a'}`);
+    process.exit(1);
+  }
+
+  if (email.provider === 'brevo' && email.ready !== true) {
+    console.error('[smoke:prod] Brevo is configured but not ready:', email.error ?? 'unknown');
+    process.exit(1);
+  }
+
+  console.log(`[smoke:prod] Health OK (email: ${email.provider}, ready: ${email.ready})`);
 
   const login = await requestJson('POST', '/api/auth/login', {
     email: SMOKE_EMAIL,
