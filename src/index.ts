@@ -2,9 +2,9 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { createApp } from './app';
 import { connectDatabase, disconnectDatabase } from './config/db';
-import { isSmtpConfigured, loadEnv } from './config/env';
+import { loadEnv } from './config/env';
 import { setSmtpProbeResult } from './config/smtpStatus';
-import { probeSmtp } from './services/mail';
+import { isOutboundEmailConfigured, probeOutboundEmail } from './services/emailDelivery';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
@@ -14,19 +14,21 @@ async function main(): Promise<void> {
 
   await connectDatabase(env);
 
-  if (isSmtpConfigured(env)) {
-    const probe = await probeSmtp(env);
+  if (isOutboundEmailConfigured(env)) {
+    const probe = await probeOutboundEmail(env);
     setSmtpProbeResult(probe);
     if (probe.ok) {
-      console.log('[ClearClever] SMTP connection verified');
+      console.log(`[ClearClever] Email provider verified (${probe.provider})`);
     } else {
-      console.error('[ClearClever] SMTP verification failed:', probe.error);
-      console.error(
-        '[ClearClever] OTP emails will not send until SMTP_PASS is a valid Gmail App Password on Render.'
-      );
+      console.error(`[ClearClever] Email provider (${probe.provider}) failed:`, probe.error);
+      if (probe.provider === 'smtp' && env.NODE_ENV === 'production') {
+        console.error(
+          '[ClearClever] Render free tier blocks SMTP. Add BREVO_API_KEY (see docs/DEPLOYMENT.md) or upgrade Render.'
+        );
+      }
     }
   } else if (env.NODE_ENV === 'production') {
-    console.error('[ClearClever] SMTP is not configured — OTP emails will not be sent');
+    console.error('[ClearClever] No email provider configured — OTP emails will not be sent');
   }
 
   const server = app.listen(env.PORT, '0.0.0.0', () => {

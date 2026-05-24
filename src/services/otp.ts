@@ -1,11 +1,10 @@
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import type { Env } from '../config/env';
-import { isSmtpConfigured } from '../config/env';
 import type { OtpPurpose } from '../constants/roles';
 import { OtpVerification } from '../models/OtpVerification';
 import { AppError } from '../utils/apiResponse';
-import { formatSmtpError, sendOtpEmail } from './mail';
+import { formatEmailError, isOutboundEmailConfigured, sendOtpEmailDelivery } from './emailDelivery';
 
 const OTP_TTL_MS = 10 * 60 * 1000;
 const RESEND_COOLDOWN_MS = 60 * 1000;
@@ -68,14 +67,14 @@ export async function createAndSendOtp(
     lastSentAt: now,
   });
 
-  const smtpReady = isSmtpConfigured(env);
+  const emailReady = isOutboundEmailConfigured(env);
 
-  if (smtpReady) {
+  if (emailReady) {
     try {
-      await sendOtpEmail(env, normalizedEmail, code, purpose);
+      await sendOtpEmailDelivery(env, normalizedEmail, code, purpose);
       return { emailSent: true };
     } catch (error) {
-      console.error('[ClearClever] Failed to send OTP email:', formatSmtpError(error));
+      console.error('[ClearClever] Failed to send OTP email:', formatEmailError(error));
       return { emailSent: false };
     }
   }

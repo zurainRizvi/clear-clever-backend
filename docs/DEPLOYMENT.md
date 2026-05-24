@@ -79,11 +79,40 @@ Do **not** set `OTP_DEBUG=true` on Render.
 
 **Module 7:** If `API_PUBLIC_URL` is missing, purchase `redirectUrl` will incorrectly point to `http://localhost:5000` and affiliate checkout will break. Host-only values like `clear-clever-backend.onrender.com` are auto-prefixed with `https://` on startup.
 
-### Gmail App Password (OTP)
+### OTP email on Render (important)
+
+**Render free web services block outbound SMTP** (ports 25, 465, 587). Gmail SMTP works on your laptop but **times out on Render free tier** — this is a platform rule, not a bug in your app password.
+
+Choose one:
+
+| Option | Cost | Setup |
+|--------|------|--------|
+| **A. Brevo (recommended)** | Free (~300 emails/day) | HTTPS API — works on Render free |
+| **B. Upgrade Render** | Paid instance | Keep Gmail `SMTP_*` vars |
+| **C. Local dev only** | — | `OTP_DEBUG=true` (never on Render) |
+
+#### Option A — Brevo (free, works on Render free)
+
+1. Sign up at [brevo.com](https://www.brevo.com).
+2. **Senders** → verify your personal Gmail (the address users will see as “from”).
+3. **SMTP & API** → **API Keys** → create a key.
+4. On Render, add:
+
+| Variable | Value |
+|----------|--------|
+| `BREVO_API_KEY` | your `xkeysib-...` key |
+| `BREVO_SENDER_EMAIL` | same Gmail you verified in Brevo |
+| `BREVO_SENDER_NAME` | `ClearClever` |
+
+5. **Manual Deploy**. Check `GET /api/health` → `data.email.provider` should be `"brevo"` and `ready: true`.
+
+You can keep `SMTP_*` for local development; production uses Brevo when `BREVO_API_KEY` is set.
+
+#### Option B — Gmail SMTP (paid Render only)
 
 1. Google Account → **Security** → enable **2-Step Verification**.
 2. **App passwords** → Mail → generate 16-character password.
-3. Use that value for `SMTP_PASS` on Render.
+3. Use that value for `SMTP_PASS` on a **paid** Render web service.
 
 ### After first deploy
 
@@ -131,7 +160,8 @@ Comma-separated, no trailing slashes.
 | Login 403 “verify email” | Re-run `npm run seed` so status is `active` |
 | OTP signup fails on Render | Configure SMTP; never use `OTP_DEBUG` in production |
 | Signup/sign-in stuck on “Creating…” / “Signing in…” | Usually SMTP blocking the API for ~2 min. Deploy latest backend (fast signup + 10s SMTP cap). Check Render logs for `OTP email not delivered` |
-| OTP never arrives (`emailSent: false`) | Use a **Gmail App Password** (not your normal password). `SMTP_FROM` must be `ClearClever <same@gmail.as.SMTP_USER>`. Redeploy after saving env vars |
+| OTP never arrives (`emailSent: false`) | On **Render free**: use **Brevo** (`BREVO_API_KEY`), not Gmail SMTP. For paid Render + Gmail: App Password in `SMTP_PASS`, `SMTP_FROM` = `ClearClever <same@gmail.as.SMTP_USER>` |
+| `/api/health` → `email.ready: false`, SMTP timeout | Render free blocks SMTP — add `BREVO_API_KEY` or upgrade Render |
 | CORS error in browser | Add frontend URL to `CORS_ORIGINS`, redeploy API |
 | Deploy fails on start / “Invalid environment” | `CLIENT_URL` / `API_PUBLIC_URL` must be valid URLs — use `https://...` or host-only (`your-app.vercel.app`); avoid bare `localhost` on Render |
 | Purchase redirect goes to localhost | Set `API_PUBLIC_URL` on Render to your service URL, **Save**, then **Manual Deploy** |

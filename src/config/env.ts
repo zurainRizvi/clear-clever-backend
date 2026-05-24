@@ -63,6 +63,19 @@ const envSchema = z.object({
     .string()
     .optional()
     .transform((v) => stripEnvValue(v)),
+  /** Brevo (HTTPS) — required for OTP on Render free tier (SMTP ports blocked). */
+  BREVO_API_KEY: z
+    .string()
+    .optional()
+    .transform((v) => stripEnvValue(v)),
+  BREVO_SENDER_EMAIL: z
+    .string()
+    .optional()
+    .transform((v) => stripEnvValue(v)),
+  BREVO_SENDER_NAME: z
+    .string()
+    .optional()
+    .transform((v) => stripEnvValue(v)),
   CLIENT_URL: urlFromEnv('http://localhost:5173'),
   API_PUBLIC_URL: urlFromEnv('http://localhost:5000'),
 });
@@ -94,6 +107,13 @@ export function loadEnv(): Env {
   cached = parsed.data as Env;
 
   if (cached.NODE_ENV === 'production') {
+    const smtpOnly =
+      Boolean(cached.SMTP_HOST && cached.SMTP_USER && cached.SMTP_PASS) && !cached.BREVO_API_KEY;
+    if (smtpOnly) {
+      console.warn(
+        '[ClearClever] WARNING: Render free tier blocks Gmail SMTP (ports 587/465). Add BREVO_API_KEY or upgrade to a paid Render instance — see docs/DEPLOYMENT.md'
+      );
+    }
     const localhostPattern = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
     if (localhostPattern.test(cached.API_PUBLIC_URL)) {
       console.warn(
@@ -116,4 +136,8 @@ export function resetEnvCache(): void {
 
 export function isSmtpConfigured(env: Env): boolean {
   return Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS);
+}
+
+export function isBrevoConfigured(env: Env): boolean {
+  return Boolean(env.BREVO_API_KEY);
 }

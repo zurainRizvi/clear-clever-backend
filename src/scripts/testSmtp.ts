@@ -7,8 +7,13 @@ import path from 'path';
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
-import { isSmtpConfigured, loadEnv, resetEnvCache } from '../config/env';
-import { probeSmtp, sendOtpEmail } from '../services/mail';
+import { loadEnv, resetEnvCache } from '../config/env';
+import {
+  getEmailProvider,
+  isOutboundEmailConfigured,
+  probeOutboundEmail,
+  sendOtpEmailDelivery,
+} from '../services/emailDelivery';
 
 async function main(): Promise<void> {
   resetEnvCache();
@@ -16,20 +21,23 @@ async function main(): Promise<void> {
   const to = process.argv[2]?.trim();
 
   console.log('NODE_ENV:', env.NODE_ENV);
-  console.log('SMTP configured:', isSmtpConfigured(env));
-  if (!isSmtpConfigured(env)) {
-    console.error('Set SMTP_HOST, SMTP_USER, and SMTP_PASS in .env');
+  const provider = getEmailProvider(env);
+  console.log('Email provider:', provider);
+  console.log('Email configured:', isOutboundEmailConfigured(env));
+  if (!isOutboundEmailConfigured(env)) {
+    console.error('Set BREVO_API_KEY (Render) or SMTP_HOST/USER/PASS (local Gmail) in .env');
     process.exit(1);
   }
 
-  console.log('SMTP_HOST:', env.SMTP_HOST);
-  console.log('SMTP_PORT:', env.SMTP_PORT ?? 587);
-  console.log('SMTP_SECURE:', env.SMTP_SECURE ?? false);
-  console.log('SMTP_USER:', env.SMTP_USER);
-  console.log('SMTP_FROM:', env.SMTP_FROM ?? `(default: ClearClever <${env.SMTP_USER}>)`);
+  if (provider === 'smtp') {
+    console.log('SMTP_HOST:', env.SMTP_HOST);
+    console.log('SMTP_USER:', env.SMTP_USER);
+  } else {
+    console.log('BREVO_SENDER:', env.BREVO_SENDER_EMAIL ?? env.SMTP_USER);
+  }
 
-  console.log('\nVerifying SMTP connection...');
-  const probe = await probeSmtp(env);
+  console.log('\nVerifying email connection...');
+  const probe = await probeOutboundEmail(env);
   if (!probe.ok) {
     console.error('VERIFY FAILED:', probe.error);
     process.exit(1);
@@ -45,7 +53,7 @@ async function main(): Promise<void> {
   const code = '123456';
   console.log(`\nSending test OTP to ${to}...`);
   try {
-    await sendOtpEmail(env, to, code, 'signup');
+    await sendOtpEmailDelivery(env, to, code, 'signup');
     console.log('OK — email sent (check inbox and spam).');
   } catch (err) {
     console.error('FAILED:', err instanceof Error ? err.message : err);

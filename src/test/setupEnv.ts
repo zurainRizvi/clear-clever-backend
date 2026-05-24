@@ -16,5 +16,8 @@ export function applyTestEnv(overrides: Record<string, string> = {}): void {
   delete process.env.SMTP_HOST;
   delete process.env.SMTP_USER;
   delete process.env.SMTP_PASS;
+  delete process.env.BREVO_API_KEY;
+  delete process.env.BREVO_SENDER_EMAIL;
+  delete process.env.BREVO_SENDER_NAME;
   Object.assign(process.env, overrides);
 }

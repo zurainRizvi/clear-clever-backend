@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
-import { isSmtpConfigured, loadEnv } from '../config/env';
+import { isBrevoConfigured, isSmtpConfigured, loadEnv } from '../config/env';
 import type { AuthenticatedRequest } from '../middleware/authenticate';
 import { User } from '../models/User';
 import { comparePassword, hashPassword, sanitizeUser, signToken } from '../services/auth';
@@ -37,7 +37,8 @@ export async function signup(req: AuthenticatedRequest, res: Response): Promise<
   const awaitOtpForDebug =
     (env.NODE_ENV === 'development' || env.NODE_ENV === 'test') &&
     env.OTP_DEBUG &&
-    !isSmtpConfigured(env);
+    !isSmtpConfigured(env) &&
+    !isBrevoConfigured(env);
 
   let delivery: Awaited<ReturnType<typeof createAndSendOtp>> | undefined;
   if (awaitOtpForDebug) {
