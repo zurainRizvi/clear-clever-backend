@@ -6,6 +6,7 @@ export interface IPurchase {
   policyId: Types.ObjectId;
   insurerProfileId: Types.ObjectId;
   affiliateSlug: string;
+  checkoutTokenHash?: string;
   answers: Record<string, unknown>;
   status: PurchaseStatus;
   paymentProcessedAt?: Date;
@@ -28,6 +29,7 @@ const purchaseSchema = new Schema<IPurchaseDocument>(
       index: true,
     },
     affiliateSlug: { type: String, required: true, trim: true, lowercase: true },
+    checkoutTokenHash: { type: String, select: false },
     answers: { type: Schema.Types.Mixed, default: {} },
     status: { type: String, enum: PURCHASE_STATUSES, default: 'pending', index: true },
     paymentProcessedAt: { type: Date },

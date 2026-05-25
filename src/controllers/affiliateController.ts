@@ -3,6 +3,7 @@ import { loadEnv } from '../config/env';
 import { InsurerProfile } from '../models/InsurerProfile';
 import { Policy } from '../models/Policy';
 import { Purchase } from '../models/Purchase';
+import { verifyCheckoutToken } from '../services/checkoutToken';
 import { renderAffiliateErrorPage, renderAffiliatePage } from '../views/affiliatePage';
 
 export async function renderAffiliateWizard(req: Request, res: Response): Promise<void> {
@@ -11,21 +12,21 @@ export async function renderAffiliateWizard(req: Request, res: Response): Promis
   const purchaseId = typeof req.query.purchaseId === 'string' ? req.query.purchaseId : '';
   const token = typeof req.query.token === 'string' ? req.query.token : '';
 
-  if (!purchaseId) {
+  if (!purchaseId || !token) {
     res
       .status(400)
       .type('html')
       .send(
         renderAffiliateErrorPage(
           'Missing purchase reference',
-          'This checkout link is incomplete. Start again from Compare Policies on ClearClever.',
+          'This checkout link is incomplete or expired. Start again from Compare Policies on ClearClever.',
           env.CLIENT_URL
         )
       );
     return;
   }
 
-  const purchase = await Purchase.findById(purchaseId);
+  const purchase = await Purchase.findById(purchaseId).select('+checkoutTokenHash');
   if (!purchase) {
     res
       .status(404)
@@ -34,6 +35,20 @@ export async function renderAffiliateWizard(req: Request, res: Response): Promis
         renderAffiliateErrorPage(
           'Purchase not found',
           'We could not find this purchase. It may have expired or the link is invalid.',
+          env.CLIENT_URL
+        )
+      );
+    return;
+  }
+
+  if (!verifyCheckoutToken(token, purchase.checkoutTokenHash)) {
+    res
+      .status(401)
+      .type('html')
+      .send(
+        renderAffiliateErrorPage(
+          'Checkout link expired',
+          'This checkout link is no longer valid. Start again from Compare Policies on ClearClever.',
           env.CLIENT_URL
         )
       );

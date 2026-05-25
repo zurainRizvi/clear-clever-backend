@@ -6,7 +6,7 @@ import { InsurerProfile } from '../models/InsurerProfile';
 import { Notification } from '../models/Notification';
 import { Policy } from '../models/Policy';
 import { Purchase } from '../models/Purchase';
-import { signToken } from '../services/auth';
+import { createCheckoutToken } from '../services/checkoutToken';
 import { completePurchase } from '../services/purchaseCompletion';
 import { toPurchaseSummary } from '../services/purchasePresentation';
 import { AppError, successResponse } from '../utils/apiResponse';
@@ -28,19 +28,20 @@ export async function createPurchase(req: AuthenticatedRequest, res: Response): 
     throw new AppError(500, 'Policy insurer profile is missing');
   }
 
+  const checkoutToken = createCheckoutToken();
   const purchase = await Purchase.create({
     userId: req.user!._id,
     policyId: policy._id,
     insurerProfileId: insurer._id,
     affiliateSlug: insurer.slug,
+    checkoutTokenHash: checkoutToken.hash,
     answers: answers ?? {},
     status: 'pending',
   });
 
-  const token = signToken(env, req.user!);
   const redirectUrl = new URL(`${env.API_PUBLIC_URL}/affiliate/${insurer.slug}`);
   redirectUrl.searchParams.set('purchaseId', String(purchase._id));
-  redirectUrl.searchParams.set('token', token);
+  redirectUrl.searchParams.set('token', checkoutToken.token);
 
   res.status(201).json(
     successResponse('Purchase initiated', {

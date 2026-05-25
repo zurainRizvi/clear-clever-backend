@@ -6,7 +6,7 @@ import {
   processPayment,
 } from '../controllers/purchaseController';
 import { authenticate } from '../middleware/authenticate';
-import { authenticateQueryToken } from '../middleware/authenticateQueryToken';
+import { authenticateCheckoutToken } from '../middleware/authenticateCheckoutToken';
 import { validate } from '../middleware/validate';
 import {
   completePurchaseQueryValidators,
@@ -25,14 +25,14 @@ purchaseRouter.post(
 
 purchaseRouter.post(
   '/:id/process-payment',
-  authenticate,
+  authenticateCheckoutToken,
   validate(processPaymentValidators),
   asyncHandler(processPayment)
 );
 
 purchaseRouter.get(
   '/complete',
-  authenticateQueryToken,
+  authenticateCheckoutToken,
   validate(completePurchaseQueryValidators),
   asyncHandler(completePurchaseHandler)
 );

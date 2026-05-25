@@ -63,10 +63,14 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
       });
 
     expect(createRes.status).toBe(201);
+    const redirectUrl = createRes.body.data.redirectUrl as string;
+    const token = new URL(redirectUrl).searchParams.get('token');
+    expect(token).toBeTruthy();
+
     return {
       purchaseId: createRes.body.data.purchaseId as string,
-      redirectUrl: createRes.body.data.redirectUrl as string,
-      token: seekerToken,
+      redirectUrl,
+      token: token!,
     };
   }
 
@@ -79,10 +83,16 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
 
   describe('POST /api/purchase', () => {
     it('returns an absolute affiliate redirect URL', async () => {
-      const { redirectUrl } = await startPurchase();
+      const { redirectUrl, token } = await startPurchase();
       expect(redirectUrl).toContain('/affiliate/tpl-insurance');
       expect(redirectUrl).toContain('purchaseId=');
       expect(redirectUrl).toContain('token=');
+      expect(token).not.toBe(seekerToken);
+
+      const protectedRes = await request(app)
+        .get('/api/purchases')
+        .set('Authorization', `Bearer ${token}`);
+      expect(protectedRes.status).toBe(401);
     });
 
     it('requires authentication', async () => {
@@ -108,15 +118,29 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
       expect(res.text).toContain('Step 1 — Review your policy');
       expect(res.text).toContain('TPL Home Essential');
     });
+
+    it('requires the checkout token before rendering questionnaire answers', async () => {
+      const { purchaseId } = await startPurchase();
+
+      const missingToken = await request(app).get('/affiliate/tpl-insurance').query({ purchaseId });
+      expect(missingToken.status).toBe(400);
+      expect(missingToken.text).not.toContain('Apartment');
+
+      const sessionToken = await request(app)
+        .get('/affiliate/tpl-insurance')
+        .query({ purchaseId, token: seekerToken });
+      expect(sessionToken.status).toBe(401);
+      expect(sessionToken.text).not.toContain('Apartment');
+    });
   });
 
   describe('Purchase completion flow', () => {
     it('rejects expired card expiry dates', async () => {
-      const { purchaseId } = await startPurchase();
+      const { purchaseId, token } = await startPurchase();
 
       const res = await request(app)
         .post(`/api/purchase/${purchaseId}/process-payment`)
-        .set('Authorization', `Bearer ${seekerToken}`)
+        .set('Authorization', `Bearer ${token}`)
         .send({
           cardholderName: 'Ali Khan',
           cardLast4: '4242',
@@ -128,22 +152,22 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
     });
 
     it('returns 400 when completing before payment is processed', async () => {
-      const { purchaseId } = await startPurchase();
+      const { purchaseId, token } = await startPurchase();
 
       const res = await request(app)
         .get('/api/purchase/complete')
-        .query({ purchaseId, token: seekerToken })
+        .query({ purchaseId, token })
         .set('Accept', 'application/json');
 
       expect(res.status).toBe(400);
     });
 
     it('creates notifications, email log, call schedule, and lead after payment + complete', async () => {
-      const { purchaseId } = await startPurchase();
+      const { purchaseId, token } = await startPurchase();
 
       const payRes = await request(app)
         .post(`/api/purchase/${purchaseId}/process-payment`)
-        .set('Authorization', `Bearer ${seekerToken}`)
+        .set('Authorization', `Bearer ${token}`)
         .send({
           cardholderName: 'Ali Khan',
           cardLast4: '4242',
@@ -154,7 +178,7 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
 
       const completeRes = await request(app)
         .get('/api/purchase/complete')
-        .query({ purchaseId, token: seekerToken })
+        .query({ purchaseId, token })
         .set('Accept', 'application/json');
 
       expect(completeRes.status).toBe(200);
@@ -177,11 +201,11 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
     });
 
     it('does not duplicate notifications on second complete call', async () => {
-      const { purchaseId } = await startPurchase();
+      const { purchaseId, token } = await startPurchase();
 
       await request(app)
         .post(`/api/purchase/${purchaseId}/process-payment`)
-        .set('Authorization', `Bearer ${seekerToken}`)
+        .set('Authorization', `Bearer ${token}`)
         .send({
           cardholderName: 'Ali Khan',
           cardLast4: '4242',
@@ -190,12 +214,12 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
 
       await request(app)
         .get('/api/purchase/complete')
-        .query({ purchaseId, token: seekerToken })
+        .query({ purchaseId, token })
         .set('Accept', 'application/json');
 
       const second = await request(app)
         .get('/api/purchase/complete')
-        .query({ purchaseId, token: seekerToken })
+        .query({ purchaseId, token })
         .set('Accept', 'application/json');
 
       expect(second.status).toBe(200);
@@ -210,11 +234,11 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
 
   describe('GET /api/purchases and notifications', () => {
     it('lists purchases with timeline after completion', async () => {
-      const { purchaseId } = await startPurchase();
+      const { purchaseId, token } = await startPurchase();
 
       await request(app)
         .post(`/api/purchase/${purchaseId}/process-payment`)
-        .set('Authorization', `Bearer ${seekerToken}`)
+        .set('Authorization', `Bearer ${token}`)
         .send({
           cardholderName: 'Ali Khan',
           cardLast4: '4242',
@@ -223,7 +247,7 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
 
       await request(app)
         .get('/api/purchase/complete')
-        .query({ purchaseId, token: seekerToken })
+        .query({ purchaseId, token })
         .set('Accept', 'application/json');
 
       const listRes = await request(app)
@@ -239,11 +263,11 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
     });
 
     it('reschedules an agent call for a completed purchase', async () => {
-      const { purchaseId } = await startPurchase();
+      const { purchaseId, token } = await startPurchase();
 
       await request(app)
         .post(`/api/purchase/${purchaseId}/process-payment`)
-        .set('Authorization', `Bearer ${seekerToken}`)
+        .set('Authorization', `Bearer ${token}`)
         .send({
           cardholderName: 'Ali Khan',
           cardLast4: '4242',
@@ -252,7 +276,7 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
 
       await request(app)
         .get('/api/purchase/complete')
-        .query({ purchaseId, token: seekerToken })
+        .query({ purchaseId, token })
         .set('Accept', 'application/json');
 
       const res = await request(app)
@@ -271,7 +295,7 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
     });
 
     it('creates claims only for completed purchases', async () => {
-      const { purchaseId } = await startPurchase();
+      const { purchaseId, token } = await startPurchase();
 
       const blocked = await request(app)
         .post('/api/claims')
@@ -287,7 +311,7 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
 
       await request(app)
         .post(`/api/purchase/${purchaseId}/process-payment`)
-        .set('Authorization', `Bearer ${seekerToken}`)
+        .set('Authorization', `Bearer ${token}`)
         .send({
           cardholderName: 'Ali Khan',
           cardLast4: '4242',
@@ -296,7 +320,7 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
 
       await request(app)
         .get('/api/purchase/complete')
-        .query({ purchaseId, token: seekerToken })
+        .query({ purchaseId, token })
         .set('Accept', 'application/json');
 
       const created = await request(app)
@@ -323,11 +347,11 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
     });
 
     it('marks a notification as read', async () => {
-      const { purchaseId } = await startPurchase();
+      const { purchaseId, token } = await startPurchase();
 
       await request(app)
         .post(`/api/purchase/${purchaseId}/process-payment`)
-        .set('Authorization', `Bearer ${seekerToken}`)
+        .set('Authorization', `Bearer ${token}`)
         .send({
           cardholderName: 'Ali Khan',
           cardLast4: '4242',
@@ -336,7 +360,7 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
 
       await request(app)
         .get('/api/purchase/complete')
-        .query({ purchaseId, token: seekerToken })
+        .query({ purchaseId, token })
         .set('Accept', 'application/json');
 
       const notificationsRes = await request(app)
@@ -354,11 +378,11 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
     });
 
     it('marks all notifications read and clears them for the current user', async () => {
-      const { purchaseId } = await startPurchase();
+      const { purchaseId, token } = await startPurchase();
 
       await request(app)
         .post(`/api/purchase/${purchaseId}/process-payment`)
-        .set('Authorization', `Bearer ${seekerToken}`)
+        .set('Authorization', `Bearer ${token}`)
         .send({
           cardholderName: 'Ali Khan',
           cardLast4: '4242',
@@ -367,7 +391,7 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
 
       await request(app)
         .get('/api/purchase/complete')
-        .query({ purchaseId, token: seekerToken })
+        .query({ purchaseId, token })
         .set('Accept', 'application/json');
 
       const before = await request(app)
