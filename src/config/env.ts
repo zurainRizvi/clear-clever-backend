@@ -36,7 +36,9 @@ const envSchema = z.object({
     .string()
     .optional()
     .transform((value) => {
-      const raw = value?.trim() || 'http://localhost:5173';
+      const raw =
+        value?.trim() ||
+        'http://localhost:5173,http://localhost:5174,http://localhost:5175';
       return raw
         .split(',')
         .map((origin) => origin.trim())

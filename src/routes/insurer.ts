@@ -6,6 +6,8 @@ import {
   getInsurerProfile,
   listInsurerClaims,
   deleteInsurerPolicy,
+  getInsurerAnalytics,
+  getInsurerDashboard,
   listInsurerLeads,
   listInsurerPolicies,
   markInsurerLeadSeen,
@@ -29,6 +31,8 @@ export const insurerRouter = Router();
 insurerRouter.use(authenticate, authorize('insurer'));
 
 insurerRouter.get('/profile', asyncHandler(getInsurerProfile));
+insurerRouter.get('/dashboard', asyncHandler(getInsurerDashboard));
+insurerRouter.get('/analytics', asyncHandler(getInsurerAnalytics));
 insurerRouter.patch(
   '/profile',
   validate(updateInsurerProfileValidators),

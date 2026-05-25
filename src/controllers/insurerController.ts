@@ -16,7 +16,37 @@ import {
   toInsurerPolicySummary,
   toInsurerProfileSummary,
 } from '../services/insurerContext';
+import { buildInsurerAnalytics } from '../services/insurerAnalyticsService';
+import { buildInsurerDashboard } from '../services/insurerIntelligenceService';
 import { AppError, successResponse } from '../utils/apiResponse';
+
+export async function getInsurerAnalytics(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const profile = await getInsurerProfileForUser(req.user!._id);
+  const from = typeof req.query.from === 'string' ? req.query.from : undefined;
+  const to = typeof req.query.to === 'string' ? req.query.to : undefined;
+
+  const analytics = await buildInsurerAnalytics(profile._id, { from, to });
+
+  res.status(200).json(
+    successResponse('Insurer analytics retrieved', {
+      analytics,
+    })
+  );
+}
+
+export async function getInsurerDashboard(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const profile = await getInsurerProfileForUser(req.user!._id);
+  const from = typeof req.query.from === 'string' ? req.query.from : undefined;
+  const to = typeof req.query.to === 'string' ? req.query.to : undefined;
+
+  const dashboard = await buildInsurerDashboard(profile._id, { from, to });
+
+  res.status(200).json(
+    successResponse('Insurer dashboard intelligence retrieved', {
+      dashboard,
+    })
+  );
+}
 
 async function getOwnedPolicy(insurerProfileId: string, policyId: string) {
   const policy = await Policy.findById(policyId);
