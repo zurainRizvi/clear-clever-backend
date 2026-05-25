@@ -130,7 +130,7 @@ async function findOrCreateConversation(input: {
   insurerProfileId?: Types.ObjectId;
   purchaseId?: Types.ObjectId;
   subject?: string;
-}) {
+}): Promise<{ conversation: IConversationDocument; created: boolean }> {
   const participantIds = [...new Set(input.participantUserIds.map(String))];
 
   const existing = await Conversation.findOne({
@@ -140,9 +140,9 @@ async function findOrCreateConversation(input: {
     ...(input.purchaseId ? { purchaseId: input.purchaseId } : {}),
   });
 
-  if (existing) return existing;
+  if (existing) return { conversation: existing, created: false };
 
-  return Conversation.create({
+  const conversation = await Conversation.create({
     type: input.type,
     participantUserIds: participantIds,
     insurerProfileId: input.insurerProfileId,
@@ -150,6 +150,8 @@ async function findOrCreateConversation(input: {
     subject: input.subject,
     readByUserIds: [],
   });
+
+  return { conversation, created: true };
 }
 
 export async function listConversations(req: AuthenticatedRequest, res: Response): Promise<void> {
@@ -229,7 +231,7 @@ export async function createConversation(req: AuthenticatedRequest, res: Respons
     participantUserIds = [currentUser._id, target._id];
   }
 
-  const conversation = await findOrCreateConversation({
+  const { conversation, created } = await findOrCreateConversation({
     type: body.type,
     participantUserIds,
     insurerProfileId,
@@ -238,7 +240,7 @@ export async function createConversation(req: AuthenticatedRequest, res: Respons
   });
 
   let message;
-  if (body.initialMessage) {
+  if (created && body.initialMessage) {
     message = await createMessage(conversation, currentUser._id, body.initialMessage);
   }
 

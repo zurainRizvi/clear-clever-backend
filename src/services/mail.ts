@@ -125,3 +125,32 @@ export async function sendOtpEmail(
     transport.close();
   }
 }
+
+export async function sendTransactionalEmail(
+  env: Env,
+  to: string,
+  subject: string,
+  html: string,
+  text: string
+): Promise<void> {
+  if (!isSmtpConfigured(env)) {
+    return;
+  }
+
+  const transport = createSmtpTransport(env);
+
+  try {
+    await withTimeout(
+      transport.sendMail({
+        from: env.SMTP_FROM ?? `ClearClever <${env.SMTP_USER}>`,
+        to,
+        subject,
+        html,
+        text,
+      }),
+      'SMTP send'
+    );
+  } finally {
+    transport.close();
+  }
+}

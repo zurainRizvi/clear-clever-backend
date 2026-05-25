@@ -38,7 +38,7 @@ async function accountSignals(): Promise<FraudSignal[]> {
       subject: row._id,
       detail: `${row.count} accounts share this email pattern`,
       detectedAt: new Date().toISOString(),
-      link: '/admin-dashboard/users',
+      link: `/admin-dashboard/users?email=${encodeURIComponent(row._id)}`,
     });
   }
 
@@ -70,7 +70,7 @@ async function accountSignals(): Promise<FraudSignal[]> {
       subject: `${recentInactive} accounts`,
       detail: 'Multiple accounts deactivated in the last 7 days',
       detectedAt: new Date().toISOString(),
-      link: '/admin-dashboard/users',
+      link: `/admin-dashboard/fraud?category=account&focus=inactive-spike`,
     });
   }
 
@@ -100,7 +100,7 @@ async function claimSignals(): Promise<FraudSignal[]> {
       subject: user?.email ?? String(row._id),
       detail: `${row.count} claims filed in the last 7 days`,
       detectedAt: new Date().toISOString(),
-      link: '/admin-dashboard/fraud',
+      link: `/admin-dashboard/fraud?category=claims&focus=claim-freq-${row._id}`,
     });
   }
 
@@ -113,6 +113,7 @@ async function claimSignals(): Promise<FraudSignal[]> {
       subject: `${rejectedCount} rejected claims`,
       detail: 'Review insurers with elevated rejection rates',
       detectedAt: new Date().toISOString(),
+      link: '/admin-dashboard/fraud?category=claims&focus=rejected-claims-volume',
     });
   }
 
@@ -131,6 +132,7 @@ async function commerceSignals(): Promise<FraudSignal[]> {
       subject: `${pendingPurchases} pending`,
       detail: 'Many purchases have not completed affiliate checkout',
       detectedAt: new Date().toISOString(),
+      link: '/admin-dashboard/fraud?category=commerce&focus=pending-purchases',
     });
   }
 
@@ -156,6 +158,7 @@ async function commerceSignals(): Promise<FraudSignal[]> {
       subject: `Insurer ${String(row._id).slice(-6)}`,
       detail: `${row.count} leads in the last 24 hours`,
       detectedAt: new Date().toISOString(),
+      link: `/admin-dashboard/fraud?category=commerce&focus=lead-spike-${row._id}`,
     });
   }
 
@@ -178,7 +181,7 @@ async function catalogSignals(): Promise<FraudSignal[]> {
       subject: `${oldPending} policies`,
       detail: 'Submissions pending admin review for more than 14 days',
       detectedAt: new Date().toISOString(),
-      link: '/admin-dashboard/policies',
+      link: '/admin-dashboard/fraud?category=catalog&focus=stale-pending-policies',
     });
   }
 
@@ -209,7 +212,7 @@ async function catalogSignals(): Promise<FraudSignal[]> {
       subject: `Insurer ${String(row._id).slice(-6)}`,
       detail: `${row.rejected} of ${row.total} policies rejected (${rate}%)`,
       detectedAt: new Date().toISOString(),
-      link: '/admin-dashboard/approvals',
+      link: `/admin-dashboard/fraud?category=catalog&focus=reject-rate-${row._id}`,
     });
   }
 

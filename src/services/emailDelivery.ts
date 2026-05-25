@@ -1,8 +1,21 @@
 import type { Env } from '../config/env';
 import { isBrevoConfigured, isSmtpConfigured } from '../config/env';
 import type { OtpPurpose } from '../constants/roles';
-import { sendOtpViaBrevo, probeBrevo } from './brevo';
-import { formatSmtpError, probeSmtp, sendOtpEmail, type SmtpProbeResult } from './mail';
+import { sendOtpViaBrevo, probeBrevo, sendTransactionalViaBrevo } from './brevo';
+import {
+  formatSmtpError,
+  probeSmtp,
+  sendOtpEmail,
+  sendTransactionalEmail,
+  type SmtpProbeResult,
+} from './mail';
+
+export const DEFAULT_SUPPORT_INBOX_EMAIL = 'syedzurainrizvi@gmail.com';
+
+export function resolveSupportInboxEmail(): string {
+  const fromEnv = process.env.SUPPORT_INBOX_EMAIL?.trim();
+  return fromEnv || DEFAULT_SUPPORT_INBOX_EMAIL;
+}
 
 export type EmailProvider = 'brevo' | 'smtp' | 'none';
 
@@ -49,4 +62,47 @@ export async function sendOtpEmailDelivery(
 
 export function formatEmailError(error: unknown): string {
   return formatSmtpError(error);
+}
+
+export async function sendSupportInquiryEmail(
+  env: Env,
+  input: {
+    fullName: string;
+    email: string;
+    roleLabel: string;
+    reason: string;
+    message: string;
+  }
+): Promise<void> {
+  const to = resolveSupportInboxEmail();
+  const subject = `ClearClever support: ${input.reason.replace(/_/g, ' ')}`;
+  const html = `
+    <div style="font-family: sans-serif; max-width: 560px;">
+      <h2>New support inquiry</h2>
+      <p><strong>Name:</strong> ${input.fullName}</p>
+      <p><strong>Email:</strong> ${input.email}</p>
+      <p><strong>Role:</strong> ${input.roleLabel.replace(/_/g, ' ')}</p>
+      <p><strong>Reason:</strong> ${input.reason.replace(/_/g, ' ')}</p>
+      <p><strong>Message:</strong></p>
+      <p style="white-space: pre-wrap;">${input.message}</p>
+    </div>
+  `;
+  const text = [
+    'New support inquiry',
+    `Name: ${input.fullName}`,
+    `Email: ${input.email}`,
+    `Role: ${input.roleLabel}`,
+    `Reason: ${input.reason}`,
+    '',
+    input.message,
+  ].join('\n');
+
+  if (isBrevoConfigured(env)) {
+    await sendTransactionalViaBrevo(env, to, subject, html, text);
+    return;
+  }
+
+  if (isSmtpConfigured(env)) {
+    await sendTransactionalEmail(env, to, subject, html, text);
+  }
 }

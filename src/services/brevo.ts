@@ -91,3 +91,37 @@ export async function sendOtpViaBrevo(
     throw new Error(`Brevo send failed (${res.status}): ${body.slice(0, 300)}`);
   }
 }
+
+export async function sendTransactionalViaBrevo(
+  env: Env,
+  to: string,
+  subject: string,
+  html: string,
+  textContent: string
+): Promise<void> {
+  if (!isBrevoConfigured(env)) {
+    return;
+  }
+
+  const sender = resolveBrevoSender(env);
+  const res = await fetch(`${BREVO_API}/smtp/email`, {
+    method: 'POST',
+    headers: {
+      'api-key': env.BREVO_API_KEY!,
+      'content-type': 'application/json',
+      accept: 'application/json',
+    },
+    body: JSON.stringify({
+      sender,
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+      textContent,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Brevo send failed (${res.status}): ${body.slice(0, 300)}`);
+  }
+}

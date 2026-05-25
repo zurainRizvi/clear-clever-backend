@@ -1,8 +1,10 @@
 import type { Response } from 'express';
+import { loadEnv } from '../config/env';
 import { User } from '../models/User';
 import { SupportInquiry } from '../models/SupportInquiry';
 import { Notification } from '../models/Notification';
 import type { AuthenticatedRequest } from '../middleware/authenticate';
+import { sendSupportInquiryEmail } from '../services/emailDelivery';
 import { successResponse } from '../utils/apiResponse';
 
 export async function submitSupportContact(
@@ -41,6 +43,18 @@ export async function submitSupportContact(
       })
     )
   );
+
+  try {
+    await sendSupportInquiryEmail(loadEnv(), {
+      fullName: body.fullName.trim(),
+      email: body.email.trim(),
+      roleLabel: body.roleLabel,
+      reason: body.reason,
+      message: body.message.trim(),
+    });
+  } catch (error) {
+    console.error('[ClearClever] Support inquiry email failed:', error);
+  }
 
   res.status(201).json(
     successResponse('Support inquiry received', {

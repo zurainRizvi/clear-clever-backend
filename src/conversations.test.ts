@@ -128,6 +128,40 @@ describe('Messaging conversations', () => {
     ).toBe(true);
   });
 
+  it('does not duplicate the welcome message when reopening support chat', async () => {
+    const first = await request(app)
+      .post('/api/conversations')
+      .set('Authorization', `Bearer ${seekerToken}`)
+      .send({
+        type: 'user_support',
+        subject: 'Need help',
+        initialMessage: 'Hi ClearClever support, I need help with a query.',
+      });
+
+    expect(first.status).toBe(201);
+    const conversationId = first.body.data.conversation.id as string;
+
+    const second = await request(app)
+      .post('/api/conversations')
+      .set('Authorization', `Bearer ${seekerToken}`)
+      .send({
+        type: 'user_support',
+        subject: 'Need help',
+        initialMessage: 'Hi ClearClever support, I need help with a query.',
+      });
+
+    expect(second.status).toBe(201);
+    expect(second.body.data.conversation.id).toBe(conversationId);
+    expect(second.body.data.message).toBeUndefined();
+
+    const messagesRes = await request(app)
+      .get(`/api/conversations/${conversationId}/messages`)
+      .set('Authorization', `Bearer ${seekerToken}`);
+
+    expect(messagesRes.status).toBe(200);
+    expect(messagesRes.body.data.messages).toHaveLength(1);
+  });
+
   it('lets staff rename and delete a support conversation', async () => {
     const createRes = await request(app)
       .post('/api/conversations')
