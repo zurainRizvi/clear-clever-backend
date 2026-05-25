@@ -93,14 +93,17 @@ async function claimSignals(): Promise<FraudSignal[]> {
 
   for (const row of frequentClaimants) {
     const user = await User.findById(row._id);
+    const email = user?.email?.trim();
     signals.push({
       id: `claim-freq-${row._id}`,
       type: 'Unusual claim frequency',
       severity: 'high',
-      subject: user?.email ?? String(row._id),
+      subject: email ?? String(row._id),
       detail: `${row.count} claims filed in the last 7 days`,
       detectedAt: new Date().toISOString(),
-      link: `/admin-dashboard/fraud?category=claims&focus=claim-freq-${row._id}`,
+      link: email
+        ? `/admin-dashboard/users?email=${encodeURIComponent(email)}`
+        : '/admin-dashboard/users',
     });
   }
 
@@ -111,9 +114,9 @@ async function claimSignals(): Promise<FraudSignal[]> {
       type: 'High rejected claim volume',
       severity: 'medium',
       subject: `${rejectedCount} rejected claims`,
-      detail: 'Review insurers with elevated rejection rates',
+      detail: 'Review platform analytics for claim rejection trends',
       detectedAt: new Date().toISOString(),
-      link: '/admin-dashboard/fraud?category=claims&focus=rejected-claims-volume',
+      link: '/admin-dashboard/analytics',
     });
   }
 
