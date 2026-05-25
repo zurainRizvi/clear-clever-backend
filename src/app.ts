@@ -23,6 +23,7 @@ import { notificationsRouter } from './routes/notifications';
 import { purchaseRouter } from './routes/purchase';
 import { purchasesRouter } from './routes/purchases';
 import { conversationsRouter } from './routes/conversations';
+import { supportRouter } from './routes/support';
 
 export function createApp(env: Env) {
   const app = express();
@@ -73,6 +74,7 @@ export function createApp(env: Env) {
   app.use('/api/claims', claimsRouter);
   app.use('/api/notifications', notificationsRouter);
   app.use('/api/conversations', conversationsRouter);
+  app.use('/api/support', supportRouter);
 
   app.get('/affiliate/:insurerSlug', asyncPublicHandler(renderAffiliateWizard));
 

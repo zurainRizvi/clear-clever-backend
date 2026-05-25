@@ -5,8 +5,10 @@ import {
   getInsurerPolicy,
   getInsurerProfile,
   listInsurerClaims,
+  deleteInsurerPolicy,
   listInsurerLeads,
   listInsurerPolicies,
+  markInsurerLeadSeen,
   updateInsurerClaimStatus,
   updateInsurerPolicy,
   updateInsurerProfile,
@@ -48,7 +50,17 @@ insurerRouter.put(
   validate(updateInsurerPolicyValidators),
   asyncHandler(updateInsurerPolicy)
 );
+insurerRouter.delete(
+  '/policies/:id',
+  validate([insurerPolicyIdValidator]),
+  asyncHandler(deleteInsurerPolicy)
+);
 insurerRouter.get('/leads', asyncHandler(listInsurerLeads));
+insurerRouter.patch(
+  '/leads/:id/seen',
+  validate([insurerPolicyIdValidator]),
+  asyncHandler(markInsurerLeadSeen)
+);
 insurerRouter.get('/claims', asyncHandler(listInsurerClaims));
 insurerRouter.patch(
   '/claims/:id',

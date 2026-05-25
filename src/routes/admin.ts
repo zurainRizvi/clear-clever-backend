@@ -15,6 +15,7 @@ import {
   rejectPolicy,
   revokeInsurer,
 } from '../controllers/adminController';
+import { getFraudSignals } from '../controllers/fraudSignalsController';
 import { authenticate } from '../middleware/authenticate';
 import { authorize } from '../middleware/authorize';
 import { ADMIN_ROLES } from '../constants/roles';
@@ -61,6 +62,7 @@ adminRouter.patch(
 );
 
 adminRouter.get('/analytics', asyncHandler(getAnalytics));
+adminRouter.get('/fraud-signals', asyncHandler(getFraudSignals));
 
 adminRouter.get('/insurers', asyncHandler(listInsurers));
 adminRouter.post(

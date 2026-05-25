@@ -2,9 +2,11 @@ import type { Response } from 'express';
 import type { ClaimStatus } from '../models/ClaimRequest';
 import { ClaimRequest } from '../models/ClaimRequest';
 import type { IPolicyQuestion } from '../models/Policy';
+import { Favorite } from '../models/Favorite';
 import { Lead } from '../models/Lead';
 import { Notification } from '../models/Notification';
 import { Policy } from '../models/Policy';
+import { Purchase } from '../models/Purchase';
 import { User } from '../models/User';
 import { toInsurerClaimSummary } from '../services/claimPresentation';
 import type { AuthenticatedRequest } from '../middleware/authenticate';
@@ -215,7 +217,8 @@ export async function updateInsurerClaimStatus(
   res: Response
 ): Promise<void> {
   const profile = await getInsurerProfileForUser(req.user!._id);
-  const { status } = req.body as { status: ClaimStatus };
+  const body = req.body as { status: ClaimStatus; revert?: boolean };
+  const { status } = body;
   const claim = await ClaimRequest.findOne({
     _id: req.params.id,
     insurerProfileId: profile._id,
@@ -223,6 +226,32 @@ export async function updateInsurerClaimStatus(
 
   if (!claim) {
     throw new AppError(404, 'Claim not found');
+  }
+
+  if ((claim.status === 'approved' || claim.status === 'rejected') && status === 'in_review') {
+    if (!body.revert) {
+      throw new AppError(400, 'Use revert: true to reopen a finalized claim');
+    }
+    claim.status = 'in_review';
+    await claim.save();
+    await Notification.create({
+      userId: claim.userId,
+      type: 'claim_status',
+      title: 'Claim review reopened',
+      body: `${profile.companyName} reopened your claim for further review.`,
+      metadata: {
+        claimId: String(claim._id),
+        purchaseId: String(claim.purchaseId),
+        policyId: String(claim.policyId),
+        status: 'in_review',
+      },
+    });
+    res.status(200).json(
+      successResponse('Claim status updated', {
+        claim: await toInsurerClaimSummary(claim),
+      })
+    );
+    return;
   }
 
   if (claim.status === 'approved' || claim.status === 'rejected') {
@@ -306,6 +335,8 @@ export async function listInsurerLeads(req: AuthenticatedRequest, res: Response)
       id: String(lead._id),
       type: lead.type,
       status: lead.status,
+      seenAt: lead.seenAt?.toISOString(),
+      isNew: lead.status === 'new' && !lead.seenAt,
       summary: lead.summary,
       metadata: lead.metadata,
       createdAt: lead.createdAt.toISOString(),
@@ -331,7 +362,74 @@ export async function listInsurerLeads(req: AuthenticatedRequest, res: Response)
   res.status(200).json(
     successResponse('Insurer leads retrieved', {
       count: items.length,
+      unseenNewCount: items.filter((item) => item.isNew).length,
       leads: items,
+    })
+  );
+}
+
+export async function markInsurerLeadSeen(
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> {
+  const profile = await getInsurerProfileForUser(req.user!._id);
+  const lead = await Lead.findOne({
+    _id: req.params.id,
+    insurerProfileId: profile._id,
+  });
+
+  if (!lead) {
+    throw new AppError(404, 'Lead not found');
+  }
+
+  if (!lead.seenAt) {
+    lead.seenAt = new Date();
+    await lead.save();
+  }
+
+  res.status(200).json(
+    successResponse('Lead marked as seen', {
+      lead: {
+        id: String(lead._id),
+        seenAt: lead.seenAt.toISOString(),
+        isNew: false,
+      },
+    })
+  );
+}
+
+export async function deleteInsurerPolicy(
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> {
+  const profile = await getInsurerProfileForUser(req.user!._id);
+  const policy = await getOwnedPolicy(String(profile._id), String(req.params.id));
+
+  const [purchaseCount, claimCount] = await Promise.all([
+    Purchase.countDocuments({ policyId: policy._id }),
+    ClaimRequest.countDocuments({ policyId: policy._id }),
+  ]);
+
+  if (purchaseCount > 0 || claimCount > 0) {
+    throw new AppError(
+      409,
+      'Cannot delete a policy with existing purchases or claims. Contact support if you need archival.'
+    );
+  }
+
+  if (policy.status === 'approved' && purchaseCount > 0) {
+    throw new AppError(409, 'Approved policies with purchase history cannot be deleted');
+  }
+
+  await Promise.all([
+    Lead.deleteMany({ policyId: policy._id }),
+    Favorite.deleteMany({ policyId: policy._id }),
+    Policy.deleteOne({ _id: policy._id }),
+  ]);
+
+  res.status(200).json(
+    successResponse('Policy deleted', {
+      policyId: String(policy._id),
     })
   );
 }

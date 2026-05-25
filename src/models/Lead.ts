@@ -12,6 +12,7 @@ export interface ILead {
   policyId?: Types.ObjectId;
   type: LeadType;
   status: LeadStatus;
+  seenAt?: Date;
   summary?: string;
   metadata?: Record<string, unknown>;
   createdAt: Date;
@@ -32,6 +33,7 @@ const leadSchema = new Schema<ILeadDocument>(
     policyId: { type: Schema.Types.ObjectId, ref: 'Policy', index: true },
     type: { type: String, enum: LEAD_TYPES, required: true, index: true },
     status: { type: String, enum: LEAD_STATUSES, default: 'new', index: true },
+    seenAt: { type: Date, index: true },
     summary: { type: String, trim: true, maxlength: 500 },
     metadata: { type: Schema.Types.Mixed },
   },

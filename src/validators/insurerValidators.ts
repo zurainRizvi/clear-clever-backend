@@ -67,6 +67,7 @@ export const updateInsurerClaimValidators = [
     .trim()
     .isIn(['in_review', 'approved', 'rejected'])
     .withMessage('Status must be in_review, approved, or rejected'),
+  body('revert').optional().isBoolean().withMessage('revert must be a boolean'),
 ];
 
 export const updateInsurerProfileValidators = [

@@ -284,6 +284,14 @@ describe('Module 6 — Insurer & admin modules', () => {
         (item: { id: string }) => item.id === String(claim._id)
       );
       expect(seekerClaim.status).toBe('approved');
+
+      const revertRes = await request(app)
+        .patch(`/api/insurer/claims/${claim._id}`)
+        .set('Authorization', `Bearer ${tplToken}`)
+        .send({ status: 'in_review', revert: true });
+
+      expect(revertRes.status).toBe(200);
+      expect(revertRes.body.data.claim.status).toBe('in_review');
     });
 
     it('returns 403 when another insurer updates a claim', async () => {
@@ -334,6 +342,49 @@ describe('Module 6 — Insurer & admin modules', () => {
       expect(res.body.data.count).toBe(1);
       expect(res.body.data.leads[0].seeker.email).toBe('seeker@clearclever.com');
       expect(res.body.data.leads[0].policy.slug).toBe('tpl-home-essential');
+      expect(res.body.data.leads[0].isNew).toBe(true);
+    });
+
+    it('marks a lead as seen', async () => {
+      const tplProfile = await InsurerProfile.findOne({ slug: 'tpl-insurance' });
+      const seeker = await User.findOne({ email: 'seeker@clearclever.com' });
+      const lead = await Lead.create({
+        insurerProfileId: tplProfile!._id,
+        userId: seeker!._id,
+        type: 'favorite',
+        status: 'new',
+        summary: 'Saved a policy',
+      });
+
+      const res = await request(app)
+        .patch(`/api/insurer/leads/${lead._id}/seen`)
+        .set('Authorization', `Bearer ${tplToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.lead.isNew).toBe(false);
+      expect(res.body.data.lead.seenAt).toBeTruthy();
+    });
+  });
+
+  describe('Insurer policy delete', () => {
+    it('deletes a policy with no purchases or claims', async () => {
+      const createRes = await request(app)
+        .post('/api/insurer/policies')
+        .set('Authorization', `Bearer ${tplToken}`)
+        .send({
+          ...newPolicyPayload,
+          slug: 'tpl-delete-me-plan',
+          name: 'TPL Delete Me Plan',
+        });
+
+      const policyId = createRes.body.data.policy.id;
+
+      const res = await request(app)
+        .delete(`/api/insurer/policies/${policyId}`)
+        .set('Authorization', `Bearer ${tplToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.policyId).toBe(policyId);
     });
   });
 
@@ -616,6 +667,36 @@ describe('Module 6 — Insurer & admin modules', () => {
         type: 'account_review',
       });
       expect(notice?.body).toContain('Incomplete documentation');
+    });
+  });
+
+  describe('Fraud signals', () => {
+    it('returns fraud signals for admin', async () => {
+      const res = await request(app)
+        .get('/api/admin/fraud-signals?category=account')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.category).toBe('account');
+      expect(Array.isArray(res.body.data.signals)).toBe(true);
+    });
+  });
+
+  describe('Support contact', () => {
+    it('accepts a support inquiry from authenticated user', async () => {
+      const res = await request(app)
+        .post('/api/support/contact')
+        .set('Authorization', `Bearer ${seekerToken}`)
+        .send({
+          fullName: 'Test Seeker',
+          email: 'seeker@clearclever.com',
+          roleLabel: 'policy_seeker',
+          reason: 'technical',
+          message: 'I need help with my dashboard settings please.',
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.data.inquiry.id).toBeTruthy();
     });
   });
 });

@@ -18,6 +18,9 @@ describe('GET /api/health', () => {
     expect(res.body.success).toBe(true);
     expect(res.body.data.service).toBe('clearclever-api');
     expect(res.body.data.environment).toBe('test');
+    expect(res.body.data.infrastructure).toBeDefined();
+    expect(res.body.data.infrastructure.render.ok).toBe(true);
+    expect(res.body.data.infrastructure.mongodb).toBeDefined();
   });
 });
 
