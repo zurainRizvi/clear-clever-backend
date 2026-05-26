@@ -563,6 +563,34 @@ describe('Module 6 — Insurer & admin modules', () => {
 
       expect(res.status).toBe(403);
     });
+
+    it('returns 403 when admin tries to deactivate an insurer through user management', async () => {
+      const insurer = await User.findOne({ email: 'insurer.adamjee@clearclever.com' });
+
+      const res = await request(app)
+        .patch(`/api/admin/users/${insurer!._id}/deactivate`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(403);
+      await expect(User.findById(insurer!._id)).resolves.toMatchObject({ status: 'active' });
+    });
+
+    it('returns 403 when admin tries to reactivate a revoked insurer through user management', async () => {
+      const superToken = await login('superadmin@clearclever.com');
+      const insurer = await User.findOne({ email: 'insurer.adamjee@clearclever.com' });
+
+      const revokeRes = await request(app)
+        .post(`/api/admin/insurers/${insurer!._id}/revoke`)
+        .set('Authorization', `Bearer ${superToken}`);
+      expect(revokeRes.status).toBe(200);
+
+      const res = await request(app)
+        .patch(`/api/admin/users/${insurer!._id}/reactivate`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(403);
+      await expect(User.findById(insurer!._id)).resolves.toMatchObject({ status: 'inactive' });
+    });
   });
 
   describe('Superadmin provider management', () => {
