@@ -4,6 +4,7 @@ import { loadEnv, resetEnvCache } from './config/env';
 import { Conversation } from './models/Conversation';
 import { InsurerProfile } from './models/InsurerProfile';
 import { Message } from './models/Message';
+import { User } from './models/User';
 import { SEED_DEFAULT_PASSWORD } from './seed/userSeedData';
 import { seedAll } from './seed/seedCatalog';
 import { applyTestEnv } from './test/setupEnv';
@@ -86,6 +87,28 @@ describe('Messaging conversations', () => {
     expect(await Message.countDocuments()).toBe(2);
   });
 
+  it('lets an insurer start a conversation with a lead seeker', async () => {
+    const tplProfile = await InsurerProfile.findOne({ slug: 'tpl-insurance' });
+    const seeker = await User.findOne({ email: 'seeker@clearclever.com' });
+    const createRes = await request(app)
+      .post('/api/conversations')
+      .set('Authorization', `Bearer ${tplToken}`)
+      .send({
+        type: 'user_insurer',
+        insurerProfileId: String(tplProfile!._id),
+        targetUserId: String(seeker!._id),
+        subject: 'Lead follow up',
+        initialMessage: 'Thanks for your interest. How can we help?',
+      });
+
+    expect(createRes.status).toBe(201);
+    expect(createRes.body.data.conversation.type).toBe('user_insurer');
+    expect(createRes.body.data.conversation.participantUserIds).toEqual(
+      expect.arrayContaining([String(seeker!._id), String(tplProfile!.userId)])
+    );
+    expect(createRes.body.data.message.body).toBe('Thanks for your interest. How can we help?');
+  });
+
   it('blocks non-participants from reading insurer conversations', async () => {
     const tplProfile = await InsurerProfile.findOne({ slug: 'tpl-insurance' });
     const createRes = await request(app)
@@ -102,6 +125,35 @@ describe('Messaging conversations', () => {
       .set('Authorization', `Bearer ${jubileeToken}`);
 
     expect(res.status).toBe(403);
+  });
+
+  it('blocks participants from renaming or deleting shared conversations', async () => {
+    const createRes = await request(app)
+      .post('/api/conversations')
+      .set('Authorization', `Bearer ${seekerToken}`)
+      .send({
+        type: 'user_support',
+        subject: 'Need help',
+        initialMessage: 'I need help with my purchase.',
+      });
+
+    expect(createRes.status).toBe(201);
+    const conversationId = createRes.body.data.conversation.id as string;
+
+    const renameRes = await request(app)
+      .patch(`/api/conversations/${conversationId}`)
+      .set('Authorization', `Bearer ${seekerToken}`)
+      .send({ displayTitle: 'Hide this support thread' });
+
+    expect(renameRes.status).toBe(403);
+
+    const deleteRes = await request(app)
+      .delete(`/api/conversations/${conversationId}`)
+      .set('Authorization', `Bearer ${seekerToken}`);
+
+    expect(deleteRes.status).toBe(403);
+    expect(await Conversation.countDocuments({ _id: conversationId })).toBe(1);
+    expect(await Message.countDocuments({ conversationId })).toBe(1);
   });
 
   it('lets staff see support conversations started by users', async () => {

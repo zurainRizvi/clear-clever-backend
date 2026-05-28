@@ -26,6 +26,12 @@ function canAccessConversation(conversation: IConversationDocument, req: Authent
   return isAdminRole(req.user.role);
 }
 
+function assertStaff(req: AuthenticatedRequest): void {
+  if (!req.user || !isAdminRole(req.user.role)) {
+    throw new AppError(403, 'Only staff may manage conversations');
+  }
+}
+
 async function getConversationForUser(req: AuthenticatedRequest): Promise<IConversationDocument> {
   const conversation = await Conversation.findById(req.params.id);
   if (!conversation) {
@@ -191,18 +197,35 @@ export async function createConversation(req: AuthenticatedRequest, res: Respons
   let insurerProfileId: Types.ObjectId | undefined;
 
   if (body.type === 'user_insurer') {
-    if (currentUser.role !== 'user') {
-      throw new AppError(403, 'Only policy seekers can start insurer conversations');
-    }
     if (!body.insurerProfileId) {
       throw new AppError(400, 'insurerProfileId is required');
     }
-    const insurer = await InsurerProfile.findById(body.insurerProfileId);
-    if (!insurer) {
-      throw new AppError(404, 'Insurer not found');
+    if (currentUser.role === 'user') {
+      const insurer = await InsurerProfile.findById(body.insurerProfileId);
+      if (!insurer) {
+        throw new AppError(404, 'Insurer not found');
+      }
+      insurerProfileId = insurer._id;
+      participantUserIds = [currentUser._id, insurer.userId];
+    } else if (currentUser.role === 'insurer') {
+      if (!body.targetUserId) {
+        throw new AppError(400, 'targetUserId is required');
+      }
+      const [insurer, target] = await Promise.all([
+        InsurerProfile.findOne({ _id: body.insurerProfileId, userId: currentUser._id }),
+        User.findById(body.targetUserId),
+      ]);
+      if (!insurer) {
+        throw new AppError(404, 'Insurer profile not found');
+      }
+      if (!target || target.role !== 'user') {
+        throw new AppError(400, 'targetUserId must be a policy seeker');
+      }
+      insurerProfileId = insurer._id;
+      participantUserIds = [target._id, currentUser._id];
+    } else {
+      throw new AppError(403, 'Only policy seekers or insurers can start insurer conversations');
     }
-    insurerProfileId = insurer._id;
-    participantUserIds = [currentUser._id, insurer.userId];
   } else if (body.type === 'user_support' || body.type === 'insurer_support') {
     if (body.type === 'user_support' && currentUser.role !== 'user' && !isAdminRole(currentUser.role)) {
       throw new AppError(403, 'Only users or staff can start user support conversations');
@@ -295,6 +318,7 @@ export async function markConversationRead(req: AuthenticatedRequest, res: Respo
 }
 
 export async function updateConversation(req: AuthenticatedRequest, res: Response): Promise<void> {
+  assertStaff(req);
   const conversation = await getConversationForUser(req);
   const displayTitle = req.body.displayTitle as string | null | undefined;
 
@@ -315,6 +339,7 @@ export async function updateConversation(req: AuthenticatedRequest, res: Respons
 }
 
 export async function deleteConversation(req: AuthenticatedRequest, res: Response): Promise<void> {
+  assertStaff(req);
   const conversation = await getConversationForUser(req);
 
   await Message.deleteMany({ conversationId: conversation._id });
