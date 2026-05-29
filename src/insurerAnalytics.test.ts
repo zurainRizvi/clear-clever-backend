@@ -90,8 +90,9 @@ describe('Insurer analytics intelligence', () => {
       expect(findSpy).toHaveBeenCalledWith({
         userId: { $in: expect.arrayContaining([String(seeker!._id)]) },
       });
+      const findCalls = findSpy.mock.calls as unknown[][];
       expect(
-        findSpy.mock.calls.some(([filter]) => !filter || Object.keys(filter).length === 0)
+        findCalls.some(([filter]) => !filter || Object.keys(filter).length === 0)
       ).toBe(false);
     } finally {
       findSpy.mockRestore();
