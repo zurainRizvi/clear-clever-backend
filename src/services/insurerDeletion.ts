@@ -11,6 +11,7 @@ import { Policy } from '../models/Policy';
 import { Purchase } from '../models/Purchase';
 import { User } from '../models/User';
 import { UserProfile } from '../models/UserProfile';
+import { AppError } from '../utils/apiResponse';
 
 export async function deleteInsurerAccountPermanently(userId: Types.ObjectId): Promise<void> {
   const profile = await InsurerProfile.findOne({ userId });
@@ -22,6 +23,18 @@ export async function deleteInsurerAccountPermanently(userId: Types.ObjectId): P
   }
 
   const profileId = profile._id;
+  const [purchaseCount, claimCount] = await Promise.all([
+    Purchase.countDocuments({ insurerProfileId: profileId }),
+    ClaimRequest.countDocuments({ insurerProfileId: profileId }),
+  ]);
+
+  if (purchaseCount > 0 || claimCount > 0) {
+    throw new AppError(
+      400,
+      'Cannot permanently delete a provider with existing purchases or claims. Deactivate the account to preserve customer history.'
+    );
+  }
+
   const purchases = await Purchase.find({ insurerProfileId: profileId }).select('_id');
   const purchaseIds = purchases.map((purchase) => purchase._id);
 

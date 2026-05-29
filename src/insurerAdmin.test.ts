@@ -637,6 +637,46 @@ describe('Module 6 — Insurer & admin modules', () => {
       expect(await Policy.findOne({ slug: 'pending-demo-policy' })).toBeNull();
     });
 
+    it('blocks permanent provider delete when customer purchases or claims exist', async () => {
+      const provider = await User.findOne({ email: 'insurer.tpl@clearclever.com' });
+      const tplProfile = await InsurerProfile.findOne({ slug: 'tpl-insurance' });
+      const seeker = await User.findOne({ email: 'seeker@clearclever.com' });
+      const policy = await Policy.findOne({
+        insurerProfileId: tplProfile!._id,
+        status: 'approved',
+      });
+      const purchase = await Purchase.create({
+        userId: seeker!._id,
+        policyId: policy!._id,
+        insurerProfileId: tplProfile!._id,
+        status: 'completed',
+        affiliateSlug: tplProfile!.slug,
+        answers: {},
+        completionArtifactsCreated: true,
+        completedAt: new Date(),
+      });
+      const claim = await ClaimRequest.create({
+        userId: seeker!._id,
+        purchaseId: purchase._id,
+        policyId: policy!._id,
+        insurerProfileId: tplProfile!._id,
+        claimType: 'damage',
+        incidentDate: new Date(),
+        estimatedAmountPkr: 75000,
+        description: 'Claim history that must remain visible to the seeker.',
+        status: 'submitted',
+      });
+
+      const deleteRes = await request(app)
+        .delete(`/api/admin/insurers/${provider!._id}`)
+        .set('Authorization', `Bearer ${superToken}`);
+
+      expect(deleteRes.status).toBe(400);
+      expect(await User.findById(provider!._id)).toBeTruthy();
+      expect(await Purchase.findById(purchase._id)).toBeTruthy();
+      expect(await ClaimRequest.findById(claim._id)).toBeTruthy();
+    });
+
     it('rejects a pending provider application', async () => {
       const pendingUser = await User.create({
         fullName: 'Reject Provider Co',
