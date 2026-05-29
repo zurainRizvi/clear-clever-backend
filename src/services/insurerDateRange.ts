@@ -4,6 +4,9 @@ export interface InsurerDateRange {
   label: string;
 }
 
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+export const MAX_INSURER_RANGE_DAYS = 90;
+
 export function formatRangeLabel(from: Date, to: Date): string {
   const fmt = (d: Date) =>
     d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -30,6 +33,9 @@ export function parseInsurerDateRange(fromParam?: string, toParam?: string): Ins
   }
   to.setHours(23, 59, 59, 999);
   from.setHours(0, 0, 0, 0);
+  if ((to.getTime() - from.getTime()) / MS_PER_DAY > MAX_INSURER_RANGE_DAYS) {
+    return defaultInsurerRange();
+  }
   return { from, to, label: formatRangeLabel(from, to) };
 }
 

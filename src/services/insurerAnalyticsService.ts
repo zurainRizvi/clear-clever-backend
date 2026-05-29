@@ -176,16 +176,21 @@ export async function buildInsurerAnalytics(
   const dateRange = parseInsurerDateRange(options?.from, options?.to);
   const priorRange = previousInsurerRange(dateRange);
 
-  const [policies, leads, claims, questionnaireDocs] = await Promise.all([
+  const [policies, leads, claims] = await Promise.all([
     Policy.find({ insurerProfileId }).sort({ updatedAt: -1 }),
     Lead.find({ insurerProfileId }).sort({ createdAt: -1 }),
     ClaimRequest.find({ insurerProfileId }).sort({ createdAt: -1 }),
-    QuestionnaireResponse.find().sort({ updatedAt: -1 }),
   ]);
 
   const policyById = new Map(policies.map((p) => [String(p._id), p]));
   const approvedPolicies = policies.filter((p) => p.status === 'approved');
   const leadUserIds = new Set(leads.map((l) => String(l.userId)));
+  const questionnaireDocs =
+    leadUserIds.size > 0
+      ? await QuestionnaireResponse.find({
+          userId: { $in: [...leadUserIds] },
+        }).sort({ updatedAt: -1 })
+      : [];
 
   const leadQuestionnaires = questionnaireDocs.filter((doc) =>
     leadUserIds.has(String(doc.userId))

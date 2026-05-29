@@ -63,6 +63,41 @@ describe('Insurer analytics intelligence', () => {
     expect(res.body.data.analytics.dateRange.to).toBe('2026-05-18');
   });
 
+  it('scopes questionnaire reads to users who have leads for the insurer', async () => {
+    const tplProfile = await InsurerProfile.findOne({ slug: 'tpl-insurance' });
+    const seeker = await User.findOne({ email: 'seeker@clearclever.com' });
+    const policy = await Policy.findOne({
+      insurerProfileId: tplProfile!._id,
+      status: 'approved',
+    });
+
+    await Lead.create({
+      insurerProfileId: tplProfile!._id,
+      userId: seeker!._id,
+      policyId: policy!._id,
+      type: 'inquiry',
+      status: 'new',
+      summary: 'Interested',
+    });
+
+    const findSpy = jest.spyOn(QuestionnaireResponse, 'find');
+    try {
+      const res = await request(app)
+        .get('/api/insurer/analytics')
+        .set('Authorization', `Bearer ${tplToken}`);
+
+      expect(res.status).toBe(200);
+      expect(findSpy).toHaveBeenCalledWith({
+        userId: { $in: expect.arrayContaining([String(seeker!._id)]) },
+      });
+      expect(
+        findSpy.mock.calls.some(([filter]) => !filter || Object.keys(filter).length === 0)
+      ).toBe(false);
+    } finally {
+      findSpy.mockRestore();
+    }
+  });
+
   it('builds smart insights from questionnaire and funnel signals', async () => {
     const tplProfile = await InsurerProfile.findOne({ slug: 'tpl-insurance' });
     const seeker = await User.findOne({ email: 'seeker@clearclever.com' });

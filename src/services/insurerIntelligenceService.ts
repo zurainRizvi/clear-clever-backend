@@ -14,6 +14,12 @@ import {
   detectCategoryDemandSignals,
   inferAudienceLabel,
 } from './insurerSignalAnalysis';
+import {
+  inInsurerRange,
+  parseInsurerDateRange,
+  previousInsurerRange,
+  type InsurerDateRange,
+} from './insurerDateRange';
 import { scorePolicies } from './recommendationService';
 
 const CATEGORY_COLORS: Record<PolicyCategorySlug, string> = {
@@ -30,11 +36,7 @@ const CATEGORY_LABELS: Record<PolicyCategorySlug, string> = {
   pet: 'Pet Insurance',
 };
 
-export interface DashboardDateRange {
-  from: Date;
-  to: Date;
-  label: string;
-}
+export interface DashboardDateRange extends InsurerDateRange {}
 
 export interface InsurerDashboardPayload {
   dateRange: DashboardDateRange;
@@ -104,46 +106,6 @@ export interface InsurerDashboardPayload {
   };
 }
 
-function defaultRange(): DashboardDateRange {
-  const to = new Date();
-  const from = new Date(to);
-  from.setDate(from.getDate() - 6);
-  from.setHours(0, 0, 0, 0);
-  to.setHours(23, 59, 59, 999);
-  return { from, to, label: formatRangeLabel(from, to) };
-}
-
-function formatRangeLabel(from: Date, to: Date): string {
-  const fmt = (d: Date) =>
-    d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  return `${fmt(from)} – ${fmt(to)}`;
-}
-
-function parseRange(fromParam?: string, toParam?: string): DashboardDateRange {
-  if (!fromParam || !toParam) {
-    return defaultRange();
-  }
-  const from = new Date(fromParam);
-  const to = new Date(toParam);
-  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || from > to) {
-    return defaultRange();
-  }
-  to.setHours(23, 59, 59, 999);
-  from.setHours(0, 0, 0, 0);
-  return { from, to, label: formatRangeLabel(from, to) };
-}
-
-function previousRange(range: DashboardDateRange): DashboardDateRange {
-  const durationMs = range.to.getTime() - range.from.getTime();
-  const to = new Date(range.from.getTime() - 1);
-  const from = new Date(to.getTime() - durationMs);
-  return { from, to, label: formatRangeLabel(from, to) };
-}
-
-function inRange(date: Date, range: DashboardDateRange): boolean {
-  return date >= range.from && date <= range.to;
-}
-
 function pctChange(current: number, previous: number): { text: string; trend: 'up' | 'down' | 'neutral' } {
   if (previous === 0) {
     if (current === 0) return { text: 'No prior activity', trend: 'neutral' };
@@ -192,7 +154,7 @@ function countLeadsByCategory(
 ): Map<PolicyCategorySlug, number> {
   const counts = new Map<PolicyCategorySlug, number>();
   for (const lead of leads) {
-    if (!inRange(lead.createdAt, range)) continue;
+    if (!inInsurerRange(lead.createdAt, range)) continue;
     const category = leadCategory(lead, policyById);
     if (!category) continue;
     counts.set(category, (counts.get(category) ?? 0) + 1);
@@ -275,8 +237,8 @@ export async function buildInsurerDashboard(
   insurerProfileId: Types.ObjectId | string,
   options?: { from?: string; to?: string }
 ): Promise<InsurerDashboardPayload> {
-  const dateRange = parseRange(options?.from, options?.to) as DashboardDateRange;
-  const priorRange = previousRange(dateRange);
+  const dateRange = parseInsurerDateRange(options?.from, options?.to);
+  const priorRange = previousInsurerRange(dateRange);
 
   const [policies, leads, claims] = await Promise.all([
     Policy.find({ insurerProfileId }).sort({ updatedAt: -1 }),
@@ -300,8 +262,8 @@ export async function buildInsurerDashboard(
     approvedPolicies.map((p) => p.category as PolicyCategorySlug)
   );
 
-  const currentLeads = leads.filter((l) => inRange(l.createdAt, dateRange));
-  const priorLeads = leads.filter((l) => inRange(l.createdAt, priorRange));
+  const currentLeads = leads.filter((l) => inInsurerRange(l.createdAt, dateRange));
+  const priorLeads = leads.filter((l) => inInsurerRange(l.createdAt, priorRange));
 
   const purchaseLeadsCurrent = currentLeads.filter((l) => l.type === 'purchase');
   const purchaseLeadsPrior = priorLeads.filter((l) => l.type === 'purchase');
@@ -327,7 +289,7 @@ export async function buildInsurerDashboard(
   }, 0);
 
   const newlyApprovedInPeriod = policies.filter(
-    (p) => p.status === 'approved' && inRange(p.reviewedAt ?? p.createdAt, dateRange)
+    (p) => p.status === 'approved' && inInsurerRange(p.reviewedAt ?? p.createdAt, dateRange)
   ).length;
   const policiesChange = pctChange(newlyApprovedInPeriod, Math.max(0, approvedPolicies.length - newlyApprovedInPeriod));
   const leadsChange = pctChange(newLeadsCurrent, newLeadsPrior);
@@ -529,7 +491,7 @@ export async function buildInsurerDashboard(
   const topPoliciesRaw = await Promise.all(
     approvedPolicies.map(async (policy) => {
       const policyLeads = leads.filter((l) => String(l.policyId) === String(policy._id));
-      const periodLeads = policyLeads.filter((l) => inRange(l.createdAt, dateRange));
+      const periodLeads = policyLeads.filter((l) => inInsurerRange(l.createdAt, dateRange));
       const purchases = periodLeads.filter((l) => l.type === 'purchase');
       const conversion =
         periodLeads.length > 0 ? Math.round((purchases.length / periodLeads.length) * 1000) / 10 : 0;
