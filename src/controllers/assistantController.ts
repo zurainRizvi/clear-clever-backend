@@ -2,11 +2,18 @@ import type { Response } from 'express';
 import { loadEnv, isGeminiConfigured } from '../config/env';
 import type { AuthenticatedRequest } from '../middleware/authenticate';
 import {
+  attachmentsToGeminiParts,
+  describeAttachmentsForPrompt,
+  parseAttachments,
+} from '../services/assistantAttachments';
+import {
   buildAssistantContext,
   buildExplainPayload,
+} from '../services/assistantContextService';
+import {
   buildExplainSystemInstruction,
   buildSystemInstruction,
-} from '../services/assistantContextService';
+} from '../services/assistantPrompts';
 import {
   checkAssistantRateLimit,
   rateLimitKeyForRequest,
@@ -39,9 +46,7 @@ function applyRateLimit(req: AuthenticatedRequest, route: string, anonymous: boo
   checkAssistantRateLimit(key, limit);
 }
 
-function parseHistory(
-  raw: unknown
-): GeminiContentPart[] | undefined {
+function parseHistory(raw: unknown): GeminiContentPart[] | undefined {
   if (!Array.isArray(raw)) {
     return undefined;
   }
@@ -68,12 +73,21 @@ function parseHistory(
   return history.length > 0 ? history : undefined;
 }
 
+function hasPriorAssistantReply(history: GeminiContentPart[] | undefined): boolean {
+  return Boolean(history?.some((turn) => turn.role === 'model'));
+}
+
 export async function getAssistantStatus(_req: AuthenticatedRequest, res: Response): Promise<void> {
   const env = loadEnv();
   res.status(200).json(
     successResponse('Assistant status', {
       configured: isGeminiConfigured(env),
       model: env.GEMINI_MODEL ?? 'gemini-2.5-flash',
+      attachments: {
+        maxFiles: 3,
+        maxBytesPerFile: 4 * 1024 * 1024,
+        allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'],
+      },
     })
   );
 }
@@ -84,6 +98,7 @@ export async function postAssistantChat(req: AuthenticatedRequest, res: Response
     message?: string;
     history?: unknown;
     category?: string;
+    attachments?: unknown;
   };
 
   const message = typeof body.message === 'string' ? body.message.trim() : '';
@@ -91,6 +106,7 @@ export async function postAssistantChat(req: AuthenticatedRequest, res: Response
     throw new AppError(400, 'Validation failed', ['message: must be 1–2000 characters']);
   }
 
+  const attachments = parseAttachments(body.attachments);
   const anonymous = !req.user;
   applyRateLimit(req, 'chat', anonymous);
 
@@ -100,22 +116,30 @@ export async function postAssistantChat(req: AuthenticatedRequest, res: Response
     if (category && context.topRecommendations) {
       const focused = context.topRecommendations.find((r) => r.category === category);
       if (focused) {
-        context.topRecommendations = [focused, ...context.topRecommendations.filter((r) => r.category !== category)];
+        context.topRecommendations = [
+          focused,
+          ...context.topRecommendations.filter((r) => r.category !== category),
+        ];
       }
     }
   }
 
-  const systemInstruction = buildSystemInstruction(context);
   const history = parseHistory(body.history);
+  const systemInstruction = buildSystemInstruction(context);
 
-  const userMessage = anonymous
-    ? `${message}\n\n(Note: user is not signed in — keep answers general and suggest signing in for personalized recommendations.)`
-    : message;
+  let userMessage = message + describeAttachmentsForPrompt(attachments);
+
+  if (anonymous) {
+    userMessage += '\n\n(Note: user is not signed in — keep answers general and suggest signing in for personalized recommendations.)';
+  } else if (context.addressing && !hasPriorAssistantReply(history)) {
+    userMessage += `\n\n(Note: this is the start of the conversation — greet the user by full name "${context.addressing.fullName}" in your reply.)`;
+  }
 
   const { text } = await generateAssistantReply({
     systemInstruction,
     userMessage,
     history,
+    attachmentParts: attachmentsToGeminiParts(attachments),
     env,
   });
 
@@ -123,6 +147,7 @@ export async function postAssistantChat(req: AuthenticatedRequest, res: Response
     successResponse('Assistant reply', {
       reply: text,
       personalized: context.personalized,
+      audience: context.audience,
     })
   );
 }
@@ -154,7 +179,11 @@ export async function postAssistantExplain(req: AuthenticatedRequest, res: Respo
     topThree: explainPayload.topThree,
   });
 
-  const userMessage = `Explain why "${explainPayload.target.name}" (rank #${explainPayload.target.rank}) is a good match for me.`;
+  const greetNote = explainPayload.context.addressing
+    ? ` Address the user as ${explainPayload.context.addressing.fullName} in the opening sentence.`
+    : '';
+
+  const userMessage = `Explain why "${explainPayload.target.name}" (rank #${explainPayload.target.rank}) is a good match for me.${greetNote}`;
 
   const { text } = await generateAssistantReply({
     systemInstruction,

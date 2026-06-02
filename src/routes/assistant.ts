@@ -21,6 +21,7 @@ assistantRouter.post(
     body('message').trim().isLength({ min: 1, max: 2000 }),
     body('category').optional().trim().isLength({ max: 32 }),
     body('history').optional().isArray({ max: 10 }),
+    body('attachments').optional().isArray({ max: 3 }),
   ]),
   asyncHandler(postAssistantChat)
 );

@@ -1,5 +1,6 @@
 import { loadEnv, isGeminiConfigured, type Env } from '../config/env';
 import { AppError } from '../utils/apiResponse';
+import type { GeminiInlinePart } from './assistantAttachments';
 
 export interface GeminiContentPart {
   role: 'user' | 'model';
@@ -10,6 +11,7 @@ export interface GenerateAssistantReplyInput {
   systemInstruction: string;
   userMessage: string;
   history?: GeminiContentPart[];
+  attachmentParts?: GeminiInlinePart[];
   env?: Env;
 }
 
@@ -28,6 +30,8 @@ interface GeminiApiResponse {
     code?: number;
   };
 }
+
+type GeminiPart = { text: string } | GeminiInlinePart;
 
 function mapHttpError(status: number, message: string): AppError {
   if (status === 429) {
@@ -54,9 +58,10 @@ export function assertGeminiConfigured(env: Env = loadEnv()): void {
 
 function buildContents(
   history: GeminiContentPart[] | undefined,
-  userMessage: string
-): Array<{ role: string; parts: Array<{ text: string }> }> {
-  const contents: Array<{ role: string; parts: Array<{ text: string }> }> = [];
+  userMessage: string,
+  attachmentParts: GeminiInlinePart[]
+): Array<{ role: string; parts: GeminiPart[] }> {
+  const contents: Array<{ role: string; parts: GeminiPart[] }> = [];
 
   for (const turn of history ?? []) {
     contents.push({
@@ -65,7 +70,8 @@ function buildContents(
     });
   }
 
-  contents.push({ role: 'user', parts: [{ text: userMessage }] });
+  const userParts: GeminiPart[] = [{ text: userMessage }, ...attachmentParts];
+  contents.push({ role: 'user', parts: userParts });
   return contents;
 }
 
@@ -82,10 +88,14 @@ export async function generateAssistantReply(
     systemInstruction: {
       parts: [{ text: input.systemInstruction }],
     },
-    contents: buildContents(input.history, input.userMessage),
+    contents: buildContents(
+      input.history,
+      input.userMessage,
+      input.attachmentParts ?? []
+    ),
     generationConfig: {
       maxOutputTokens: env.GEMINI_MAX_OUTPUT_TOKENS,
-      temperature: 0.4,
+      temperature: 0.35,
     },
   };
 

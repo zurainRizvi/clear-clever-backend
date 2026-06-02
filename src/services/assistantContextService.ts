@@ -8,10 +8,12 @@ import { ClaimRequest } from '../models/ClaimRequest';
 import { InsurerProfile } from '../models/InsurerProfile';
 import { Lead } from '../models/Lead';
 import { User } from '../models/User';
+import { SupportInquiry } from '../models/SupportInquiry';
 import { AppError } from '../utils/apiResponse';
 import { enrichPolicies } from './policyPresentation';
 import { getCategoryQuestions, parseCategoryForRecommend } from './questionsService';
 import { scorePolicies } from './recommendationService';
+import { extractFirstName } from './assistantPrompts';
 
 export interface ScoredPolicySummary {
   policyId: string;
@@ -31,42 +33,44 @@ const PLATFORM_FAQ = [
   'Sign in for personalized explanations based on your questionnaire and policies.',
 ];
 
+export type AssistantAudience = 'public' | 'seeker' | 'insurer' | 'admin' | 'superadmin';
+
 export interface AssistantContext {
-  audience: 'public' | 'seeker' | 'insurer' | 'staff';
+  audience: AssistantAudience;
   personalized: boolean;
   platformFaq: string[];
   categories: Array<{ slug: string; name: string; available: boolean }>;
+  addressing?: { fullName: string; firstName: string };
   user?: { role: string; fullName?: string };
   questionnaireSummaries?: Array<{ category: string; answers: Record<string, unknown> }>;
   topRecommendations?: Array<{
     category: string;
-    policies: Array<{
-      policyId: string;
-      name: string;
-      insurer: string;
-      premiumMonthlyPkr: number;
-      coverageSummary: string;
-      score: number;
-      matchReasons: string[];
-      rank: number;
-    }>;
+    policies: ScoredPolicySummary[];
   }>;
   recentPurchases?: Array<{
     policyName: string;
     status: string;
     premiumMonthlyPkr?: number;
   }>;
-  openClaims?: Array<{ status: string; claimType: string }>;
+  openClaims?: Array<{ status: string; claimType: string; createdAt: string }>;
   insurerSummary?: {
     companyName: string;
     approvedPolicies: number;
     pendingPolicies: number;
     leadCount: number;
+    policies: Array<{
+      name: string;
+      category: string;
+      status: string;
+      premiumMonthlyPkr: number;
+    }>;
+    recentLeads: Array<{ status: string; createdAt: string }>;
   };
   staffSummary?: {
     activeUsers: number;
     pendingPolicyApprovals: number;
-    openSupportInquiries?: number;
+    openSupportInquiries: number;
+    usersByRole?: Record<string, number>;
   };
 }
 
@@ -86,10 +90,11 @@ export async function buildAssistantContext(user?: IUserDocument): Promise<Assis
     return base;
   }
 
-  base.user = {
-    role: user.role,
-    fullName: user.fullName,
-  };
+  const firstName = extractFirstName(user.fullName);
+  base.user = { role: user.role, fullName: user.fullName };
+  if (firstName) {
+    base.addressing = { fullName: user.fullName, firstName };
+  }
 
   if (user.role === 'user') {
     base.audience = 'seeker';
@@ -105,10 +110,17 @@ export async function buildAssistantContext(user?: IUserDocument): Promise<Assis
     return base;
   }
 
-  if (user.role === 'admin' || user.role === 'superadmin') {
-    base.audience = 'staff';
+  if (user.role === 'superadmin') {
+    base.audience = 'superadmin';
     base.personalized = true;
-    await attachStaffContext(base);
+    await attachStaffContext(base, true);
+    return base;
+  }
+
+  if (user.role === 'admin') {
+    base.audience = 'admin';
+    base.personalized = true;
+    await attachStaffContext(base, false);
     return base;
   }
 
@@ -155,13 +167,14 @@ async function attachSeekerContext(context: AssistantContext, user: IUserDocumen
   context.openClaims = claims.map((c) => ({
     status: c.status,
     claimType: c.claimType,
+    createdAt: c.createdAt.toISOString(),
   }));
 }
 
 async function scoreTopRecommendations(
   category: PolicyCategorySlug,
   answers: Record<string, unknown>
-) {
+): Promise<ScoredPolicySummary[]> {
   const policyCategory = parseCategoryForRecommend(category);
   if (!policyCategory) {
     return [];
@@ -198,29 +211,60 @@ async function attachInsurerContext(context: AssistantContext, user: IUserDocume
     return;
   }
 
-  const [approvedPolicies, pendingPolicies, leadCount] = await Promise.all([
-    Policy.countDocuments({ insurerProfileId: profile._id, status: 'approved' }),
-    Policy.countDocuments({ insurerProfileId: profile._id, status: 'pending' }),
-    Lead.countDocuments({ insurerProfileId: profile._id }),
-  ]);
+  const [approvedPolicies, pendingPolicies, leadCount, policyDocs, recentLeads] =
+    await Promise.all([
+      Policy.countDocuments({ insurerProfileId: profile._id, status: 'approved' }),
+      Policy.countDocuments({ insurerProfileId: profile._id, status: 'pending' }),
+      Lead.countDocuments({ insurerProfileId: profile._id }),
+      Policy.find({ insurerProfileId: profile._id })
+        .sort({ updatedAt: -1 })
+        .limit(12)
+        .select('name category status premiumMonthlyPkr'),
+      Lead.find({ insurerProfileId: profile._id })
+        .sort({ createdAt: -1 })
+        .limit(8)
+        .select('status createdAt'),
+    ]);
 
   context.insurerSummary = {
     companyName: profile.companyName,
     approvedPolicies,
     pendingPolicies,
     leadCount,
+    policies: policyDocs.map((p) => ({
+      name: p.name,
+      category: p.category,
+      status: p.status,
+      premiumMonthlyPkr: p.premiumMonthlyPkr,
+    })),
+    recentLeads: recentLeads.map((l) => ({
+      status: l.status,
+      createdAt: l.createdAt.toISOString(),
+    })),
   };
 }
 
-async function attachStaffContext(context: AssistantContext): Promise<void> {
-  const [activeUsers, pendingPolicyApprovals] = await Promise.all([
-    User.countDocuments({ status: 'active' }),
-    Policy.countDocuments({ status: 'pending' }),
-  ]);
+async function attachStaffContext(context: AssistantContext, isSuperadmin: boolean): Promise<void> {
+  const [activeUsers, pendingPolicyApprovals, openSupportInquiries, roleCounts] =
+    await Promise.all([
+      User.countDocuments({ status: 'active' }),
+      Policy.countDocuments({ status: 'pending' }),
+      SupportInquiry.countDocuments({}),
+      User.aggregate<{ _id: string; count: number }>([
+        { $group: { _id: '$role', count: { $sum: 1 } } },
+      ]),
+    ]);
+
+  const usersByRole: Record<string, number> = {};
+  for (const row of roleCounts) {
+    usersByRole[row._id] = row.count;
+  }
 
   context.staffSummary = {
     activeUsers,
     pendingPolicyApprovals,
+    openSupportInquiries,
+    ...(isSuperadmin ? { usersByRole } : {}),
   };
 }
 
@@ -268,43 +312,5 @@ export async function buildExplainPayload(input: {
   };
 }
 
-export function buildSystemInstruction(context: AssistantContext): string {
-  return [
-    'You are ClearClever Assistant, a helpful insurance guidance chatbot for Pakistan.',
-    'Use ONLY the JSON context provided. Do not invent policy names, premiums, scores, or coverage amounts.',
-    'If data is missing, say you do not have it and suggest signing in or completing the questionnaire.',
-    'Do not provide legal or financial advice; encourage users to confirm details with the insurer.',
-    'Keep answers concise, friendly, and actionable (2–4 short paragraphs max unless explaining a policy).',
-    `Context JSON:\n${JSON.stringify(context)}`,
-  ].join('\n\n');
-}
-
-export function buildExplainSystemInstruction(
-  context: AssistantContext,
-  explain: {
-    target: {
-      name: string;
-      insurer: string;
-      premiumMonthlyPkr: number;
-      coverageSummary: string;
-      score: number;
-      matchReasons: string[];
-      rank: number;
-    };
-    answers: Record<string, unknown>;
-    topThree: Array<{
-      policyId: string;
-      name: string;
-      score: number;
-      premiumMonthlyPkr: number;
-      rank: number;
-    }>;
-  }
-): string {
-  return [
-    buildSystemInstruction(context),
-    'Task: Explain why the TARGET policy is a strong match for this user based on questionnaire answers and the rule-based score.',
-    'Reference exact numbers from the data (premium PKR, score, match reasons). Do not change the ranking order.',
-    `Explain payload:\n${JSON.stringify(explain)}`,
-  ].join('\n\n');
-}
+// Re-export for backward compatibility in tests/imports
+export { buildSystemInstruction, buildExplainSystemInstruction } from './assistantPrompts';
