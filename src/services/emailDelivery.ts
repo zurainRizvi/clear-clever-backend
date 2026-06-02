@@ -9,6 +9,7 @@ import {
   sendTransactionalEmail,
   type SmtpProbeResult,
 } from './mail';
+import { renderBrandedEmail } from './emailTemplates';
 
 export const DEFAULT_SUPPORT_INBOX_EMAIL = 'syedzurainrizvi@gmail.com';
 
@@ -76,17 +77,6 @@ export async function sendSupportInquiryEmail(
 ): Promise<void> {
   const to = resolveSupportInboxEmail();
   const subject = `ClearClever support: ${input.reason.replace(/_/g, ' ')}`;
-  const html = `
-    <div style="font-family: sans-serif; max-width: 560px;">
-      <h2>New support inquiry</h2>
-      <p><strong>Name:</strong> ${input.fullName}</p>
-      <p><strong>Email:</strong> ${input.email}</p>
-      <p><strong>Role:</strong> ${input.roleLabel.replace(/_/g, ' ')}</p>
-      <p><strong>Reason:</strong> ${input.reason.replace(/_/g, ' ')}</p>
-      <p><strong>Message:</strong></p>
-      <p style="white-space: pre-wrap;">${input.message}</p>
-    </div>
-  `;
   const text = [
     'New support inquiry',
     `Name: ${input.fullName}`,
@@ -97,12 +87,26 @@ export async function sendSupportInquiryEmail(
     input.message,
   ].join('\n');
 
+  const branded = renderBrandedEmail({
+    title: 'New support inquiry',
+    preheader: 'Support ticket raised by a user',
+    bodyHtml: `
+      <p><strong>Name:</strong> ${input.fullName}</p>
+      <p><strong>Email:</strong> ${input.email}</p>
+      <p><strong>Role:</strong> ${input.roleLabel.replace(/_/g, ' ')}</p>
+      <p><strong>Reason:</strong> ${input.reason.replace(/_/g, ' ')}</p>
+      <p><strong>Message:</strong></p>
+      <p style="white-space: pre-wrap;">${input.message}</p>
+    `,
+    bodyText: text,
+  });
+
   if (isBrevoConfigured(env)) {
-    await sendTransactionalViaBrevo(env, to, subject, html, text);
+    await sendTransactionalViaBrevo(env, to, subject, branded.html, branded.text);
     return;
   }
 
   if (isSmtpConfigured(env)) {
-    await sendTransactionalEmail(env, to, subject, html, text);
+    await sendTransactionalEmail(env, to, subject, branded.html, branded.text);
   }
 }

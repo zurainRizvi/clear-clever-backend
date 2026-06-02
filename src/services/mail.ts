@@ -3,6 +3,7 @@ import type { Transporter } from 'nodemailer';
 import type { Env } from '../config/env';
 import { isSmtpConfigured } from '../config/env';
 import type { OtpPurpose } from '../constants/roles';
+import { otpTemplate } from './emailTemplates';
 
 /** Cap SMTP connect/send so auth routes never block for minutes. */
 export const SMTP_TIMEOUT_MS = 15_000;
@@ -103,21 +104,15 @@ export async function sendOtpEmail(
 
   const transport = createSmtpTransport(env);
 
+  const otpEmail = otpTemplate(code);
   try {
     await withTimeout(
       transport.sendMail({
         from: env.SMTP_FROM ?? `ClearClever <${env.SMTP_USER}>`,
         to,
         subject,
-        html: `
-      <div style="font-family: sans-serif; max-width: 480px;">
-        <h2>ClearClever</h2>
-        <p>Your verification code is:</p>
-        <p style="font-size: 28px; font-weight: bold; letter-spacing: 4px;">${code}</p>
-        <p style="color: #666;">This code expires in 10 minutes. Do not share it with anyone.</p>
-      </div>
-    `,
-        text: `Your ClearClever verification code is ${code}. It expires in 10 minutes.`,
+        html: otpEmail.html,
+        text: otpEmail.text,
       }),
       'SMTP send'
     );

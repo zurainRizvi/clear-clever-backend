@@ -5,6 +5,7 @@ import { connectDatabase, disconnectDatabase } from './config/db';
 import { loadEnv } from './config/env';
 import { setSmtpProbeResult } from './config/smtpStatus';
 import { isOutboundEmailConfigured, probeOutboundEmail } from './services/emailDelivery';
+import { startReminderWorker } from './services/reminderWorker';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
@@ -13,6 +14,7 @@ async function main(): Promise<void> {
   const app = createApp(env);
 
   await connectDatabase(env);
+  startReminderWorker(env);
 
   if (isOutboundEmailConfigured(env)) {
     const probe = await probeOutboundEmail(env);

@@ -2,6 +2,7 @@ import type { Env } from '../config/env';
 import { isBrevoConfigured } from '../config/env';
 import type { OtpPurpose } from '../constants/roles';
 import { formatSmtpError, type SmtpProbeResult } from './mail';
+import { otpTemplate } from './emailTemplates';
 
 const BREVO_API = 'https://api.brevo.com/v3';
 
@@ -61,14 +62,7 @@ export async function sendOtpViaBrevo(
       ? 'Verify your ClearClever account'
       : 'ClearClever password reset code';
 
-  const html = `
-    <div style="font-family: sans-serif; max-width: 480px;">
-      <h2>ClearClever</h2>
-      <p>Your verification code is:</p>
-      <p style="font-size: 28px; font-weight: bold; letter-spacing: 4px;">${code}</p>
-      <p style="color: #666;">This code expires in 10 minutes. Do not share it with anyone.</p>
-    </div>
-  `;
+  const otpEmail = otpTemplate(code);
 
   const res = await fetch(`${BREVO_API}/smtp/email`, {
     method: 'POST',
@@ -81,8 +75,8 @@ export async function sendOtpViaBrevo(
       sender,
       to: [{ email: to }],
       subject,
-      htmlContent: html,
-      textContent: `Your ClearClever verification code is ${code}. It expires in 10 minutes.`,
+      htmlContent: otpEmail.html,
+      textContent: otpEmail.text,
     }),
   });
 

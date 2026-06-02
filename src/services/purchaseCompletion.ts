@@ -10,6 +10,11 @@ import { Purchase } from '../models/Purchase';
 import { User } from '../models/User';
 import { AppError } from '../utils/apiResponse';
 import { nextBusinessDayAtTenPkt } from './purchaseScheduling';
+import { loadEnv } from '../config/env';
+import { isOutboundEmailConfigured } from './emailDelivery';
+import { sendTransactionalEmail } from './mail';
+import { sendTransactionalViaBrevo } from './brevo';
+import { renderBrandedEmail } from './emailTemplates';
 
 export interface CompletionArtifacts {
   purchase: IPurchaseDocument;
@@ -108,6 +113,40 @@ export async function completePurchase(
     sentAt: new Date(),
     status: 'sent',
   });
+
+  const env = loadEnv();
+  if (isOutboundEmailConfigured(env)) {
+    const branded = renderBrandedEmail({
+      title: `Policy purchase confirmed - ${policy.name}`,
+      preheader: 'Your policy purchase is confirmed',
+      bodyHtml: `<p>Dear ${user.fullName},</p>
+        <p>Your purchase for <strong>${policy.name}</strong> from <strong>${insurer.companyName}</strong> is confirmed.</p>
+        <p>Premium: PKR ${policy.premiumMonthlyPkr.toLocaleString('en-PK')} / month</p>
+        <p>We have also scheduled your follow-up support call.</p>`,
+      bodyText: `Dear ${user.fullName}, your purchase for ${policy.name} from ${insurer.companyName} is confirmed. Premium: PKR ${policy.premiumMonthlyPkr.toLocaleString('en-PK')} / month.`,
+    });
+    try {
+      if (env.BREVO_API_KEY) {
+        await sendTransactionalViaBrevo(
+          env,
+          user.email,
+          `Policy purchase confirmed - ${policy.name}`,
+          branded.html,
+          branded.text
+        );
+      } else {
+        await sendTransactionalEmail(
+          env,
+          user.email,
+          `Policy purchase confirmed - ${policy.name}`,
+          branded.html,
+          branded.text
+        );
+      }
+    } catch {
+      await EmailLog.findByIdAndUpdate(emailLog._id, { status: 'failed' });
+    }
+  }
 
   const callSchedule = await CallSchedule.create({
     userId: purchase.userId,
