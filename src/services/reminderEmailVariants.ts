@@ -1,26 +1,10 @@
 import type { PremiumCadenceOffset } from '../constants/reminders';
 import type { ReminderScenario } from '../constants/reminders';
+import { clientAppUrls, resolveClientBaseUrl } from './clientUrls';
 import { EMAIL_HERO_IMAGES } from './emailAssets';
 import type { ClearCleverEmailContent } from './clearCleverEmailLayout';
 
-const DEFAULT_CLIENT = 'https://clearclever.vercel.app';
-
-export function resolveClientBaseUrl(): string {
-  const raw = process.env.CLIENT_URL?.trim();
-  if (!raw) return DEFAULT_CLIENT;
-  if (/^https?:\/\//i.test(raw)) return raw.replace(/\/$/, '');
-  return `https://${raw.replace(/^\/+/, '').replace(/\/$/, '')}`;
-}
-
-function urls(base: string) {
-  return {
-    dashboard: `${base}/dashboard`,
-    purchases: `${base}/dashboard/purchases`,
-    claims: `${base}/dashboard/claims`,
-    providerPolicies: `${base}/dashboard/provider/policies`,
-    support: `${base}/contact`,
-  };
-}
+export { resolveClientBaseUrl } from './clientUrls';
 
 const SHARED_FEATURES = {
   coverage: {
@@ -55,7 +39,7 @@ function premiumVariant(
   dueDate: Date,
   base: string
 ): ClearCleverEmailContent {
-  const links = urls(base);
+  const links = clientAppUrls(base);
   const dueStr = dueDate.toISOString().slice(0, 10);
 
   if (offset === 10) {
@@ -147,7 +131,7 @@ function premiumVariant(
     heroImageAlt: 'Premium due today',
     policyName,
     primaryCta: { label: 'Pay premium now', href: links.purchases },
-    secondaryCta: { label: 'Contact support', href: links.support },
+    secondaryCta: { label: 'Contact support', href: links.contactSupport },
     features: [
       { emoji: '🚨', title: 'Action required', description: 'Payment due today', iconBackground: '#FEE2E2' },
       SHARED_FEATURES.coverage,
@@ -162,7 +146,7 @@ export function reminderEmailContent(
   context: { policyName: string; dueDate?: Date; offset?: PremiumCadenceOffset },
   clientBase = resolveClientBaseUrl()
 ): ClearCleverEmailContent {
-  const links = urls(clientBase);
+  const links = clientAppUrls(clientBase);
   const policyName = context.policyName;
 
   switch (scenario) {
@@ -215,7 +199,7 @@ export function reminderEmailContent(
         heroImageAlt: 'Policy approval workspace',
         policyName,
         primaryCta: { label: 'Review policy', href: links.providerPolicies },
-        secondaryCta: { label: 'Insurer dashboard', href: links.dashboard },
+        secondaryCta: { label: 'Insurer dashboard', href: links.providerDashboard },
         features: [
           { emoji: '✅', title: 'Quick approval', description: 'Approve compliant listings faster', iconBackground: '#E0F2FE' },
           { emoji: '📊', title: 'Listing insights', description: 'See performance at a glance', iconBackground: '#F0FDF4' },

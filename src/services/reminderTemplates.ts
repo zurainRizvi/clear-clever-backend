@@ -1,7 +1,9 @@
 import type { PremiumCadenceOffset } from '../constants/reminders';
 import type { ReminderScenario } from '../constants/reminders';
 import { renderClearCleverEmail } from './clearCleverEmailLayout';
+import { clientAppUrls } from './clientUrls';
 import { reminderEmailContent, resolveClientBaseUrl } from './reminderEmailVariants';
+import { resolveEmailLogoUrl } from './emailAssets';
 
 function premiumOffsetLabel(offset: PremiumCadenceOffset): string {
   if (offset === 0) return 'today';
@@ -16,7 +18,12 @@ function renderReminderEmail(
 ): { subject: string; html: string; text: string } {
   const content = reminderEmailContent(scenario, context);
   const base = resolveClientBaseUrl();
-  const branded = renderClearCleverEmail(content, { supportUrl: `${base}/contact` });
+  const app = clientAppUrls(base);
+  const branded = renderClearCleverEmail(content, {
+    clientBaseUrl: base,
+    supportUrl: app.contactSupport,
+    logoUrl: resolveEmailLogoUrl(base),
+  });
   const subject = subjectForScenario(scenario, context.policyName);
   return { subject, ...branded };
 }

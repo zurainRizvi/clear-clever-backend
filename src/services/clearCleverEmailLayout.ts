@@ -1,4 +1,5 @@
-import { CLEARCLEVER_LOGO_SVG } from './emailAssets';
+import { clientAppUrls } from './clientUrls';
+import { resolveEmailLogoUrl } from './emailAssets';
 
 export interface EmailFeatureItem {
   emoji: string;
@@ -95,10 +96,12 @@ function renderCtaButton(
  */
 export function renderClearCleverEmail(
   content: ClearCleverEmailContent,
-  options?: { supportUrl?: string }
+  options?: { supportUrl?: string; logoUrl?: string; clientBaseUrl?: string }
 ): { html: string; text: string } {
   const highlightColor = content.highlightColor ?? '#4DA3FF';
-  const supportUrl = options?.supportUrl ?? 'https://clearclever.vercel.app/contact';
+  const app = clientAppUrls(options?.clientBaseUrl);
+  const supportUrl = options?.supportUrl ?? app.contactSupport;
+  const logoUrl = options?.logoUrl ?? resolveEmailLogoUrl(options?.clientBaseUrl);
   const policyLine = content.policyName
     ? `<p style="margin:0 0 14px;font-family:Inter,Arial,sans-serif;font-size:14px;color:rgba(255,255,255,0.65);">Policy: <strong style="color:#FFFFFF;">${escapeHtml(content.policyName)}</strong></p>`
     : '';
@@ -138,16 +141,9 @@ export function renderClearCleverEmail(
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
                   <td align="left" valign="middle">
-                    <table role="presentation" cellpadding="0" cellspacing="0" border="0">
-                      <tr>
-                        <td valign="middle" style="padding-right:12px;">
-                          <img src="${CLEARCLEVER_LOGO_SVG}" width="44" height="44" alt="ClearClever" style="display:block;border:0;" />
-                        </td>
-                        <td valign="middle" style="font-family:Inter,Arial,sans-serif;font-size:28px;font-weight:700;color:#0F172A;letter-spacing:-0.02em;">
-                          ClearClever
-                        </td>
-                      </tr>
-                    </table>
+                    <a href="${escapeHtml(app.home)}" style="text-decoration:none;">
+                      <img src="${escapeHtml(logoUrl)}" width="220" height="44" alt="ClearClever" style="display:block;border:0;max-width:220px;height:auto;" />
+                    </a>
                   </td>
                   <td align="right" valign="middle" style="font-family:Inter,Arial,sans-serif;font-size:14px;font-weight:500;color:#64748B;">
                     ${escapeHtml(content.headerLabel)}

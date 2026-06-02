@@ -1,3 +1,4 @@
+import { PRODUCTION_CLIENT_URL } from './services/clientUrls';
 import { renderBrandedEmail, otpTemplate } from './services/emailTemplates';
 import { renderClearCleverEmail } from './services/clearCleverEmailLayout';
 import { policyCompletionMilestoneEmail, premiumReminderEmail } from './services/reminderTemplates';
@@ -14,6 +15,8 @@ describe('ClearClever email templates', () => {
     expect(html).toContain('Comprehensive coverage');
     expect(html).toContain('Contact Support');
     expect(html).toContain('images.unsplash.com');
+    expect(html).toContain(`${PRODUCTION_CLIENT_URL}/dashboard/purchases`);
+    expect(html).toContain('/brand/clearclever-logo-horizontal.svg');
   });
 
   it('uses distinct gradients per premium cadence', () => {
@@ -32,6 +35,17 @@ describe('ClearClever email templates', () => {
     expect(html).toContain('One-week check-in');
     expect(html).toContain('coverage');
     expect(html).toContain('View policy details');
+    expect(html).toContain(`${PRODUCTION_CLIENT_URL}/dashboard/purchases`);
+    expect(html).toContain(`${PRODUCTION_CLIENT_URL}/dashboard`);
+  });
+
+  it('routes insurer approval CTAs to provider dashboard', () => {
+    const { html } = renderClearCleverEmail(
+      reminderEmailContent('approval_pending_insurer', { policyName: 'Test Policy' }),
+      { clientBaseUrl: PRODUCTION_CLIENT_URL }
+    );
+    expect(html).toContain(`${PRODUCTION_CLIENT_URL}/provider-dashboard/policies`);
+    expect(html).toContain(`${PRODUCTION_CLIENT_URL}/provider-dashboard`);
   });
 
   it('escapes policy names in HTML', () => {

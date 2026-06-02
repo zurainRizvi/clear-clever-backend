@@ -1,5 +1,7 @@
 import { renderClearCleverEmail } from './clearCleverEmailLayout';
-import { resolveClientBaseUrl } from './reminderEmailVariants';
+import { clientAppUrls } from './clientUrls';
+import { resolveClientBaseUrl } from './clientUrls';
+import { resolveEmailLogoUrl } from './emailAssets';
 
 /** Compact branded layout for OTP and short transactional messages. */
 export function renderBrandedEmail({
@@ -14,6 +16,7 @@ export function renderBrandedEmail({
   bodyText: string;
 }): { html: string; text: string } {
   const base = resolveClientBaseUrl();
+  const app = clientAppUrls(base);
 
   const result = renderClearCleverEmail(
     {
@@ -29,7 +32,7 @@ export function renderBrandedEmail({
       heroImageUrl:
         'https://images.unsplash.com/photo-1633265486064-086b219458ec?auto=format&fit=crop&w=640&q=80',
       heroImageAlt: 'Secure ClearClever account',
-      primaryCta: { label: 'Open ClearClever', href: base },
+      primaryCta: { label: 'Open ClearClever', href: app.dashboard },
       detailHtml: bodyHtml,
       features: [
         {
@@ -59,7 +62,11 @@ export function renderBrandedEmail({
       ],
       footerSupport: 'Did not request this? Contact support immediately.',
     },
-    { supportUrl: `${base}/contact` }
+    {
+      clientBaseUrl: base,
+      supportUrl: app.contactSupport,
+      logoUrl: resolveEmailLogoUrl(base),
+    }
   );
 
   return {
