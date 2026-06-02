@@ -134,6 +134,41 @@ describe('Assistant — Gemini proxy', () => {
       expect(res.body.data.personalized).toBe(true);
     });
 
+    it('forwards attachments to Gemini and accepts image-only messages', async () => {
+      applyTestEnv({ MONGODB_URI: testMongoUri, GEMINI_API_KEY: 'test-key' });
+      resetEnvCache();
+      app = createApp(loadEnv());
+      mockGenerate.mockResolvedValue({ text: 'I see a policy document in your photo.' });
+
+      const res = await request(app)
+        .post('/api/assistant/chat')
+        .set('Authorization', `Bearer ${seekerToken}`)
+        .send({
+          attachments: [
+            {
+              mimeType: 'image/png',
+              fileName: 'policy.png',
+              dataBase64: 'aGVsbG8=',
+            },
+          ],
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.reply).toContain('policy document');
+      expect(mockGenerate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          attachmentParts: [
+            {
+              inlineData: {
+                mimeType: 'image/png',
+                data: 'aGVsbG8=',
+              },
+            },
+          ],
+        })
+      );
+    });
+
     it('rate limits anonymous chat', async () => {
       applyTestEnv({
         MONGODB_URI: testMongoUri,

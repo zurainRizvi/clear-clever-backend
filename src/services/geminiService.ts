@@ -33,6 +33,23 @@ interface GeminiApiResponse {
 
 type GeminiPart = { text: string } | GeminiInlinePart;
 
+/** REST body for generativelanguage.googleapis.com (proto JSON uses snake_case). */
+type GeminiApiPart =
+  | { text: string }
+  | { inline_data: { mime_type: string; data: string } };
+
+function toGeminiApiPart(part: GeminiPart): GeminiApiPart {
+  if ('text' in part) {
+    return { text: part.text };
+  }
+  return {
+    inline_data: {
+      mime_type: part.inlineData.mimeType,
+      data: part.inlineData.data,
+    },
+  };
+}
+
 function mapHttpError(status: number, message: string): AppError {
   if (status === 429) {
     return new AppError(429, 'AI service is busy. Please try again in a moment.');
@@ -60,8 +77,8 @@ function buildContents(
   history: GeminiContentPart[] | undefined,
   userMessage: string,
   attachmentParts: GeminiInlinePart[]
-): Array<{ role: string; parts: GeminiPart[] }> {
-  const contents: Array<{ role: string; parts: GeminiPart[] }> = [];
+): Array<{ role: string; parts: GeminiApiPart[] }> {
+  const contents: Array<{ role: string; parts: GeminiApiPart[] }> = [];
 
   for (const turn of history ?? []) {
     contents.push({
@@ -72,7 +89,10 @@ function buildContents(
 
   // Vision models parse attachments best when media parts come before the text prompt.
   const userParts: GeminiPart[] = [...attachmentParts, { text: userMessage }];
-  contents.push({ role: 'user', parts: userParts });
+  contents.push({
+    role: 'user',
+    parts: userParts.map(toGeminiApiPart),
+  });
   return contents;
 }
 
@@ -133,4 +153,13 @@ export async function generateAssistantReply(
   }
 
   return { text };
+}
+
+/** @internal test helper */
+export function buildGeminiContentsForTest(input: {
+  history?: GeminiContentPart[];
+  userMessage: string;
+  attachmentParts?: GeminiInlinePart[];
+}) {
+  return buildContents(input.history, input.userMessage, input.attachmentParts ?? []);
 }
