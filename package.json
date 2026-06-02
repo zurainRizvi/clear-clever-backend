@@ -15,6 +15,7 @@
     "seed": "tsx src/scripts/seed.ts",
     "smoke:prod": "tsx src/scripts/smokeProd.ts",
     "test:smtp": "tsx src/scripts/testSmtp.ts",
+    "preview:reminders": "tsx src/scripts/previewReminderEmails.ts",
     "typecheck": "tsc --noEmit",
     "test": "NODE_ENV=test jest --runInBand --forceExit",
     "test:ci": "NODE_ENV=test jest --runInBand --forceExit --ci"
