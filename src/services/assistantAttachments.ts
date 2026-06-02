@@ -17,9 +17,10 @@ export interface AssistantAttachmentInput {
   dataBase64: string;
 }
 
+/** Gemini REST API v1beta uses camelCase for inline blobs. */
 export interface GeminiInlinePart {
-  inline_data: {
-    mime_type: string;
+  inlineData: {
+    mimeType: string;
     data: string;
   };
 }
@@ -50,8 +51,8 @@ export function parseAttachments(raw: unknown): AssistantAttachmentInput[] {
       ]);
     }
 
-    const base64Body = dataBase64.replace(/^data:[^;]+;base64,/, '');
-    if (!base64Body || !/^[A-Za-z0-9+/=\s]+$/.test(base64Body)) {
+    const base64Body = dataBase64.replace(/^data:[^;]+;base64,/, '').replace(/\s/g, '');
+    if (!base64Body || !/^[A-Za-z0-9+/=]+$/.test(base64Body)) {
       throw new AppError(400, 'Validation failed', ['attachments: invalid base64 data']);
     }
 
@@ -72,8 +73,8 @@ export function attachmentsToGeminiParts(
   attachments: AssistantAttachmentInput[]
 ): GeminiInlinePart[] {
   return attachments.map((file) => ({
-    inline_data: {
-      mime_type: file.mimeType,
+    inlineData: {
+      mimeType: file.mimeType,
       data: file.dataBase64,
     },
   }));
@@ -82,5 +83,11 @@ export function attachmentsToGeminiParts(
 export function describeAttachmentsForPrompt(attachments: AssistantAttachmentInput[]): string {
   if (attachments.length === 0) return '';
   const names = attachments.map((a) => `${a.fileName} (${a.mimeType})`).join(', ');
-  return `\n\nThe user attached: ${names}. Analyze images or PDF content when relevant to their insurance question.`;
+  return [
+    '',
+    'The user attached file(s) in this message. You MUST inspect the attached image(s) or PDF(s) directly.',
+    `Files: ${names}.`,
+    'Describe what you see that is relevant to their insurance question (policy document, ID card, damage photo, etc.).',
+    'If a file is unreadable, say so clearly.',
+  ].join('\n');
 }

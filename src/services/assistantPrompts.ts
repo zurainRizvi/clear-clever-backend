@@ -2,9 +2,11 @@ import type { AssistantContext } from './assistantContextService';
 
 const MARKDOWN_STYLE = `
 ## Response format (required)
-- Write in clear Markdown: short paragraphs separated by blank lines.
+- Write in GitHub-flavored Markdown only.
+- Use **two newline characters** between paragraphs (one blank line). Never output one giant paragraph.
+- After every 2–4 sentences, start a new paragraph with a blank line before it.
 - Use **bold** for policy names, premiums, and key figures.
-- Use bullet lists for comparisons or steps.
+- Use bullet lists (\`-\` or \`*\`) for comparisons, steps, or options — one item per line.
 - Use headings (\`###\`) only when the answer has multiple sections.
 - Never wrap the entire reply in a single code block.
 `.trim();

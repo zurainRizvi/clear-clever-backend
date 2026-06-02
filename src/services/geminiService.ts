@@ -70,7 +70,8 @@ function buildContents(
     });
   }
 
-  const userParts: GeminiPart[] = [{ text: userMessage }, ...attachmentParts];
+  // Vision models parse attachments best when media parts come before the text prompt.
+  const userParts: GeminiPart[] = [...attachmentParts, { text: userMessage }];
   contents.push({ role: 'user', parts: userParts });
   return contents;
 }

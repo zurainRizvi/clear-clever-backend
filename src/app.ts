@@ -45,7 +45,8 @@ export function createApp(env: Env) {
       credentials: true,
     })
   );
-  app.use(express.json({ limit: '1mb' }));
+  // 12mb supports assistant chat with up to 3 base64 attachments (~4MB each raw).
+  app.use(express.json({ limit: '12mb' }));
   app.use(express.urlencoded({ extended: true }));
 
   if (env.NODE_ENV !== 'test') {

@@ -72,6 +72,7 @@ export interface AssistantContext {
     openSupportInquiries: number;
     usersByRole?: Record<string, number>;
   };
+  currentMessageAttachments?: Array<{ fileName: string; mimeType: string }>;
 }
 
 export async function buildAssistantContext(user?: IUserDocument): Promise<AssistantContext> {

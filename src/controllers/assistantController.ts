@@ -101,16 +101,31 @@ export async function postAssistantChat(req: AuthenticatedRequest, res: Response
     attachments?: unknown;
   };
 
-  const message = typeof body.message === 'string' ? body.message.trim() : '';
-  if (message.length < 1 || message.length > 2000) {
+  const attachments = parseAttachments(body.attachments);
+  const messageRaw = typeof body.message === 'string' ? body.message.trim() : '';
+  const message =
+    messageRaw ||
+    (attachments.length > 0
+      ? 'Please review the attached file(s) and answer based on what you see.'
+      : '');
+
+  if (message.length < 1) {
+    throw new AppError(400, 'Validation failed', ['message: required unless attachments are provided']);
+  }
+  if (message.length > 2000) {
     throw new AppError(400, 'Validation failed', ['message: must be 1–2000 characters']);
   }
 
-  const attachments = parseAttachments(body.attachments);
   const anonymous = !req.user;
   applyRateLimit(req, 'chat', anonymous);
 
   const context = await buildAssistantContext(req.user);
+  if (attachments.length > 0) {
+    context.currentMessageAttachments = attachments.map((a) => ({
+      fileName: a.fileName,
+      mimeType: a.mimeType,
+    }));
+  }
   if (body.category && context.personalized && req.user?.role === 'user') {
     const category = parseCategoryForRecommend(body.category);
     if (category && context.topRecommendations) {
