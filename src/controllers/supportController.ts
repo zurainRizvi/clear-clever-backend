@@ -20,7 +20,7 @@ export async function submitSupportContact(
   };
 
   const inquiry = await SupportInquiry.create({
-    userId: req.user!._id,
+    userId: req.user?._id,
     fullName: body.fullName.trim(),
     email: body.email.trim().toLowerCase(),
     roleLabel: body.roleLabel,
@@ -39,6 +39,7 @@ export async function submitSupportContact(
         metadata: {
           inquiryId: String(inquiry._id),
           email: body.email,
+          source: req.user ? 'authenticated' : 'public',
         },
       })
     )

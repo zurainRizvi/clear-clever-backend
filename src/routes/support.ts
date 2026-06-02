@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import { asyncHandler } from '../controllers/authController';
 import { submitSupportContact } from '../controllers/supportController';
-import { authenticate } from '../middleware/authenticate';
+import { optionalAuthenticate } from '../middleware/authenticate';
 import { validate } from '../middleware/validate';
 import { SUPPORT_INQUIRY_REASONS, SUPPORT_INQUIRY_ROLES } from '../models/SupportInquiry';
 
@@ -10,7 +10,7 @@ export const supportRouter = Router();
 
 supportRouter.post(
   '/contact',
-  authenticate,
+  optionalAuthenticate,
   validate([
     body('fullName').trim().isLength({ min: 2, max: 120 }),
     body('email').isEmail().normalizeEmail(),
