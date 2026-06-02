@@ -77,6 +77,19 @@ Override locally with `SEED_PASSWORD=your-secret npm run seed` if needed.
 
 Do **not** set `OTP_DEBUG=true` on Render.
 
+### Gemini AI assistant (optional)
+
+The floating **AI Assistant** calls Google’s API from the backend only. Set on **Render** (never in Vercel or the frontend bundle):
+
+| Variable | Value |
+|----------|--------|
+| `GEMINI_API_KEY` | From [Google AI Studio](https://aistudio.google.com/) — create a key, store only on Render |
+| `GEMINI_MODEL` | `gemini-2.5-flash` (default if omitted) |
+| `GEMINI_MAX_OUTPUT_TOKENS` | `1024` (optional) |
+| `ASSISTANT_RATE_LIMIT_PER_MIN` | `20` (optional) |
+
+If `GEMINI_API_KEY` is unset, `GET /api/assistant/status` returns `configured: false` and the widget stays hidden. Rotate keys if one is ever exposed in chat or screenshots. Google’s free tier has daily quotas — monitor usage in AI Studio.
+
 **Module 7:** If `API_PUBLIC_URL` is missing, purchase `redirectUrl` will incorrectly point to `http://localhost:5000` and affiliate checkout will break. Host-only values like `clear-clever-backend.onrender.com` are auto-prefixed with `https://` on startup.
 
 ### OTP email on Render (important)

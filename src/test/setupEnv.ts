@@ -19,5 +19,7 @@ export function applyTestEnv(overrides: Record<string, string> = {}): void {
   delete process.env.BREVO_API_KEY;
   delete process.env.BREVO_SENDER_EMAIL;
   delete process.env.BREVO_SENDER_NAME;
+  delete process.env.GEMINI_API_KEY;
+  delete process.env.GEMINI_MODEL;
   Object.assign(process.env, overrides);
 }

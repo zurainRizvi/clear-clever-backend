@@ -80,6 +80,16 @@ const envSchema = z.object({
     .transform((v) => stripEnvValue(v)),
   CLIENT_URL: urlFromEnv('http://localhost:5173'),
   API_PUBLIC_URL: urlFromEnv('http://localhost:5000'),
+  GEMINI_API_KEY: z
+    .string()
+    .optional()
+    .transform((v) => stripEnvValue(v)),
+  GEMINI_MODEL: z
+    .string()
+    .optional()
+    .transform((v) => stripEnvValue(v) ?? 'gemini-2.5-flash'),
+  GEMINI_MAX_OUTPUT_TOKENS: z.coerce.number().int().positive().default(1024),
+  ASSISTANT_RATE_LIMIT_PER_MIN: z.coerce.number().int().positive().default(20),
 });
 
 export type Env = z.infer<typeof envSchema> & {
@@ -142,4 +152,8 @@ export function isSmtpConfigured(env: Env): boolean {
 
 export function isBrevoConfigured(env: Env): boolean {
   return Boolean(env.BREVO_API_KEY);
+}
+
+export function isGeminiConfigured(env: Env): boolean {
+  return Boolean(env.GEMINI_API_KEY);
 }
