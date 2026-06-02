@@ -21,6 +21,7 @@ describe('GET /api/health', () => {
     expect(res.body.data.infrastructure).toBeDefined();
     expect(res.body.data.infrastructure.render.ok).toBe(true);
     expect(res.body.data.infrastructure.mongodb).toBeDefined();
+    expect(res.body.data.infrastructure.gemini).toBeDefined();
   });
 });
 

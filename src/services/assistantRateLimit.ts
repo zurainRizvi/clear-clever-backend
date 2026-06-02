@@ -27,6 +27,24 @@ export function checkAssistantRateLimit(key: string, limitPerMin: number): void 
   existing.count += 1;
 }
 
+export function getAssistantRateLimitStats(): {
+  activeBuckets: number;
+  totalTrackedRequests: number;
+} {
+  const now = Date.now();
+  let activeBuckets = 0;
+  let totalTrackedRequests = 0;
+
+  for (const bucket of buckets.values()) {
+    if (now < bucket.resetAt) {
+      activeBuckets += 1;
+      totalTrackedRequests += bucket.count;
+    }
+  }
+
+  return { activeBuckets, totalTrackedRequests };
+}
+
 export function rateLimitKeyForRequest(input: {
   userId?: string;
   ip: string;

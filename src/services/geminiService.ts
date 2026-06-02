@@ -1,6 +1,7 @@
 import { loadEnv, isGeminiConfigured, type Env } from '../config/env';
 import { AppError } from '../utils/apiResponse';
 import type { GeminiInlinePart } from './assistantAttachments';
+import { recordAssistantUsage, type AssistantUsageRoute } from './assistantUsageTracker';
 
 export interface GeminiContentPart {
   role: 'user' | 'model';
@@ -12,6 +13,7 @@ export interface GenerateAssistantReplyInput {
   userMessage: string;
   history?: GeminiContentPart[];
   attachmentParts?: GeminiInlinePart[];
+  usageRoute?: AssistantUsageRoute;
   env?: Env;
 }
 
@@ -25,6 +27,11 @@ interface GeminiApiResponse {
       parts?: Array<{ text?: string }>;
     };
   }>;
+  usageMetadata?: {
+    promptTokenCount?: number;
+    candidatesTokenCount?: number;
+    totalTokenCount?: number;
+  };
   error?: {
     message?: string;
     code?: number;
@@ -48,6 +55,14 @@ function toGeminiApiPart(part: GeminiPart): GeminiApiPart {
       data: part.inlineData.data,
     },
   };
+}
+
+const RETRYABLE_STATUSES = new Set([429, 503]);
+const MAX_GEMINI_ATTEMPTS = 4;
+const RETRY_DELAYS_MS = [800, 2000, 5000];
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function mapHttpError(status: number, message: string): AppError {
@@ -104,6 +119,7 @@ export async function generateAssistantReply(
 
   const model = env.GEMINI_MODEL ?? 'gemini-2.5-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+  const usageRoute = input.usageRoute ?? 'chat';
 
   const body = {
     systemInstruction: {
@@ -120,39 +136,89 @@ export async function generateAssistantReply(
     },
   };
 
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-goog-api-key': env.GEMINI_API_KEY!,
-      },
-      body: JSON.stringify(body),
+  let lastError: AppError | null = null;
+
+  for (let attempt = 0; attempt < MAX_GEMINI_ATTEMPTS; attempt += 1) {
+    if (attempt > 0) {
+      await sleep(RETRY_DELAYS_MS[attempt - 1] ?? 5000);
+    }
+
+    let response: Response;
+    const attemptStarted = Date.now();
+    try {
+      response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-goog-api-key': env.GEMINI_API_KEY!,
+        },
+        body: JSON.stringify(body),
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      recordAssistantUsage({
+        route: usageRoute,
+        ok: false,
+        latencyMs: Date.now() - attemptStarted,
+        model,
+        error: message,
+      });
+      throw new AppError(502, 'AI assistant could not reach Google', [message]);
+    }
+
+    const payload = (await response.json()) as GeminiApiResponse;
+    const latencyMs = Date.now() - attemptStarted;
+
+    if (!response.ok) {
+      const message = payload.error?.message ?? `HTTP ${response.status}`;
+      lastError = mapHttpError(response.status, message);
+      recordAssistantUsage({
+        route: usageRoute,
+        ok: false,
+        latencyMs,
+        model,
+        statusCode: response.status,
+        error: message,
+      });
+      if (RETRYABLE_STATUSES.has(response.status) && attempt < MAX_GEMINI_ATTEMPTS - 1) {
+        continue;
+      }
+      throw lastError;
+    }
+
+    const text =
+      payload.candidates?.[0]?.content?.parts
+        ?.map((part) => part.text ?? '')
+        .join('')
+        .trim() ?? '';
+
+    if (!text) {
+      recordAssistantUsage({
+        route: usageRoute,
+        ok: false,
+        latencyMs,
+        model,
+        statusCode: response.status,
+        error: 'Empty response from Gemini',
+      });
+      throw new AppError(502, 'AI assistant returned an empty response');
+    }
+
+    recordAssistantUsage({
+      route: usageRoute,
+      ok: true,
+      latencyMs,
+      model,
+      statusCode: response.status,
+      promptTokens: payload.usageMetadata?.promptTokenCount,
+      completionTokens: payload.usageMetadata?.candidatesTokenCount,
+      totalTokens: payload.usageMetadata?.totalTokenCount,
     });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    throw new AppError(502, 'AI assistant could not reach Google', [message]);
+
+    return { text };
   }
 
-  const payload = (await response.json()) as GeminiApiResponse;
-
-  if (!response.ok) {
-    const message = payload.error?.message ?? `HTTP ${response.status}`;
-    throw mapHttpError(response.status, message);
-  }
-
-  const text =
-    payload.candidates?.[0]?.content?.parts
-      ?.map((part) => part.text ?? '')
-      .join('')
-      .trim() ?? '';
-
-  if (!text) {
-    throw new AppError(502, 'AI assistant returned an empty response');
-  }
-
-  return { text };
+  throw lastError ?? new AppError(429, 'AI service is busy. Please try again in a moment.');
 }
 
 /** @internal test helper */

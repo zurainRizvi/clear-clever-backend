@@ -14,6 +14,12 @@ import { enrichPolicies } from '../services/policyPresentation';
 import { toInsurerPolicySummary } from '../services/insurerContext';
 import { sanitizeUser } from '../services/auth';
 import { deleteInsurerAccountPermanently } from '../services/insurerDeletion';
+import { getAssistantHealthReport } from '../services/assistantHealthService';
+import { getInfrastructureHealth } from '../services/infrastructureHealth';
+import { getDatabaseStatus } from '../config/db';
+import { isBrevoConfigured, isSmtpConfigured, loadEnv } from '../config/env';
+import { getSmtpProbeResult } from '../config/smtpStatus';
+import { getEmailProvider, isOutboundEmailConfigured } from '../services/emailDelivery';
 import { AppError, successResponse } from '../utils/apiResponse';
 
 export async function listPendingPolicies(
@@ -463,4 +469,50 @@ export async function getAnalytics(req: AuthenticatedRequest, res: Response): Pr
   }
 
   res.status(200).json(successResponse('Analytics retrieved', payload));
+}
+
+export async function getAdminSystemHealth(_req: AuthenticatedRequest, res: Response): Promise<void> {
+  const env = loadEnv();
+  const dbStatus = getDatabaseStatus();
+  const emailProbe = getSmtpProbeResult();
+  const provider = getEmailProvider(env);
+  const infrastructure = await getInfrastructureHealth();
+  const assistant = await getAssistantHealthReport(env);
+
+  res.status(200).json(
+    successResponse('System health retrieved', {
+      service: 'clearclever-api',
+      environment: env.NODE_ENV,
+      database: dbStatus,
+      email: {
+        provider,
+        configured: isOutboundEmailConfigured(env),
+        ready: emailProbe?.ok === true,
+        error: emailProbe && !emailProbe.ok ? emailProbe.error : undefined,
+        brevoKeySet: isBrevoConfigured(env),
+        smtpVarsSet: isSmtpConfigured(env),
+        hint:
+          !isBrevoConfigured(env) && env.NODE_ENV === 'production'
+            ? 'Add BREVO_API_KEY on Render, Save, then Manual Deploy (env changes do not apply until redeploy).'
+            : !emailProbe?.ok && isBrevoConfigured(env)
+              ? 'Brevo key is set but verify failed — check API key and that sender Gmail is verified in Brevo.'
+              : undefined,
+        renderFreeTierNote:
+          provider === 'smtp' && env.NODE_ENV === 'production'
+            ? 'Gmail SMTP is blocked on Render free tier; set BREVO_API_KEY or upgrade Render.'
+            : undefined,
+      },
+      infrastructure: {
+        ...infrastructure,
+        gemini: {
+          ok: assistant.configured ? assistant.ok : false,
+          latencyMs: assistant.latencyMs,
+          label: assistant.label,
+          detail: assistant.detail,
+        },
+      },
+      assistant,
+      timestamp: new Date().toISOString(),
+    })
+  );
 }

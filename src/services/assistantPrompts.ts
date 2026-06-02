@@ -1,4 +1,5 @@
 import type { AssistantContext } from './assistantContextService';
+import { compactAssistantContext } from './assistantContextCompact';
 
 const MARKDOWN_STYLE = `
 ## Response format (required)
@@ -103,7 +104,9 @@ export function buildSystemInstruction(context: AssistantContext): string {
     sections.push(VISION_ATTACHMENTS);
   }
 
-  sections.push(`## Context JSON (source of truth)\n${JSON.stringify(context, null, 2)}`);
+  sections.push(
+    `## Context JSON (source of truth)\n${JSON.stringify(compactAssistantContext(context))}`
+  );
 
   return sections.join('\n\n');
 }

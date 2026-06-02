@@ -89,7 +89,7 @@ const envSchema = z.object({
     .optional()
     .transform((v) => stripEnvValue(v) ?? 'gemini-2.5-flash'),
   GEMINI_MAX_OUTPUT_TOKENS: z.coerce.number().int().positive().default(1024),
-  ASSISTANT_RATE_LIMIT_PER_MIN: z.coerce.number().int().positive().default(20),
+  ASSISTANT_RATE_LIMIT_PER_MIN: z.coerce.number().int().positive().default(40),
 });
 
 export type Env = z.infer<typeof envSchema> & {

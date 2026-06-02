@@ -155,6 +155,7 @@ export async function postAssistantChat(req: AuthenticatedRequest, res: Response
     userMessage,
     history,
     attachmentParts: attachmentsToGeminiParts(attachments),
+    usageRoute: 'chat',
     env,
   });
 
@@ -203,6 +204,7 @@ export async function postAssistantExplain(req: AuthenticatedRequest, res: Respo
   const { text } = await generateAssistantReply({
     systemInstruction,
     userMessage,
+    usageRoute: 'explain',
     env,
   });
 

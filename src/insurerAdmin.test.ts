@@ -554,6 +554,28 @@ describe('Module 6 — Insurer & admin modules', () => {
       expect(res.body.data.platform.insurers.total).toBeGreaterThan(0);
     });
 
+    it('returns superadmin system health with assistant metrics', async () => {
+      const superToken = await login('superadmin@clearclever.com');
+
+      const res = await request(app)
+        .get('/api/admin/health')
+        .set('Authorization', `Bearer ${superToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.infrastructure.gemini).toBeDefined();
+      expect(res.body.data.assistant).toBeDefined();
+      expect(res.body.data.assistant.usage).toBeDefined();
+      expect(Array.isArray(res.body.data.assistant.diagnostics)).toBe(true);
+    });
+
+    it('returns 403 when admin hits superadmin-only system health', async () => {
+      const res = await request(app)
+        .get('/api/admin/health')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(403);
+    });
+
     it('returns 403 when admin tries superadmin-only insurer delete', async () => {
       const insurer = await User.findOne({ email: 'insurer.adamjee@clearclever.com' });
 

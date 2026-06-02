@@ -1,5 +1,5 @@
 import { getDatabaseStatus } from '../config/db';
-import { isBrevoConfigured, loadEnv } from '../config/env';
+import { isGeminiConfigured, loadEnv } from '../config/env';
 import { getSmtpProbeResult } from '../config/smtpStatus';
 import { getEmailProvider, isOutboundEmailConfigured } from './emailDelivery';
 
@@ -80,11 +80,19 @@ export async function getInfrastructureHealth() {
     detail: 'API process responding',
   };
 
+  const gemini = {
+    ok: isGeminiConfigured(env),
+    latencyMs: 0,
+    label: 'Gemini AI assistant',
+    detail: isGeminiConfigured(env) ? 'API key configured (see superadmin health for live probe)' : 'Not configured',
+  };
+
   return {
     render,
     vercel,
     mongodb,
     brevo,
+    gemini,
     checkedAt: new Date().toISOString(),
     environment: env.NODE_ENV,
   };

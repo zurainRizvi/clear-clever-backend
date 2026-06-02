@@ -1,0 +1,218 @@
+import { isGeminiConfigured, loadEnv, type Env } from '../config/env';
+import type { ServiceProbe } from './infrastructureHealth';
+import { getAssistantRateLimitStats } from './assistantRateLimit';
+import { getAssistantUsageSummary } from './assistantUsageTracker';
+
+const PROBE_TIMEOUT_MS = 8000;
+
+interface GeminiModelResource {
+  name?: string;
+  displayName?: string;
+  description?: string;
+  inputTokenLimit?: number;
+  outputTokenLimit?: number;
+  supportedGenerationMethods?: string[];
+}
+
+interface GeminiModelResponse {
+  name?: string;
+  displayName?: string;
+  description?: string;
+  inputTokenLimit?: number;
+  outputTokenLimit?: number;
+  supportedGenerationMethods?: string[];
+  error?: { message?: string; code?: number };
+}
+
+export interface AssistantHealthReport {
+  configured: boolean;
+  apiKeySet: boolean;
+  ok: boolean;
+  latencyMs: number;
+  label: string;
+  detail?: string;
+  model: string;
+  modelResourceName?: string;
+  displayName?: string;
+  modelAvailable: boolean;
+  supportedGenerationMethods: string[];
+  limits: {
+    configuredMaxOutputTokens: number;
+    modelInputTokenLimit?: number;
+    modelOutputTokenLimit?: number;
+    assistantRateLimitPerMin: number;
+    anonymousRateLimitPerMin: number;
+    maxAttachmentsPerMessage: number;
+    maxBytesPerAttachment: number;
+    allowedAttachmentMimeTypes: string[];
+  };
+  usage: ReturnType<typeof getAssistantUsageSummary>;
+  internalRateLimits: ReturnType<typeof getAssistantRateLimitStats>;
+  diagnostics: string[];
+  notes: string[];
+}
+
+function normalizeModelId(model: string): string {
+  return model.replace(/^models\//, '');
+}
+
+async function fetchConfiguredModel(env: Env): Promise<{
+  ok: boolean;
+  latencyMs: number;
+  model?: GeminiModelResource;
+  error?: string;
+  statusCode?: number;
+}> {
+  const modelId = normalizeModelId(env.GEMINI_MODEL ?? 'gemini-2.5-flash');
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(modelId)}`;
+  const start = Date.now();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), PROBE_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'X-goog-api-key': env.GEMINI_API_KEY!,
+      },
+      signal: controller.signal,
+    });
+    const latencyMs = Date.now() - start;
+    const payload = (await response.json()) as GeminiModelResponse;
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        latencyMs,
+        statusCode: response.status,
+        error: payload.error?.message ?? `HTTP ${response.status}`,
+      };
+    }
+
+    return { ok: true, latencyMs, model: payload };
+  } catch (err) {
+    return {
+      ok: false,
+      latencyMs: Date.now() - start,
+      error: err instanceof Error ? err.message : 'Gemini probe failed',
+    };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export async function getAssistantHealthReport(env: Env = loadEnv()): Promise<AssistantHealthReport> {
+  const configured = isGeminiConfigured(env);
+  const model = normalizeModelId(env.GEMINI_MODEL ?? 'gemini-2.5-flash');
+  const usage = getAssistantUsageSummary();
+  const internalRateLimits = getAssistantRateLimitStats();
+  const diagnostics: string[] = [];
+  const notes: string[] = [
+    'Google does not expose remaining free-tier quota via API key alone. Token and request totals below are tracked by this API process since last deploy.',
+    'If you see repeated 429 errors with "limit: 0", link billing in Google Cloud or verify the API key tier at https://aistudio.google.com/apikey',
+  ];
+
+  if (usage.rateLimitErrors > 0) {
+    diagnostics.push(
+      `${usage.rateLimitErrors} Gemini 429 response(s) recorded since server start — consider lowering traffic or upgrading quota.`
+    );
+  }
+
+  if (usage.failedApiCalls > usage.successfulApiCalls && usage.totalApiCalls >= 3) {
+    diagnostics.push('Failure rate is high — review recent errors below and verify billing/quota on Google AI Studio.');
+  }
+
+  if (internalRateLimits.activeBuckets > 0) {
+    diagnostics.push(
+      `${internalRateLimits.activeBuckets} active internal rate-limit bucket(s); ${internalRateLimits.totalTrackedRequests} assistant route hit(s) in the current rolling minute windows.`
+    );
+  }
+
+  const limits = {
+    configuredMaxOutputTokens: env.GEMINI_MAX_OUTPUT_TOKENS,
+    assistantRateLimitPerMin: env.ASSISTANT_RATE_LIMIT_PER_MIN,
+    anonymousRateLimitPerMin: Math.max(1, Math.floor(env.ASSISTANT_RATE_LIMIT_PER_MIN / 2)),
+    maxAttachmentsPerMessage: 3,
+    maxBytesPerAttachment: 4 * 1024 * 1024,
+    allowedAttachmentMimeTypes: [
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/gif',
+      'application/pdf',
+    ],
+    modelInputTokenLimit: undefined as number | undefined,
+    modelOutputTokenLimit: undefined as number | undefined,
+  };
+
+  if (!configured) {
+    diagnostics.push('GEMINI_API_KEY is not set — the assistant widget stays hidden.');
+    return {
+      configured: false,
+      apiKeySet: false,
+      ok: false,
+      latencyMs: 0,
+      label: 'Gemini AI assistant',
+      detail: 'Not configured',
+      model,
+      modelAvailable: false,
+      supportedGenerationMethods: [],
+      limits,
+      usage,
+      internalRateLimits,
+      diagnostics,
+      notes,
+    };
+  }
+
+  const probe = await fetchConfiguredModel(env);
+
+  if (!probe.ok) {
+    if (probe.statusCode === 429) {
+      diagnostics.push('Gemini returned HTTP 429 on model probe — upstream quota is likely exhausted.');
+    } else if (probe.statusCode === 404) {
+      diagnostics.push(`Model "${model}" was not found for this API key. Set GEMINI_MODEL to a supported model.`);
+    } else if (probe.error) {
+      diagnostics.push(`Gemini probe error: ${probe.error}`);
+    }
+  } else {
+    diagnostics.push(`Model "${probe.model?.displayName ?? model}" is reachable via Google Generative Language API.`);
+    if (probe.model?.supportedGenerationMethods?.includes('generateContent') === false) {
+      diagnostics.push('Configured model does not list generateContent support.');
+    }
+  }
+
+  limits.modelInputTokenLimit = probe.model?.inputTokenLimit;
+  limits.modelOutputTokenLimit = probe.model?.outputTokenLimit;
+
+  return {
+    configured: true,
+    apiKeySet: true,
+    ok: probe.ok,
+    latencyMs: probe.latencyMs,
+    label: 'Gemini AI assistant',
+    detail: probe.ok
+      ? `${probe.model?.displayName ?? model} reachable`
+      : probe.error ?? 'Probe failed',
+    model,
+    modelResourceName: probe.model?.name,
+    displayName: probe.model?.displayName,
+    modelAvailable: probe.ok,
+    supportedGenerationMethods: probe.model?.supportedGenerationMethods ?? [],
+    limits,
+    usage,
+    internalRateLimits,
+    diagnostics,
+    notes,
+  };
+}
+
+export async function getAssistantInfrastructureProbe(env: Env = loadEnv()): Promise<ServiceProbe> {
+  const report = await getAssistantHealthReport(env);
+  return {
+    ok: report.ok,
+    latencyMs: report.latencyMs,
+    label: report.label,
+    detail: report.detail,
+  };
+}
