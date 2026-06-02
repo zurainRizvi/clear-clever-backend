@@ -1,5 +1,5 @@
 import { getDatabaseStatus } from '../config/db';
-import { isGeminiConfigured, loadEnv } from '../config/env';
+import { isBrevoConfigured, isGeminiConfigured, loadEnv } from '../config/env';
 import { getSmtpProbeResult } from '../config/smtpStatus';
 import { getEmailProvider, isOutboundEmailConfigured } from './emailDelivery';
 
