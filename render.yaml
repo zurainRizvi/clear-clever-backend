@@ -42,3 +42,7 @@ services:
         sync: false
       - key: BREVO_SENDER_NAME
         value: ClearClever
+      - key: ASSISTANT_RATE_LIMIT_PER_MIN
+        value: 15
+      - key: GEMINI_UPSTREAM_RPM
+        value: 18

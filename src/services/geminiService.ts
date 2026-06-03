@@ -1,6 +1,7 @@
 import { loadEnv, isGeminiConfigured, type Env } from '../config/env';
 import { AppError } from '../utils/apiResponse';
 import type { GeminiInlinePart } from './assistantAttachments';
+import { checkGeminiUpstreamRateLimit } from './geminiUpstreamRateLimit';
 import { recordAssistantUsage, type AssistantUsageRoute } from './assistantUsageTracker';
 
 export interface GeminiContentPart {
@@ -57,17 +58,46 @@ function toGeminiApiPart(part: GeminiPart): GeminiApiPart {
   };
 }
 
-const RETRYABLE_STATUSES = new Set([429, 503]);
-const MAX_GEMINI_ATTEMPTS = 4;
-const RETRY_DELAYS_MS = [800, 2000, 5000];
+const MAX_503_ATTEMPTS = 2;
+const RETRY_503_DELAY_MS = 2000;
+
+let geminiCallQueue: Promise<unknown> = Promise.resolve();
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** @internal test helper */
+export function resetGeminiCallQueue(): void {
+  geminiCallQueue = Promise.resolve();
+}
+
+function withGeminiMutex<T>(fn: () => Promise<T>): Promise<T> {
+  const run = geminiCallQueue.then(fn, fn);
+  geminiCallQueue = run.then(
+    () => undefined,
+    () => undefined
+  );
+  return run;
+}
+
+/** Parse "Please retry in 17.00s" from Google quota errors. */
+export function parseRetryAfterSeconds(message: string): number | undefined {
+  const match = message.match(/retry in\s+([\d.]+)\s*s/i);
+  if (!match?.[1]) return undefined;
+  const seconds = Math.ceil(parseFloat(match[1]));
+  if (!Number.isFinite(seconds) || seconds < 1) return undefined;
+  return Math.min(seconds, 120);
+}
+
 function mapHttpError(status: number, message: string): AppError {
   if (status === 429) {
-    return new AppError(429, 'AI service is busy. Please try again in a moment.');
+    const retrySec = parseRetryAfterSeconds(message);
+    const detail =
+      retrySec != null
+        ? `AI is rate-limited — try again in about ${retrySec} seconds.`
+        : 'AI service is busy. Please try again in a moment.';
+    return new AppError(429, detail);
   }
   if (status === 401 || status === 403) {
     return new AppError(503, 'AI assistant is misconfigured', ['Check GEMINI_API_KEY on the server']);
@@ -76,6 +106,10 @@ function mapHttpError(status: number, message: string): AppError {
     return new AppError(503, 'AI model is unavailable', ['Verify GEMINI_MODEL is valid for your API key']);
   }
   return new AppError(502, 'AI assistant could not generate a reply', [message]);
+}
+
+function shouldRetry503(status: number, attempt: number): boolean {
+  return status === 503 && attempt < MAX_503_ATTEMPTS - 1;
 }
 
 export function assertGeminiConfigured(env: Env = loadEnv()): void {
@@ -102,7 +136,6 @@ function buildContents(
     });
   }
 
-  // Vision models parse attachments best when media parts come before the text prompt.
   const userParts: GeminiPart[] = [...attachmentParts, { text: userMessage }];
   contents.push({
     role: 'user',
@@ -111,7 +144,7 @@ function buildContents(
   return contents;
 }
 
-export async function generateAssistantReply(
+async function generateAssistantReplyInner(
   input: GenerateAssistantReplyInput
 ): Promise<GenerateAssistantReplyResult> {
   const env = input.env ?? loadEnv();
@@ -120,6 +153,7 @@ export async function generateAssistantReply(
   const model = env.GEMINI_MODEL ?? 'gemini-2.5-flash';
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
   const usageRoute = input.usageRoute ?? 'chat';
+  const upstreamRpm = env.GEMINI_UPSTREAM_RPM;
 
   const body = {
     systemInstruction: {
@@ -138,10 +172,12 @@ export async function generateAssistantReply(
 
   let lastError: AppError | null = null;
 
-  for (let attempt = 0; attempt < MAX_GEMINI_ATTEMPTS; attempt += 1) {
+  for (let attempt = 0; attempt < MAX_503_ATTEMPTS; attempt += 1) {
     if (attempt > 0) {
-      await sleep(RETRY_DELAYS_MS[attempt - 1] ?? 5000);
+      await sleep(RETRY_503_DELAY_MS);
     }
+
+    checkGeminiUpstreamRateLimit(upstreamRpm);
 
     let response: Response;
     const attemptStarted = Date.now();
@@ -180,7 +216,7 @@ export async function generateAssistantReply(
         statusCode: response.status,
         error: message,
       });
-      if (RETRYABLE_STATUSES.has(response.status) && attempt < MAX_GEMINI_ATTEMPTS - 1) {
+      if (shouldRetry503(response.status, attempt)) {
         continue;
       }
       throw lastError;
@@ -218,7 +254,13 @@ export async function generateAssistantReply(
     return { text };
   }
 
-  throw lastError ?? new AppError(429, 'AI service is busy. Please try again in a moment.');
+  throw lastError ?? new AppError(503, 'AI assistant is temporarily unavailable');
+}
+
+export async function generateAssistantReply(
+  input: GenerateAssistantReplyInput
+): Promise<GenerateAssistantReplyResult> {
+  return withGeminiMutex(() => generateAssistantReplyInner(input));
 }
 
 /** @internal test helper */

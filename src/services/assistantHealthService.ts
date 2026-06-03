@@ -42,6 +42,7 @@ export interface AssistantHealthReport {
     modelOutputTokenLimit?: number;
     assistantRateLimitPerMin: number;
     anonymousRateLimitPerMin: number;
+    geminiUpstreamRpm: number;
     maxAttachmentsPerMessage: number;
     maxBytesPerAttachment: number;
     allowedAttachmentMimeTypes: string[];
@@ -114,12 +115,25 @@ export async function getAssistantHealthReport(env: Env = loadEnv()): Promise<As
 
   if (usage.rateLimitErrors > 0) {
     diagnostics.push(
-      `${usage.rateLimitErrors} Gemini 429 response(s) recorded since server start — consider lowering traffic or upgrading quota.`
+      `${usage.rateLimitErrors} Gemini 429 response(s) since deploy — free tier is ~20 generateContent RPM. Wait ~60s between tests; do not rapid-retry the chat widget.`
+    );
+  }
+
+  const recentQuotaErrors = usage.recentErrors.some((e) =>
+    /free_tier_requests|generate_content_free_tier/i.test(e.message)
+  );
+  if (
+    recentQuotaErrors &&
+    usage.failedApiCalls > usage.successfulApiCalls &&
+    usage.totalApiCalls >= 2
+  ) {
+    diagnostics.push(
+      'Google free-tier request quota was hit. Each user message should cause only one upstream generateContent call (older deploys retried 429 up to 4×). Redeploy if failures persist after cooldown.'
     );
   }
 
   if (usage.failedApiCalls > usage.successfulApiCalls && usage.totalApiCalls >= 3) {
-    diagnostics.push('Failure rate is high — review recent errors below and verify billing/quota on Google AI Studio.');
+    diagnostics.push('Failure rate is high — review recent errors below and verify quota on Google AI Studio.');
   }
 
   if (internalRateLimits.activeBuckets > 0) {
@@ -132,6 +146,7 @@ export async function getAssistantHealthReport(env: Env = loadEnv()): Promise<As
     configuredMaxOutputTokens: env.GEMINI_MAX_OUTPUT_TOKENS,
     assistantRateLimitPerMin: env.ASSISTANT_RATE_LIMIT_PER_MIN,
     anonymousRateLimitPerMin: Math.max(1, Math.floor(env.ASSISTANT_RATE_LIMIT_PER_MIN / 2)),
+    geminiUpstreamRpm: env.GEMINI_UPSTREAM_RPM,
     maxAttachmentsPerMessage: 3,
     maxBytesPerAttachment: 4 * 1024 * 1024,
     allowedAttachmentMimeTypes: [

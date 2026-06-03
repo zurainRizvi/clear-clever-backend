@@ -86,9 +86,10 @@ The floating **AI Assistant** calls Google’s API from the backend only. Set on
 | `GEMINI_API_KEY` | From [Google AI Studio](https://aistudio.google.com/) — create a key, store only on Render |
 | `GEMINI_MODEL` | `gemini-2.5-flash` (default if omitted) |
 | `GEMINI_MAX_OUTPUT_TOKENS` | `1024` (optional) |
-| `ASSISTANT_RATE_LIMIT_PER_MIN` | `20` (optional) |
+| `GEMINI_UPSTREAM_RPM` | `18` — process-wide cap on `generateContent` calls/min (stay under Google free tier ~20 RPM) |
+| `ASSISTANT_RATE_LIMIT_PER_MIN` | `15` — per-user/IP cap on assistant routes (optional) |
 
-If `GEMINI_API_KEY` is unset, `GET /api/assistant/status` returns `configured: false` and the widget stays hidden. Rotate keys if one is ever exposed in chat or screenshots. Google’s free tier has daily quotas — monitor usage in AI Studio.
+If `GEMINI_API_KEY` is unset, `GET /api/assistant/status` returns `configured: false` and the widget stays hidden. Rotate keys if one is ever exposed in chat or screenshots. On the **free tier**, `gemini-2.5-flash` is limited to about **20 `generateContent` requests per minute** — the API does not retry 429s (retries burn quota). Monitor usage in [Google AI Studio](https://aistudio.google.com/).
 
 **Module 7:** If `API_PUBLIC_URL` is missing, purchase `redirectUrl` will incorrectly point to `http://localhost:5000` and affiliate checkout will break. Host-only values like `clear-clever-backend.onrender.com` are auto-prefixed with `https://` on startup.
 
