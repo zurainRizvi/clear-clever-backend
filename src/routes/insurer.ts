@@ -11,6 +11,8 @@ import {
   listInsurerLeads,
   listInsurerPolicies,
   markInsurerLeadSeen,
+  revokeInsurerPurchase,
+  terminateInsurerPurchase,
   updateInsurerClaimStatus,
   updateInsurerPolicy,
   updateInsurerProfile,
@@ -64,6 +66,16 @@ insurerRouter.patch(
   '/leads/:id/seen',
   validate([insurerPolicyIdValidator]),
   asyncHandler(markInsurerLeadSeen)
+);
+insurerRouter.patch(
+  '/purchases/:id/revoke',
+  validate([insurerPolicyIdValidator]),
+  asyncHandler(revokeInsurerPurchase)
+);
+insurerRouter.patch(
+  '/purchases/:id/terminate',
+  validate([insurerPolicyIdValidator]),
+  asyncHandler(terminateInsurerPurchase)
 );
 insurerRouter.get('/claims', asyncHandler(listInsurerClaims));
 insurerRouter.patch(

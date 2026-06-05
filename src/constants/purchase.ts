@@ -1,4 +1,4 @@
-export const PURCHASE_STATUSES = ['pending', 'completed'] as const;
+export const PURCHASE_STATUSES = ['pending', 'completed', 'revoked', 'terminated'] as const;
 export type PurchaseStatus = (typeof PURCHASE_STATUSES)[number];
 
 export const NOTIFICATION_TYPES = [
@@ -17,6 +17,8 @@ export const NOTIFICATION_TYPES = [
   'account_review',
   'support_inquiry',
   'new_lead',
+  'purchase_revoked',
+  'purchase_terminated',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 

@@ -131,7 +131,7 @@ export interface InsurerAnalyticsPayload {
   }>;
   interestTrends: {
     xAxis: string[];
-    datasets: Array<{ label: string; color: string; values: number[] }>;
+    datasets: Array<{ key: string; label: string; color: string; values: number[] }>;
     sideLegend: Array<{ label: string; percentage: string; trend: string }>;
     insightBanner: { text: string; badge: string };
   };
@@ -562,6 +562,7 @@ export async function buildInsurerAnalytics(
     interestTrends: {
       xAxis,
       datasets: CATEGORIES_LIST.map((cat) => ({
+        key: cat,
         label: CATEGORY_LABELS[cat],
         color: CATEGORY_COLORS[cat],
         values: dailyInterest[cat],

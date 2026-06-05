@@ -17,7 +17,9 @@ import {
   toInsurerProfileSummary,
 } from '../services/insurerContext';
 import { buildInsurerAnalytics } from '../services/insurerAnalyticsService';
+import { buildInsurerCustomerGroups } from '../services/insurerCustomerService';
 import { buildInsurerDashboard } from '../services/insurerIntelligenceService';
+import { applyPurchaseLifecycleAction } from '../services/purchaseLifecycleService';
 import { AppError, successResponse } from '../utils/apiResponse';
 
 export async function getInsurerAnalytics(req: AuthenticatedRequest, res: Response): Promise<void> {
@@ -342,7 +344,10 @@ export async function updateInsurerClaimStatus(
 
 export async function listInsurerLeads(req: AuthenticatedRequest, res: Response): Promise<void> {
   const profile = await getInsurerProfileForUser(req.user!._id);
-  const leads = await Lead.find({ insurerProfileId: profile._id }).sort({ createdAt: -1 });
+  const [leads, customers] = await Promise.all([
+    Lead.find({ insurerProfileId: profile._id }).sort({ createdAt: -1 }),
+    buildInsurerCustomerGroups(profile._id),
+  ]);
 
   const userIds = [...new Set(leads.map((lead) => String(lead.userId)))];
   const policyIds = [
@@ -394,8 +399,53 @@ export async function listInsurerLeads(req: AuthenticatedRequest, res: Response)
   res.status(200).json(
     successResponse('Insurer leads retrieved', {
       count: items.length,
-      unseenNewCount: items.filter((item) => item.isNew).length,
+      unseenNewCount: customers.filter((customer) => customer.isNew).length,
       leads: items,
+      customers,
+    })
+  );
+}
+
+export async function revokeInsurerPurchase(
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> {
+  const profile = await getInsurerProfileForUser(req.user!._id);
+  const purchase = await applyPurchaseLifecycleAction(
+    String(req.params.id),
+    profile._id,
+    req.user!._id,
+    'revoke'
+  );
+
+  res.status(200).json(
+    successResponse('Purchase revoked', {
+      purchase: {
+        id: String(purchase._id),
+        status: purchase.status,
+      },
+    })
+  );
+}
+
+export async function terminateInsurerPurchase(
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> {
+  const profile = await getInsurerProfileForUser(req.user!._id);
+  const purchase = await applyPurchaseLifecycleAction(
+    String(req.params.id),
+    profile._id,
+    req.user!._id,
+    'terminate'
+  );
+
+  res.status(200).json(
+    successResponse('Purchase terminated', {
+      purchase: {
+        id: String(purchase._id),
+        status: purchase.status,
+      },
     })
   );
 }

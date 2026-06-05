@@ -170,7 +170,10 @@ export async function completePurchaseHandler(
 }
 
 export async function listPurchases(req: AuthenticatedRequest, res: Response): Promise<void> {
-  const purchases = await Purchase.find({ userId: req.user!._id }).sort({ createdAt: -1 });
+  const purchases = await Purchase.find({
+    userId: req.user!._id,
+    status: { $ne: 'revoked' },
+  }).sort({ createdAt: -1 });
   const items = await Promise.all(purchases.map((purchase) => toPurchaseSummary(purchase)));
 
   res.status(200).json(
