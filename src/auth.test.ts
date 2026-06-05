@@ -278,4 +278,170 @@ describe('Module 2 — Authentication & OTP', () => {
       .set('Authorization', `Bearer ${token}`);
     expect(meRes.body.data.user.profile.notificationPreferences.claimAlerts).toBe(false);
   });
+
+  async function activateUser(app: ReturnType<typeof createApp>) {
+    const signupRes = await request(app).post('/api/auth/signup').send(signupBody);
+    const code = signupRes.body.data.debugCode as string;
+    await request(app)
+      .post('/api/auth/otp/verify')
+      .send({ email: signupBody.email, purpose: 'signup', code });
+    return signupRes;
+  }
+
+  it('forgot-password → reset-password → login with new password', async () => {
+    const env = loadEnv();
+    const app = createApp(env);
+    await activateUser(app);
+
+    const forgotRes = await request(app)
+      .post('/api/auth/forgot-password')
+      .send({ email: signupBody.email });
+
+    expect(forgotRes.status).toBe(200);
+    expect(forgotRes.body.message).toMatch(/reset link/i);
+    expect(forgotRes.body.data.resetUrl).toContain('/reset-password?token=');
+
+    const resetUrl = forgotRes.body.data.resetUrl as string;
+    const token = new URL(resetUrl).searchParams.get('token');
+    expect(token).toBeTruthy();
+
+    const resetRes = await request(app).post('/api/auth/reset-password').send({
+      token,
+      password: 'newpassword1',
+      confirmPassword: 'newpassword1',
+    });
+
+    expect(resetRes.status).toBe(200);
+    expect(resetRes.body.data.message).toMatch(/sign in/i);
+    expect(resetRes.body.data.token).toBeUndefined();
+
+    const oldLogin = await request(app)
+      .post('/api/auth/login')
+      .send({ email: signupBody.email, password: signupBody.password });
+    expect(oldLogin.status).toBe(401);
+
+    const newLogin = await request(app)
+      .post('/api/auth/login')
+      .send({ email: signupBody.email, password: 'newpassword1' });
+    expect(newLogin.status).toBe(200);
+    expect(newLogin.body.data.token).toBeDefined();
+  });
+
+  it('forgot-password returns generic message for unknown email', async () => {
+    const env = loadEnv();
+    const app = createApp(env);
+
+    const res = await request(app)
+      .post('/api/auth/forgot-password')
+      .send({ email: 'unknown@example.com' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.message).toMatch(/reset link/i);
+    expect(res.body.data.resetUrl).toBeUndefined();
+    expect(res.body.data.emailSent).toBeNull();
+  });
+
+  it('rejects invalid reset token', async () => {
+    const env = loadEnv();
+    const app = createApp(env);
+
+    const res = await request(app).post('/api/auth/reset-password').send({
+      token: 'not-a-valid-token',
+      password: 'newpassword1',
+      confirmPassword: 'newpassword1',
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/invalid|expired/i);
+  });
+
+  it('rejects expired reset token', async () => {
+    const env = loadEnv();
+    const app = createApp(env);
+    await activateUser(app);
+
+    const forgotRes = await request(app)
+      .post('/api/auth/forgot-password')
+      .send({ email: signupBody.email });
+
+    const resetUrl = forgotRes.body.data.resetUrl as string;
+    const token = new URL(resetUrl).searchParams.get('token')!;
+
+    await OtpVerification.updateMany(
+      { email: signupBody.email, purpose: 'reset' },
+      { $set: { expiresAt: new Date(Date.now() - 1000) } }
+    );
+
+    const res = await request(app).post('/api/auth/reset-password').send({
+      token,
+      password: 'newpassword1',
+      confirmPassword: 'newpassword1',
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/expired/i);
+  });
+
+  it('rejects already-used reset token', async () => {
+    const env = loadEnv();
+    const app = createApp(env);
+    await activateUser(app);
+
+    const forgotRes = await request(app)
+      .post('/api/auth/forgot-password')
+      .send({ email: signupBody.email });
+
+    const resetUrl = forgotRes.body.data.resetUrl as string;
+    const token = new URL(resetUrl).searchParams.get('token')!;
+
+    const first = await request(app).post('/api/auth/reset-password').send({
+      token,
+      password: 'newpassword1',
+      confirmPassword: 'newpassword1',
+    });
+    expect(first.status).toBe(200);
+
+    const second = await request(app).post('/api/auth/reset-password').send({
+      token,
+      password: 'anotherpass1',
+      confirmPassword: 'anotherpass1',
+    });
+    expect(second.status).toBe(400);
+  });
+
+  it('rejects reset when passwords do not match', async () => {
+    const env = loadEnv();
+    const app = createApp(env);
+    await activateUser(app);
+
+    const forgotRes = await request(app)
+      .post('/api/auth/forgot-password')
+      .send({ email: signupBody.email });
+
+    const token = new URL(forgotRes.body.data.resetUrl as string).searchParams.get('token')!;
+
+    const res = await request(app).post('/api/auth/reset-password').send({
+      token,
+      password: 'newpassword1',
+      confirmPassword: 'differentpass',
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe('Validation failed');
+    expect(JSON.stringify(res.body.errors ?? res.body.data?.errors ?? [])).toMatch(/match/i);
+  });
+
+  it('rejects verifyOtp with reset purpose', async () => {
+    const env = loadEnv();
+    const app = createApp(env);
+
+    const res = await request(app).post('/api/auth/otp/verify').send({
+      email: signupBody.email,
+      purpose: 'reset',
+      code: '123456',
+    });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toMatch(/reset link/i);
+  });
 });

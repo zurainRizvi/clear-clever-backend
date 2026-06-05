@@ -1,6 +1,7 @@
 import type { Response } from 'express';
 import type { ClaimStatus } from '../models/ClaimRequest';
 import { ClaimRequest } from '../models/ClaimRequest';
+import { InsurerProfile } from '../models/InsurerProfile';
 import type { IPolicyQuestion } from '../models/Policy';
 import { Favorite } from '../models/Favorite';
 import { Lead } from '../models/Lead';
@@ -19,11 +20,12 @@ import {
 import { buildInsurerAnalytics } from '../services/insurerAnalyticsService';
 import { buildInsurerCustomerGroups } from '../services/insurerCustomerService';
 import { buildInsurerDashboard } from '../services/insurerIntelligenceService';
+import { createStarterPoliciesForInsurer } from '../services/insurerStarterPolicies';
 import { applyPurchaseLifecycleAction } from '../services/purchaseLifecycleService';
 import { AppError, successResponse } from '../utils/apiResponse';
 
 export async function getInsurerAnalytics(req: AuthenticatedRequest, res: Response): Promise<void> {
-  const profile = await getInsurerProfileForUser(req.user!._id);
+  const profile = await getInsurerProfileForUser(req.user!._id, req.user!);
   const from = typeof req.query.from === 'string' ? req.query.from : undefined;
   const to = typeof req.query.to === 'string' ? req.query.to : undefined;
 
@@ -37,7 +39,7 @@ export async function getInsurerAnalytics(req: AuthenticatedRequest, res: Respon
 }
 
 export async function getInsurerDashboard(req: AuthenticatedRequest, res: Response): Promise<void> {
-  const profile = await getInsurerProfileForUser(req.user!._id);
+  const profile = await getInsurerProfileForUser(req.user!._id, req.user!);
   const from = typeof req.query.from === 'string' ? req.query.from : undefined;
   const to = typeof req.query.to === 'string' ? req.query.to : undefined;
 
@@ -61,11 +63,64 @@ async function getOwnedPolicy(insurerProfileId: string, policyId: string) {
   return policy;
 }
 
+export async function createInsurerProfile(
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> {
+  const user = req.user!;
+
+  if (user.role !== 'insurer') {
+    throw new AppError(403, 'Only insurance providers can create a provider profile');
+  }
+
+  if (user.status !== 'pendingVerification') {
+    throw new AppError(400, 'Provider profile can only be created during onboarding');
+  }
+
+  const existing = await InsurerProfile.findOne({ userId: user._id });
+  if (existing) {
+    throw new AppError(409, 'Provider profile already exists for this account');
+  }
+
+  const body = req.body as {
+    companyName: string;
+    slug: string;
+    contactPhone: string;
+    description?: string;
+    websiteUrl?: string;
+  };
+
+  const slug = body.slug.toLowerCase().trim();
+  const slugTaken = await InsurerProfile.findOne({ slug });
+  if (slugTaken) {
+    throw new AppError(409, 'This portal slug is already taken');
+  }
+
+  const profile = await InsurerProfile.create({
+    userId: user._id,
+    companyName: body.companyName.trim(),
+    slug,
+    contactEmail: user.email,
+    contactPhone: body.contactPhone.trim(),
+    description: body.description?.trim(),
+    websiteUrl: body.websiteUrl?.trim(),
+  });
+
+  const policiesCreated = await createStarterPoliciesForInsurer(profile);
+
+  res.status(201).json(
+    successResponse('Provider profile created', {
+      profile: toInsurerProfileSummary(profile),
+      policiesCreated,
+    })
+  );
+}
+
 export async function getInsurerProfile(
   req: AuthenticatedRequest,
   res: Response
 ): Promise<void> {
-  const profile = await getInsurerProfileForUser(req.user!._id);
+  const profile = await getInsurerProfileForUser(req.user!._id, req.user!);
   res.status(200).json(
     successResponse('Insurer profile retrieved', {
       profile: toInsurerProfileSummary(profile),
@@ -77,7 +132,7 @@ export async function updateInsurerProfile(
   req: AuthenticatedRequest,
   res: Response
 ): Promise<void> {
-  const profile = await getInsurerProfileForUser(req.user!._id);
+  const profile = await getInsurerProfileForUser(req.user!._id, req.user!);
   const body = req.body as Partial<{
     contactEmail: string;
     contactPhone: string;
@@ -101,7 +156,7 @@ export async function listInsurerPolicies(
   req: AuthenticatedRequest,
   res: Response
 ): Promise<void> {
-  const profile = await getInsurerProfileForUser(req.user!._id);
+  const profile = await getInsurerProfileForUser(req.user!._id, req.user!);
   const policies = await Policy.find({ insurerProfileId: profile._id }).sort({ updatedAt: -1 });
 
   res.status(200).json(
@@ -116,7 +171,7 @@ export async function getInsurerPolicy(
   req: AuthenticatedRequest,
   res: Response
 ): Promise<void> {
-  const profile = await getInsurerProfileForUser(req.user!._id);
+  const profile = await getInsurerProfileForUser(req.user!._id, req.user!);
   const policy = await getOwnedPolicy(String(profile._id), String(req.params.id));
 
   res.status(200).json(
@@ -130,7 +185,7 @@ export async function createInsurerPolicy(
   req: AuthenticatedRequest,
   res: Response
 ): Promise<void> {
-  const profile = await getInsurerProfileForUser(req.user!._id);
+  const profile = await getInsurerProfileForUser(req.user!._id, req.user!);
   const body = req.body as {
     slug: string;
     name: string;
@@ -179,7 +234,7 @@ export async function updateInsurerPolicy(
   req: AuthenticatedRequest,
   res: Response
 ): Promise<void> {
-  const profile = await getInsurerProfileForUser(req.user!._id);
+  const profile = await getInsurerProfileForUser(req.user!._id, req.user!);
   const policyId = String(req.params.id);
   const policy = await getOwnedPolicy(String(profile._id), policyId);
 
@@ -231,7 +286,7 @@ export async function updateInsurerPolicy(
 }
 
 export async function listInsurerClaims(req: AuthenticatedRequest, res: Response): Promise<void> {
-  const profile = await getInsurerProfileForUser(req.user!._id);
+  const profile = await getInsurerProfileForUser(req.user!._id, req.user!);
   const claims = await ClaimRequest.find({ insurerProfileId: profile._id }).sort({
     createdAt: -1,
   });
@@ -248,7 +303,7 @@ export async function updateInsurerClaimStatus(
   req: AuthenticatedRequest,
   res: Response
 ): Promise<void> {
-  const profile = await getInsurerProfileForUser(req.user!._id);
+  const profile = await getInsurerProfileForUser(req.user!._id, req.user!);
   const body = req.body as { status: ClaimStatus; revert?: boolean };
   const { status } = body;
   const claim = await ClaimRequest.findOne({
@@ -343,7 +398,7 @@ export async function updateInsurerClaimStatus(
 }
 
 export async function listInsurerLeads(req: AuthenticatedRequest, res: Response): Promise<void> {
-  const profile = await getInsurerProfileForUser(req.user!._id);
+  const profile = await getInsurerProfileForUser(req.user!._id, req.user!);
   const [leads, customers] = await Promise.all([
     Lead.find({ insurerProfileId: profile._id }).sort({ createdAt: -1 }),
     buildInsurerCustomerGroups(profile._id),
@@ -410,7 +465,7 @@ export async function revokeInsurerPurchase(
   req: AuthenticatedRequest,
   res: Response
 ): Promise<void> {
-  const profile = await getInsurerProfileForUser(req.user!._id);
+  const profile = await getInsurerProfileForUser(req.user!._id, req.user!);
   const purchase = await applyPurchaseLifecycleAction(
     String(req.params.id),
     profile._id,
@@ -432,7 +487,7 @@ export async function terminateInsurerPurchase(
   req: AuthenticatedRequest,
   res: Response
 ): Promise<void> {
-  const profile = await getInsurerProfileForUser(req.user!._id);
+  const profile = await getInsurerProfileForUser(req.user!._id, req.user!);
   const purchase = await applyPurchaseLifecycleAction(
     String(req.params.id),
     profile._id,
@@ -454,7 +509,7 @@ export async function markInsurerLeadSeen(
   req: AuthenticatedRequest,
   res: Response
 ): Promise<void> {
-  const profile = await getInsurerProfileForUser(req.user!._id);
+  const profile = await getInsurerProfileForUser(req.user!._id, req.user!);
   const lead = await Lead.findOne({
     _id: req.params.id,
     insurerProfileId: profile._id,
@@ -484,7 +539,7 @@ export async function deleteInsurerPolicy(
   req: AuthenticatedRequest,
   res: Response
 ): Promise<void> {
-  const profile = await getInsurerProfileForUser(req.user!._id);
+  const profile = await getInsurerProfileForUser(req.user!._id, req.user!);
   const policy = await getOwnedPolicy(String(profile._id), String(req.params.id));
 
   const [purchaseCount, claimCount] = await Promise.all([

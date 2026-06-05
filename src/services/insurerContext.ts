@@ -1,15 +1,27 @@
 import type { Types } from 'mongoose';
 import { InsurerProfile, type IInsurerProfileDocument } from '../models/InsurerProfile';
+import type { IUserDocument } from '../models/User';
 import { AppError } from '../utils/apiResponse';
 
 export async function getInsurerProfileForUser(
-  userId: Types.ObjectId | string
+  userId: Types.ObjectId | string,
+  user?: Pick<IUserDocument, 'status'>
 ): Promise<IInsurerProfileDocument> {
+  if (user && user.status !== 'active') {
+    throw new AppError(403, 'Provider account is awaiting admin approval');
+  }
+
   const profile = await InsurerProfile.findOne({ userId });
   if (!profile) {
-    throw new AppError(403, 'No insurer profile is linked to this account');
+    throw new AppError(403, 'Complete provider setup first');
   }
   return profile;
+}
+
+export async function getInsurerProfileForUserId(
+  userId: Types.ObjectId | string
+): Promise<IInsurerProfileDocument | null> {
+  return InsurerProfile.findOne({ userId });
 }
 
 export function toInsurerPolicySummary(policy: {

@@ -1,12 +1,16 @@
 import type { NextFunction, Request, Response } from 'express';
+import jwt from 'jsonwebtoken';
 import { isBrevoConfigured, isSmtpConfigured, loadEnv } from '../config/env';
 import type { AuthenticatedRequest } from '../middleware/authenticate';
 import { User } from '../models/User';
-import { comparePassword, hashPassword, sanitizeUser, signToken } from '../services/auth';
+import { comparePassword, hashPassword, sanitizeUser, signToken, verifyPasswordResetToken } from '../services/auth';
 import { createAndSendOtp, verifyOtpAndConsume } from '../services/otp';
+import { createAndSendPasswordReset } from '../services/passwordReset';
+import { buildAuthUserPayload } from '../services/insurerOnboarding';
 import { ensureUserProfile, sanitizeUserProfile } from '../services/userProfile';
 import { AppError, successResponse } from '../utils/apiResponse';
 import { normalizePkPhone } from '../validators/authValidators';
+import { OtpVerification } from '../models/OtpVerification';
 
 export async function signup(req: AuthenticatedRequest, res: Response): Promise<void> {
   const env = loadEnv();
@@ -93,6 +97,15 @@ export async function sendOtp(req: AuthenticatedRequest, res: Response): Promise
     }
   }
 
+  if (purpose === 'reset') {
+    if (!user) {
+      throw new AppError(404, 'No account found for this email');
+    }
+    if (user.status !== 'active') {
+      throw new AppError(400, 'Account must be verified before resetting password');
+    }
+  }
+
   const delivery = await createAndSendOtp(env, normalizedEmail, purpose);
 
   const payload: Record<string, unknown> = {
@@ -119,6 +132,11 @@ export async function verifyOtp(req: AuthenticatedRequest, res: Response): Promi
   };
 
   const normalizedEmail = email.toLowerCase().trim();
+
+  if (purpose === 'reset') {
+    throw new AppError(400, 'Use the password reset link sent to your email instead');
+  }
+
   await verifyOtpAndConsume(normalizedEmail, purpose, code);
 
   const user = await User.findOne({ email: normalizedEmail });
@@ -136,10 +154,98 @@ export async function verifyOtp(req: AuthenticatedRequest, res: Response): Promi
   res.status(200).json(
     successResponse('Email verified successfully', {
       token,
-      user: {
-        ...sanitizeUser(user),
-        profile: sanitizeUserProfile(await ensureUserProfile(user._id)),
-      },
+      user: await buildAuthUserPayload(user),
+    })
+  );
+}
+
+const FORGOT_PASSWORD_MESSAGE =
+  'If an account exists for that email, we sent a password reset link. Check your inbox.';
+
+export async function forgotPassword(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const env = loadEnv();
+  const { email } = req.body as { email: string };
+  const normalizedEmail = email.toLowerCase().trim();
+
+  const user = await User.findOne({ email: normalizedEmail });
+
+  if (user && user.status === 'active') {
+    const delivery = await createAndSendPasswordReset(env, user._id.toString(), normalizedEmail);
+
+    const payload: Record<string, unknown> = {
+      message: FORGOT_PASSWORD_MESSAGE,
+      emailSent: delivery.emailSent,
+    };
+    if (
+      delivery.resetUrl &&
+      (env.NODE_ENV === 'development' || env.NODE_ENV === 'test') &&
+      env.OTP_DEBUG
+    ) {
+      payload.resetUrl = delivery.resetUrl;
+    }
+
+    res.status(200).json(successResponse(FORGOT_PASSWORD_MESSAGE, payload));
+    return;
+  }
+
+  res.status(200).json(
+    successResponse(FORGOT_PASSWORD_MESSAGE, {
+      message: FORGOT_PASSWORD_MESSAGE,
+      emailSent: null,
+    })
+  );
+}
+
+export async function resetPassword(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const env = loadEnv();
+  const { token, password } = req.body as {
+    token: string;
+    password: string;
+    confirmPassword: string;
+  };
+
+  let payload;
+  try {
+    payload = verifyPasswordResetToken(env, token);
+  } catch (error) {
+    if (error instanceof jwt.TokenExpiredError) {
+      throw new AppError(400, 'Password reset link has expired. Request a new one.');
+    }
+    throw new AppError(400, 'Invalid or expired password reset link');
+  }
+
+  const record = await OtpVerification.findById(payload.rid);
+  if (
+    !record ||
+    record.purpose !== 'reset' ||
+    record.email !== payload.email.toLowerCase().trim() ||
+    record.usedAt
+  ) {
+    throw new AppError(400, 'Invalid or expired password reset link');
+  }
+
+  if (record.expiresAt.getTime() < Date.now()) {
+    throw new AppError(400, 'Password reset link has expired. Request a new one.');
+  }
+
+  const user = await User.findById(payload.sub).select('+passwordHash');
+  if (!user || user.email !== payload.email.toLowerCase().trim()) {
+    throw new AppError(400, 'Invalid or expired password reset link');
+  }
+
+  if (user.status !== 'active') {
+    throw new AppError(403, 'Account must be verified before resetting password');
+  }
+
+  user.passwordHash = await hashPassword(password);
+  await user.save();
+
+  record.usedAt = new Date();
+  await record.save();
+
+  res.status(200).json(
+    successResponse('Password updated successfully. Sign in with your new password.', {
+      message: 'Password updated successfully. Sign in with your new password.',
     })
   );
 }
@@ -155,7 +261,7 @@ export async function login(req: AuthenticatedRequest, res: Response): Promise<v
     throw new AppError(401, 'Invalid email or password');
   }
 
-  if (user.status === 'pendingVerification') {
+  if (user.status === 'pendingVerification' && user.role !== 'insurer') {
     throw new AppError(403, 'Please verify your email before signing in');
   }
 
@@ -178,10 +284,7 @@ export async function login(req: AuthenticatedRequest, res: Response): Promise<v
   res.status(200).json(
     successResponse('Signed in successfully', {
       token,
-      user: {
-        ...sanitizeUser(user),
-        profile: sanitizeUserProfile(await ensureUserProfile(user._id)),
-      },
+      user: await buildAuthUserPayload(user),
     })
   );
 }
@@ -190,13 +293,9 @@ export async function getMe(req: AuthenticatedRequest, res: Response): Promise<v
   if (!req.user) {
     throw new AppError(401, 'Authentication required');
   }
-  const profile = await ensureUserProfile(req.user._id);
   res.status(200).json(
     successResponse('Profile retrieved', {
-      user: {
-        ...sanitizeUser(req.user),
-        profile: sanitizeUserProfile(profile),
-      },
+      user: await buildAuthUserPayload(req.user),
     })
   );
 }
@@ -258,16 +357,16 @@ export async function setRole(req: AuthenticatedRequest, res: Response): Promise
   }
 
   req.user.role = role;
+  if (role === 'insurer') {
+    req.user.status = 'pendingVerification';
+  } else {
+    req.user.status = 'active';
+  }
   await req.user.save();
-
-  const profile = await ensureUserProfile(req.user._id);
 
   res.status(200).json(
     successResponse('Role updated', {
-      user: {
-        ...sanitizeUser(req.user),
-        profile: sanitizeUserProfile(profile),
-      },
+      user: await buildAuthUserPayload(req.user),
     })
   );
 }

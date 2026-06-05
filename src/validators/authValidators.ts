@@ -36,6 +36,25 @@ export const loginValidators = [
   body('password').notEmpty().withMessage('password is required'),
 ];
 
+export const forgotPasswordValidators = [
+  body('email').trim().isEmail().withMessage('Valid email is required').normalizeEmail(),
+];
+
+export const resetPasswordValidators = [
+  body('token').trim().notEmpty().withMessage('token is required'),
+  body('password')
+    .isLength({ min: 8 })
+    .withMessage('password must be at least 8 characters'),
+  body('confirmPassword')
+    .custom((value: string, { req }) => {
+      const password = (req.body as { password?: string }).password;
+      if (value !== password) {
+        throw new Error('confirmPassword must match password');
+      }
+      return true;
+    }),
+];
+
 export const otpSendValidators = [
   body('email').trim().isEmail().withMessage('Valid email is required').normalizeEmail(),
   body('purpose')

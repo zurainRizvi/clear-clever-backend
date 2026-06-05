@@ -1,5 +1,5 @@
 import { PRODUCTION_CLIENT_URL } from './services/clientUrls';
-import { renderBrandedEmail, otpTemplate } from './services/emailTemplates';
+import { renderBrandedEmail, otpTemplate, passwordResetTemplate } from './services/emailTemplates';
 import { renderClearCleverEmail } from './services/clearCleverEmailLayout';
 import { policyCompletionMilestoneEmail, premiumReminderEmail } from './services/reminderTemplates';
 import { reminderEmailContent } from './services/reminderEmailVariants';
@@ -60,6 +60,15 @@ describe('ClearClever email templates', () => {
     expect(html).toContain('654321');
     expect(text).toContain('654321');
     expect(html).toContain('Secure verification');
+  });
+
+  it('renders password reset link in branded email', () => {
+    const resetUrl = `${PRODUCTION_CLIENT_URL}/reset-password?token=abc123`;
+    const { html, text } = passwordResetTemplate(resetUrl);
+    expect(html).toContain('Reset your password');
+    expect(html).toContain(resetUrl);
+    expect(text).toContain(resetUrl);
+    expect(html).toContain('expires in 10 minutes');
   });
 
   it('renders branded transactional shell', () => {

@@ -70,6 +70,31 @@ export const updateInsurerClaimValidators = [
   body('revert').optional().isBoolean().withMessage('revert must be a boolean'),
 ];
 
+export const createInsurerProfileValidators = [
+  body('companyName')
+    .trim()
+    .notEmpty()
+    .withMessage('Company name is required')
+    .isLength({ max: 160 })
+    .withMessage('Company name must be at most 160 characters'),
+  body('slug')
+    .trim()
+    .notEmpty()
+    .withMessage('Slug is required')
+    .matches(slugPattern)
+    .withMessage('Slug must be lowercase letters, numbers, and hyphens only')
+    .isLength({ max: 80 })
+    .withMessage('Slug must be at most 80 characters'),
+  body('contactPhone')
+    .trim()
+    .notEmpty()
+    .withMessage('Contact phone is required')
+    .isLength({ max: 20 })
+    .withMessage('Contact phone must be at most 20 characters'),
+  body('description').optional().trim().isLength({ max: 2000 }),
+  body('websiteUrl').optional().trim().isLength({ max: 500 }),
+];
+
 export const updateInsurerProfileValidators = [
   body('contactEmail').optional().trim().isEmail().withMessage('Contact email must be valid'),
   body('contactPhone')

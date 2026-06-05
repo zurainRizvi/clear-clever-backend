@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { asyncHandler } from '../controllers/authController';
 import {
   createInsurerPolicy,
+  createInsurerProfile,
   getInsurerPolicy,
   getInsurerProfile,
   listInsurerClaims,
@@ -22,6 +23,7 @@ import { authorize } from '../middleware/authorize';
 import { validate } from '../middleware/validate';
 import {
   createInsurerPolicyValidators,
+  createInsurerProfileValidators,
   insurerPolicyIdValidator,
   updateInsurerClaimValidators,
   updateInsurerPolicyValidators,
@@ -32,6 +34,11 @@ export const insurerRouter = Router();
 
 insurerRouter.use(authenticate, authorize('insurer'));
 
+insurerRouter.post(
+  '/profile',
+  validate(createInsurerProfileValidators),
+  asyncHandler(createInsurerProfile)
+);
 insurerRouter.get('/profile', asyncHandler(getInsurerProfile));
 insurerRouter.get('/dashboard', asyncHandler(getInsurerDashboard));
 insurerRouter.get('/analytics', asyncHandler(getInsurerAnalytics));

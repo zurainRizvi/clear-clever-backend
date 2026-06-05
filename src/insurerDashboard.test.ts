@@ -108,7 +108,10 @@ describe('Insurer dashboard intelligence', () => {
 
     expect(res.status).toBe(200);
     const { dashboard } = res.body.data;
-    expect(dashboard.overviewStats.some((s: { title: string }) => s.title === 'New Leads')).toBe(
+    expect(dashboard.overviewStats.some((s: { title: string }) => s.title === 'Active Seekers')).toBe(
+      true
+    );
+    expect(dashboard.overviewStats.some((s: { title: string }) => s.title === 'New Lead Events')).toBe(
       true
     );
     expect(dashboard.smartInsights.length).toBeGreaterThan(0);
@@ -117,10 +120,13 @@ describe('Insurer dashboard intelligence', () => {
         (item: { badge: string }) =>
           item.badge === 'High Demand' ||
           item.badge === 'Bundle Opportunity' ||
-          item.badge === 'Pricing Suggestion'
+          item.badge === 'Checkout drop-off' ||
+          item.badge === 'Unread leads'
       )
     ).toBe(true);
     expect(dashboard.recentLeads.length).toBeGreaterThan(0);
+    expect(dashboard.recentLeads[0].leadCount).toBeGreaterThan(0);
+    expect(dashboard.recentLeads[0].email).toBeTruthy();
   });
 
   it('returns 403 for seekers', async () => {

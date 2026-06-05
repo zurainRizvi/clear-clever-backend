@@ -144,7 +144,7 @@ export async function listConversations(req: AuthenticatedRequest, res: Response
       },
     };
   } else if (req.user!.role === 'insurer') {
-    const profile = await getInsurerProfileForUser(userId);
+    const profile = await getInsurerProfileForUser(userId, req.user!);
     query = {
       participantUserIds: userId,
       $or: [
@@ -203,7 +203,7 @@ export async function createConversation(req: AuthenticatedRequest, res: Respons
       if (!seeker || seeker.role !== 'user') {
         throw new AppError(400, 'targetUserId must be a policy seeker');
       }
-      const profile = await getInsurerProfileForUser(currentUser._id);
+      const profile = await getInsurerProfileForUser(currentUser._id, currentUser);
       if (body.insurerProfileId && String(profile._id) !== body.insurerProfileId) {
         throw new AppError(403, 'You can only start conversations for your own insurer profile');
       }

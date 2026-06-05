@@ -9,7 +9,7 @@ import {
   sendTransactionalEmail,
   type SmtpProbeResult,
 } from './mail';
-import { renderBrandedEmail } from './emailTemplates';
+import { passwordResetTemplate, renderBrandedEmail } from './emailTemplates';
 
 export const DEFAULT_SUPPORT_INBOX_EMAIL = 'syedzurainrizvi@gmail.com';
 
@@ -63,6 +63,26 @@ export async function sendOtpEmailDelivery(
 
 export function formatEmailError(error: unknown): string {
   return formatSmtpError(error);
+}
+
+const PASSWORD_RESET_SUBJECT = 'Reset your ClearClever password';
+
+/** Branded password reset link — Brevo on Render, SMTP locally. */
+export async function sendPasswordResetEmailDelivery(
+  env: Env,
+  to: string,
+  resetUrl: string
+): Promise<void> {
+  const branded = passwordResetTemplate(resetUrl);
+
+  if (isBrevoConfigured(env)) {
+    await sendTransactionalViaBrevo(env, to, PASSWORD_RESET_SUBJECT, branded.html, branded.text);
+    return;
+  }
+
+  if (isSmtpConfigured(env)) {
+    await sendTransactionalEmail(env, to, PASSWORD_RESET_SUBJECT, branded.html, branded.text);
+  }
 }
 
 export async function sendSupportInquiryEmail(

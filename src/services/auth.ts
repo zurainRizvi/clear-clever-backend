@@ -20,6 +20,40 @@ export interface JwtPayload {
   role: UserRole;
 }
 
+export interface PasswordResetJwtPayload {
+  sub: string;
+  email: string;
+  typ: 'password_reset';
+  rid: string;
+}
+
+const PASSWORD_RESET_EXPIRES_IN = '10m';
+
+export function signPasswordResetToken(
+  env: Env,
+  userId: string,
+  email: string,
+  resetRecordId: string
+): string {
+  const payload: PasswordResetJwtPayload = {
+    sub: userId,
+    email,
+    typ: 'password_reset',
+    rid: resetRecordId,
+  };
+  return jwt.sign(payload, env.JWT_SECRET, {
+    expiresIn: PASSWORD_RESET_EXPIRES_IN,
+  });
+}
+
+export function verifyPasswordResetToken(env: Env, token: string): PasswordResetJwtPayload {
+  const payload = jwt.verify(token, env.JWT_SECRET) as PasswordResetJwtPayload;
+  if (payload.typ !== 'password_reset' || !payload.rid || !payload.sub || !payload.email) {
+    throw new Error('Invalid password reset token');
+  }
+  return payload;
+}
+
 export function signToken(env: Env, user: IUserDocument): string {
   const payload: JwtPayload = {
     sub: user._id.toString(),

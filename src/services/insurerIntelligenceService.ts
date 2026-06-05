@@ -2,18 +2,23 @@ import type { Types } from 'mongoose';
 import { CATEGORIES, type PolicyCategorySlug } from '../constants/categories';
 import { ClaimRequest } from '../models/ClaimRequest';
 import { Lead } from '../models/Lead';
-import { User } from '../models/User';
 import type { ILeadDocument } from '../models/Lead';
 import { Policy } from '../models/Policy';
 import type { IPolicyDocument } from '../models/Policy';
+import { Purchase } from '../models/Purchase';
 import { QuestionnaireResponse } from '../models/QuestionnaireResponse';
 import { enrichPolicies } from '../services/policyPresentation';
 import { getCategoryQuestions } from '../services/questionsService';
+import {
+  uniquePurchasersInRange,
+  uniqueSeekersInRange,
+} from './insurerFunnelService';
 import {
   detectBundleOpportunities,
   detectCategoryDemandSignals,
   inferAudienceLabel,
 } from './insurerSignalAnalysis';
+import { buildInsurerCustomerGroups } from './insurerCustomerService';
 import { scorePolicies } from './recommendationService';
 
 const CATEGORY_COLORS: Record<PolicyCategorySlug, string> = {
@@ -86,9 +91,14 @@ export interface InsurerDashboardPayload {
   recentLeads: Array<{
     id: string;
     name: string;
+    email: string;
     category: string;
     time: string;
     status: 'Hot' | 'Warm';
+    isNew: boolean;
+    leadCount: number;
+    purchaseCount: number;
+    preview: string;
   }>;
   pendingClaims: Array<{
     id: string;
@@ -278,10 +288,11 @@ export async function buildInsurerDashboard(
   const dateRange = parseRange(options?.from, options?.to) as DashboardDateRange;
   const priorRange = previousRange(dateRange);
 
-  const [policies, leads, claims] = await Promise.all([
+  const [policies, leads, claims, purchases] = await Promise.all([
     Policy.find({ insurerProfileId }).sort({ updatedAt: -1 }),
     Lead.find({ insurerProfileId }).sort({ createdAt: -1 }),
     ClaimRequest.find({ insurerProfileId }).sort({ createdAt: -1 }),
+    Purchase.find({ insurerProfileId }).sort({ updatedAt: -1 }),
   ]);
 
   const policyById = new Map(policies.map((p) => [String(p._id), p]));
@@ -303,45 +314,61 @@ export async function buildInsurerDashboard(
   const currentLeads = leads.filter((l) => inRange(l.createdAt, dateRange));
   const priorLeads = leads.filter((l) => inRange(l.createdAt, priorRange));
 
+  const currentSeekers = uniqueSeekersInRange(leads, {
+    from: dateRange.from,
+    to: dateRange.to,
+    label: dateRange.label,
+  });
+  const priorSeekers = uniqueSeekersInRange(leads, {
+    from: priorRange.from,
+    to: priorRange.to,
+    label: priorRange.label,
+  });
+  const currentPurchasers = uniquePurchasersInRange(leads, purchases, {
+    from: dateRange.from,
+    to: dateRange.to,
+    label: dateRange.label,
+  });
+  const priorPurchasers = uniquePurchasersInRange(leads, purchases, {
+    from: priorRange.from,
+    to: priorRange.to,
+    label: priorRange.label,
+  });
+
   const purchaseLeadsCurrent = currentLeads.filter((l) => l.type === 'purchase');
-  const purchaseLeadsPrior = priorLeads.filter((l) => l.type === 'purchase');
   const newLeadsCurrent = currentLeads.length;
   const newLeadsPrior = priorLeads.length;
+  const unreadLeads = currentLeads.filter((l) => !l.seenAt).length;
 
-  const conversionCurrent =
-    currentLeads.length > 0
-      ? Math.round((purchaseLeadsCurrent.length / currentLeads.length) * 1000) / 10
+  const seekerPurchaseRate =
+    currentSeekers.size > 0
+      ? Math.round((currentPurchasers.size / currentSeekers.size) * 1000) / 10
       : 0;
-  const conversionPrior =
-    priorLeads.length > 0
-      ? Math.round((purchaseLeadsPrior.length / priorLeads.length) * 1000) / 10
+  const priorSeekerPurchaseRate =
+    priorSeekers.size > 0
+      ? Math.round((priorPurchasers.size / priorSeekers.size) * 1000) / 10
       : 0;
 
-  const revenueCurrent = purchaseLeadsCurrent.reduce((sum, lead) => {
+  let revenueCurrent = 0;
+  for (const lead of purchaseLeadsCurrent) {
     const policy = lead.policyId ? policyById.get(String(lead.policyId)) : undefined;
-    return sum + (policy?.premiumYearlyPkr ?? 0);
-  }, 0);
-  const revenuePrior = purchaseLeadsPrior.reduce((sum, lead) => {
+    revenueCurrent += policy?.premiumYearlyPkr ?? 0;
+  }
+  let revenuePrior = 0;
+  for (const lead of priorLeads.filter((l) => l.type === 'purchase')) {
     const policy = lead.policyId ? policyById.get(String(lead.policyId)) : undefined;
-    return sum + (policy?.premiumYearlyPkr ?? 0);
-  }, 0);
+    revenuePrior += policy?.premiumYearlyPkr ?? 0;
+  }
 
   const newlyApprovedInPeriod = policies.filter(
     (p) => p.status === 'approved' && inRange(p.reviewedAt ?? p.createdAt, dateRange)
   ).length;
   const policiesChange = pctChange(newlyApprovedInPeriod, Math.max(0, approvedPolicies.length - newlyApprovedInPeriod));
   const leadsChange = pctChange(newLeadsCurrent, newLeadsPrior);
-  const conversionChange = pctChange(conversionCurrent, conversionPrior);
+  const seekersChange = pctChange(currentSeekers.size, priorSeekers.size);
+  const conversionChange = pctChange(seekerPurchaseRate, priorSeekerPurchaseRate);
+  const soldChange = pctChange(currentPurchasers.size, priorPurchasers.size);
   const revenueChange = pctChange(revenueCurrent, revenuePrior);
-
-  const seenLeads = leads.filter((l) => l.seenAt).length;
-  const seenRate = leads.length > 0 ? seenLeads / leads.length : 0;
-
-  const resolvedClaims = claims.filter((c) => c.status === 'approved' || c.status === 'rejected');
-  const approvalRate =
-    resolvedClaims.length > 0
-      ? claims.filter((c) => c.status === 'approved').length / resolvedClaims.length
-      : 0.75;
 
   const responseHours: number[] = [];
   for (const claim of claims) {
@@ -353,30 +380,6 @@ export async function buildInsurerDashboard(
     responseHours.length > 0
       ? responseHours.reduce((a, b) => a + b, 0) / responseHours.length
       : 24;
-
-  const categoryCoverage = insurerCategories.size / 4;
-  const visibilityScore = Math.min(
-    100,
-    Math.round(
-      (approvedPolicies.length > 0 ? 20 : 0) +
-        seenRate * 25 +
-        (avgResponseHours <= 48 ? 25 : Math.max(0, 25 - (avgResponseHours - 48) / 4)) +
-        categoryCoverage * 30
-    )
-  );
-
-  const satisfaction = Math.min(
-    5,
-    Math.round(
-      (3.2 +
-        approvalRate * 1.2 +
-        (conversionCurrent / 100) * 0.8 +
-        seenRate * 0.5 -
-        Math.min(0.4, avgResponseHours / 120)) *
-        10
-    ) / 10
-  );
-  const satisfactionPrior = Math.max(3, satisfaction - 0.4);
 
   const overviewStats: InsurerDashboardPayload['overviewStats'] = [
     {
@@ -391,44 +394,44 @@ export async function buildInsurerDashboard(
       iconColor: '#2563EB',
     },
     {
-      title: 'New Leads',
-      value: String(newLeadsCurrent),
-      change: leadsChange.text,
-      trend: leadsChange.trend,
+      title: 'Active Seekers',
+      value: String(currentSeekers.size),
+      change: seekersChange.text,
+      trend: seekersChange.trend,
       icon: 'users',
       iconColor: '#10B981',
     },
     {
-      title: 'Conversion Rate',
-      value: `${conversionCurrent}%`,
-      change: conversionChange.text,
-      trend: conversionChange.trend,
-      icon: 'trending-up',
+      title: 'New Lead Events',
+      value: String(newLeadsCurrent),
+      change: `${unreadLeads} unread · ${leadsChange.text}`,
+      trend: leadsChange.trend,
+      icon: 'inbox',
       iconColor: '#8B5CF6',
     },
     {
-      title: 'Projected Revenue',
+      title: 'Seeker → Purchase Rate',
+      value: `${seekerPurchaseRate}%`,
+      change: conversionChange.text,
+      trend: conversionChange.trend,
+      icon: 'trending-up',
+      iconColor: '#F59E0B',
+    },
+    {
+      title: 'Policies Sold',
+      value: String(currentPurchasers.size),
+      change: soldChange.text,
+      trend: soldChange.trend,
+      icon: 'shopping-bag',
+      iconColor: '#8B5CF6',
+    },
+    {
+      title: 'Annual Premium Volume',
       value: formatPkr(revenueCurrent),
       change: revenueChange.text,
       trend: revenueChange.trend,
       icon: 'wallet',
-      iconColor: '#F59E0B',
-    },
-    {
-      title: 'Visibility Score',
-      value: `${visibilityScore}/100`,
-      change: visibilityScore >= 70 ? 'Good standing' : visibilityScore >= 50 ? 'Needs attention' : 'Improve response time',
-      trend: 'neutral',
-      icon: 'star',
-      iconColor: '#8B5CF6',
-    },
-    {
-      title: 'Customer Satisfaction',
-      value: `${satisfaction}/5`,
-      change: satisfaction >= satisfactionPrior ? `+${(satisfaction - satisfactionPrior).toFixed(1)}` : `${(satisfaction - satisfactionPrior).toFixed(1)}`,
-      trend: satisfaction >= satisfactionPrior ? 'up' : 'down',
-      icon: 'smile',
-      iconColor: '#10B981',
+      iconColor: '#06B6D4',
     },
   ];
 
@@ -461,14 +464,11 @@ export async function buildInsurerDashboard(
       description: hasPolicy
         ? topDemand.reason
         : `${topDemand.reason} You do not have an approved ${topDemand.category} policy yet — adding one captures this demand.`,
-      metricLabel: 'Potential Growth',
-      metricValue: `+${Math.max(topDemand.growthPct, 8)}%`,
+      metricLabel: 'Lead growth',
+      metricValue: `${topDemand.growthPct >= 0 ? '+' : ''}${topDemand.growthPct}%`,
       theme: 'blue',
       sparkline: buildSparkline([
         priorByCategory.get(topDemand.category) ?? 0,
-        ...Array.from({ length: 5 }, (_, i) =>
-          Math.round(((currentByCategory.get(topDemand.category) ?? 0) * (i + 1)) / 6)
-        ),
         currentByCategory.get(topDemand.category) ?? 0,
       ]),
       priority: 100 + topDemand.demandScore,
@@ -482,43 +482,53 @@ export async function buildInsurerDashboard(
       badge: 'Bundle Opportunity',
       title: topBundle.title,
       description: topBundle.description,
-      metricLabel: 'Expected Improvement',
-      metricValue: `+${topBundle.expectedImprovementPct}%`,
+      metricLabel: 'Categories',
+      metricValue: `${topBundle.primaryCategory} + ${topBundle.secondaryCategory}`,
       theme: 'green',
-      sparkline: buildSparkline([2, 3, 4, 5, 6, 7, topBundle.expectedImprovementPct]),
+      sparkline: buildSparkline([1, 2, 3, 4, 5, 6, 7]),
       priority: 90,
       actionType: 'create_policy',
     });
   }
 
   if (funnelDrop >= 40 && pricedAboveMedian > 0) {
-    const discountPct = Math.min(8, Math.round(funnelDrop / 8));
     smartInsights.push({
-      badge: 'Pricing Suggestion',
-      title: `Offer ${discountPct}% Discount`,
+      badge: 'Checkout drop-off',
+      title: 'Review pricing on high-friction policies',
       description:
-        'Inquiry and saved-policy leads are not converting to purchases at the expected rate. Your premiums are above the median for your active catalog — a targeted discount can recover conversions.',
-      metricLabel: 'Conversion Boost',
-      metricValue: `+${Math.min(15, Math.round(discountPct * 2))}%`,
+        'Inquiry and saved-policy leads are not converting to purchases at the expected rate. Review premiums on policies with checkout activity.',
+      metricLabel: 'Drop-off',
+      metricValue: `${funnelDrop}%`,
       theme: 'purple',
-      sparkline: buildSparkline([topOfFunnel, topOfFunnel - 1, purchaseLeadsCurrent.length + 1, purchaseLeadsCurrent.length + 2, purchaseLeadsCurrent.length + 3, purchaseLeadsCurrent.length + 4, purchaseLeadsCurrent.length + 5]),
+      sparkline: buildSparkline([topOfFunnel, purchaseLeadsCurrent.length]),
       priority: 80 + funnelDrop,
       actionType: 'view_leads',
     });
   }
 
   const pendingClaims = claims.filter((c) => c.status === 'submitted' || c.status === 'in_review');
-  if (avgResponseHours > 36 || pendingClaims.length > 0) {
-    const impact = Math.min(15, Math.round(avgResponseHours / 6));
+  if (unreadLeads > 0) {
+    smartInsights.push({
+      badge: 'Unread leads',
+      title: 'Review new leads',
+      description: `${unreadLeads} lead event(s) are unread in your Leads tab. Prompt follow-up improves conversion.`,
+      metricLabel: 'Unread',
+      metricValue: String(unreadLeads),
+      theme: 'orange',
+      sparkline: buildSparkline([unreadLeads]),
+      priority: 95 + unreadLeads,
+      actionType: 'view_leads',
+    });
+  } else if (avgResponseHours > 36 || pendingClaims.length > 0) {
     smartInsights.push({
       badge: 'Response Time',
       title: 'Improve Claim Speed',
       description:
         pendingClaims.length > 0
-          ? `You have ${pendingClaims.length} open claim(s) and an average first-response time of ${Math.round(avgResponseHours)} hours. Faster reviews improve seeker trust and your visibility score.`
-          : `Average claim first-response is ${Math.round(avgResponseHours)} hours. Faster reviews improve seeker trust and your visibility score.`,
-      metricLabel: 'Impact on Score',
-      metricValue: `+${impact}%`,
+          ? `You have ${pendingClaims.length} open claim(s) and an average review time of ${Math.round(avgResponseHours)} hours.`
+          : `Average claim review time is ${Math.round(avgResponseHours)} hours.`,
+      metricLabel: 'Avg review',
+      metricValue: `${Math.round(avgResponseHours)}h`,
       theme: 'orange',
       sparkline: buildSparkline(responseHours.slice(-7).map((h) => Math.max(1, Math.round(48 - h)))),
       priority: 70 + pendingClaims.length * 5,
@@ -593,29 +603,41 @@ export async function buildInsurerDashboard(
         badge: 'Stable',
       };
 
-  const recentLeadUsers = await User.find({
-    _id: { $in: leads.slice(0, 8).map((l) => l.userId) },
-  });
-  const userById = new Map(recentLeadUsers.map((u) => [String(u._id), u]));
-
-  const recentLeads = leads.slice(0, 4).map((lead) => {
-    const seeker = userById.get(String(lead.userId));
-    const policy = lead.policyId ? policyById.get(String(lead.policyId)) : undefined;
-    const category = policy
-      ? (CATEGORY_LABELS[policy.category as PolicyCategorySlug] ?? titleCase(policy.category))
-      : 'Insurance';
+  const customerGroups = await buildInsurerCustomerGroups(insurerProfileId);
+  const recentLeads = customerGroups.slice(0, 4).map((group) => {
+    const sortedLeads = [...group.leads].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    const latestLead = sortedLeads[0];
+    const policyCategory = latestLead?.policy?.category;
+    const category =
+      policyCategory && CATEGORY_LABELS[policyCategory as PolicyCategorySlug]
+        ? CATEGORY_LABELS[policyCategory as PolicyCategorySlug]
+        : group.purchases[0]?.policy?.category
+          ? CATEGORY_LABELS[group.purchases[0].policy.category as PolicyCategorySlug] ??
+            titleCase(group.purchases[0].policy.category)
+          : 'Insurance';
     const isHot =
-      (lead.status === 'new' && !lead.seenAt && Date.now() - lead.createdAt.getTime() < 2 * 3600000) ||
-      lead.type === 'purchase';
+      group.isNew ||
+      group.leads.some((lead) => lead.type === 'purchase') ||
+      group.purchases.length > 0;
 
     return {
-      id: String(lead._id),
-      name:
-        seeker?.fullName ??
-        (typeof lead.metadata?.seekerName === 'string' ? lead.metadata.seekerName : 'Policy seeker'),
+      id: group.seeker.id,
+      name: group.seeker.fullName,
+      email: group.seeker.email,
       category,
-      time: relativeTime(lead.createdAt),
+      time: relativeTime(new Date(group.latestActivityAt)),
       status: isHot ? ('Hot' as const) : ('Warm' as const),
+      isNew: group.isNew,
+      leadCount: group.leads.length,
+      purchaseCount: group.purchases.length,
+      preview:
+        latestLead?.summary ||
+        latestLead?.policy?.name ||
+        (group.purchases[0]?.policy?.name
+          ? `Purchased ${group.purchases[0].policy.name}`
+          : 'Customer activity'),
     };
   });
 

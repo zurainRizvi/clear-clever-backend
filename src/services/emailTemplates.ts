@@ -85,3 +85,16 @@ export function otpTemplate(code: string): { html: string; text: string } {
     bodyText: `Your verification code is ${code}. It expires in 10 minutes. Do not share it.`,
   });
 }
+
+export function passwordResetTemplate(resetUrl: string): { html: string; text: string } {
+  const safeUrl = resetUrl.replace(/"/g, '&quot;');
+  return renderBrandedEmail({
+    title: 'Reset your password',
+    preheader: 'ClearClever password reset request',
+    bodyHtml: `<p style="margin:0 0 16px;color:#475569;">We received a request to reset your ClearClever password. Click the button below to choose a new password.</p>
+      <p style="margin:0 0 20px;"><a href="${safeUrl}" style="display:inline-block;background:#2563EB;color:#ffffff;font-weight:700;text-decoration:none;padding:14px 28px;border-radius:12px;">Reset your password</a></p>
+      <p style="margin:0 0 12px;color:#475569;">This link expires in 10 minutes. If you did not request a password reset, you can safely ignore this email.</p>
+      <p style="margin:0;color:#64748B;font-size:13px;">If the button does not work, copy and paste this link into your browser:<br/><span style="word-break:break-all;">${safeUrl}</span></p>`,
+    bodyText: `Reset your ClearClever password: ${resetUrl}\n\nThis link expires in 10 minutes. If you did not request a password reset, ignore this email.`,
+  });
+}

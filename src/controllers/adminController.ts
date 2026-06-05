@@ -230,6 +230,16 @@ export async function listInsurers(_req: AuthenticatedRequest, res: Response): P
     { $group: { _id: '$insurerProfileId', count: { $sum: 1 } } },
   ]);
   const pendingMap = new Map(pendingByProfile.map((row) => [String(row._id), row.count]));
+  const starterByProfile = await Policy.aggregate<{ _id: typeof profileIds[number]; count: number }>([
+    {
+      $match: {
+        insurerProfileId: { $in: profileIds },
+        slug: { $regex: /-starter$/ },
+      },
+    },
+    { $group: { _id: '$insurerProfileId', count: { $sum: 1 } } },
+  ]);
+  const starterMap = new Map(starterByProfile.map((row) => [String(row._id), row.count]));
 
   res.status(200).json(
     successResponse('Insurance providers retrieved', {
@@ -248,6 +258,7 @@ export async function listInsurers(_req: AuthenticatedRequest, res: Response): P
               }
             : null,
           pendingPolicies: profile ? pendingMap.get(String(profile._id)) ?? 0 : 0,
+          starterPoliciesCount: profile ? starterMap.get(String(profile._id)) ?? 0 : 0,
         };
       }),
     })

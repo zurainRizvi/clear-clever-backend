@@ -53,7 +53,15 @@ describe('Insurer analytics intelligence', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data.analytics.overviewMetrics).toHaveLength(5);
-    expect(res.body.data.analytics.funnel.steps.length).toBeGreaterThan(0);
+    expect(res.body.data.analytics.overviewMetrics[0].title).toBe('Active Seekers');
+    expect(res.body.data.analytics.overviewMetrics[0].definition).toBeTruthy();
+    expect(res.body.data.analytics.funnel.steps).toHaveLength(6);
+    expect(res.body.data.analytics.funnel.steps[0].name).toContain('questionnaire');
+    expect(res.body.data.analytics.leadSources).toBeInstanceOf(Array);
+    expect(res.body.data.analytics.policyPerformance).toBeInstanceOf(Array);
+    expect(res.body.data.analytics.operations).toBeInstanceOf(Array);
+    expect(res.body.data.analytics.operations.length).toBeGreaterThan(0);
+    expect(res.body.data.analytics.competitiveness).toBeUndefined();
     expect(res.body.data.analytics.interestTrends.datasets).toHaveLength(4);
     expect(res.body.data.analytics.usersByRegion).toBeDefined();
     expect(res.body.data.analytics.usersByRegion.regions).toBeInstanceOf(Array);
@@ -96,6 +104,7 @@ describe('Insurer analytics intelligence', () => {
       type: 'inquiry',
       status: 'new',
       summary: 'Interested',
+      metadata: { source: 'recommend', category: 'home' },
     });
 
     const res = await request(app)
@@ -104,7 +113,56 @@ describe('Insurer analytics intelligence', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data.analytics.smartInsights.length).toBeGreaterThan(0);
+    expect(res.body.data.analytics.smartInsights[0].evidence).toBeTruthy();
     expect(res.body.data.analytics.customerSegments.length).toBeGreaterThan(0);
+    expect(res.body.data.analytics.customerSegments[0].seekers).toBeGreaterThan(0);
+  });
+
+  it('uses user-level seeker purchase rate not lead-event conversion', async () => {
+    const tplProfile = await InsurerProfile.findOne({ slug: 'tpl-insurance' });
+    const seeker = await User.findOne({ email: 'seeker@clearclever.com' });
+    const policy = await Policy.findOne({
+      insurerProfileId: tplProfile!._id,
+      status: 'approved',
+    });
+
+    await Lead.create({
+      insurerProfileId: tplProfile!._id,
+      userId: seeker!._id,
+      policyId: policy!._id,
+      type: 'inquiry',
+      status: 'new',
+      summary: 'Viewed',
+      metadata: { source: 'recommend', category: 'home' },
+    });
+    await Lead.create({
+      insurerProfileId: tplProfile!._id,
+      userId: seeker!._id,
+      policyId: policy!._id,
+      type: 'favorite',
+      status: 'new',
+      summary: 'Saved',
+      metadata: { source: 'favorite', category: 'home' },
+    });
+    await Lead.create({
+      insurerProfileId: tplProfile!._id,
+      userId: seeker!._id,
+      policyId: policy!._id,
+      type: 'purchase',
+      status: 'new',
+      summary: 'Purchased',
+      metadata: { source: 'purchase' },
+    });
+
+    const res = await request(app)
+      .get('/api/insurer/analytics')
+      .set('Authorization', `Bearer ${tplToken}`);
+
+    const rateMetric = res.body.data.analytics.overviewMetrics.find(
+      (m: { title: string }) => m.title === 'Seeker → Purchase Rate'
+    );
+    expect(rateMetric.value).toBe('100%');
+    expect(rateMetric.definition).toContain('Unique purchasers');
   });
 
   it('does not use questionnaire data from seekers who only interacted with another insurer', async () => {
@@ -139,6 +197,7 @@ describe('Insurer analytics intelligence', () => {
       type: 'purchase',
       status: 'new',
       summary: 'Purchased with TPL',
+      metadata: { source: 'purchase' },
     });
 
     const adamjeeRes = await request(app)
@@ -146,7 +205,7 @@ describe('Insurer analytics intelligence', () => {
       .set('Authorization', `Bearer ${adamjeeToken}`);
 
     expect(adamjeeRes.status).toBe(200);
-    expect(adamjeeRes.body.data.analytics.funnel.steps[1].users).toBe(0);
+    expect(adamjeeRes.body.data.analytics.funnel.steps[0].users).toBe(0);
     expect(adamjeeRes.body.data.analytics.smartInsights).toEqual(
       expect.not.arrayContaining([
         expect.objectContaining({
@@ -160,7 +219,8 @@ describe('Insurer analytics intelligence', () => {
       .set('Authorization', `Bearer ${tplToken}`);
 
     expect(tplRes.status).toBe(200);
-    expect(tplRes.body.data.analytics.funnel.steps[1].users).toBeGreaterThan(0);
+    expect(tplRes.body.data.analytics.funnel.steps[0].users).toBeGreaterThan(0);
+    expect(tplRes.body.data.analytics.funnel.steps[5].users).toBeGreaterThan(0);
     expect(
       tplRes.body.data.analytics.usersByRegion.regions.some(
         (r: { slug: string }) => r.slug === 'sindh'

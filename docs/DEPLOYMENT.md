@@ -73,7 +73,7 @@ Override locally with `SEED_PASSWORD=your-secret npm run seed` if needed.
 | `SMTP_PASS` | Gmail **App Password** (16 chars) |
 | `SMTP_FROM` | `ClearClever <your.gmail@gmail.com>` |
 | `API_PUBLIC_URL` | **`https://clear-clever-backend.onrender.com`** (your Render service URL, **with `https://`**) — used for affiliate purchase redirects |
-| `CLIENT_URL` | **`https://clear-clever-frontend.vercel.app`** (Vercel production URL, **with `https://`**) — post-purchase redirect, email CTAs, and hosted `/brand/*` logos |
+| `CLIENT_URL` | **`https://clearclever.vercel.app`** (Vercel production URL, **with `https://`**) — post-purchase redirect, email CTAs, and hosted `/brand/*` logos |
 
 Do **not** set `OTP_DEBUG=true` on Render.
 
