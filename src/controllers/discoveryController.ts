@@ -2,7 +2,9 @@ import type { Response } from 'express';
 import type { AuthenticatedRequest } from '../middleware/authenticate';
 import { InsurerProfile } from '../models/InsurerProfile';
 import { Policy } from '../models/Policy';
+import { Purchase } from '../models/Purchase';
 import { QuestionnaireResponse } from '../models/QuestionnaireResponse';
+import { stripContactFields } from '../services/questionnaireAnswers';
 import { enrichPolicies, toPublicPolicy } from '../services/policyPresentation';
 import {
   assertAnswersForQuestions,
@@ -102,23 +104,58 @@ export async function getStoredQuestionnaireResponse(
     return;
   }
 
-  const response = await QuestionnaireResponse.findOne({
+  const stored = await QuestionnaireResponse.findOne({
     userId: req.user!._id,
     category: policyCategory,
   });
+
+  let fallbackAnswers: Record<string, unknown> | null = null;
+  let fallbackUpdatedAt: Date | null = null;
+  let fallbackId: string | null = null;
+
+  if (!stored) {
+    const purchases = await Purchase.find({
+      userId: req.user!._id,
+      status: { $in: ['pending', 'completed'] },
+    })
+      .sort({ updatedAt: -1 })
+      .limit(12);
+
+    for (const purchase of purchases) {
+      const policy = await Policy.findById(purchase.policyId).select('category');
+      if (!policy || policy.category !== policyCategory) continue;
+      const answers = stripContactFields(purchase.answers as Record<string, unknown>);
+      if (Object.keys(answers).length === 0) continue;
+      fallbackAnswers = answers;
+      fallbackUpdatedAt = purchase.updatedAt;
+      fallbackId = String(purchase._id);
+      break;
+    }
+  }
+
+  const payload = stored
+    ? {
+        id: String(stored._id),
+        answers: stored.answers,
+        completedQuestionIds: stored.completedQuestionIds,
+        updatedAt: stored.updatedAt.toISOString(),
+        source: 'questionnaire' as const,
+      }
+    : fallbackAnswers
+      ? {
+          id: fallbackId!,
+          answers: fallbackAnswers,
+          completedQuestionIds: Object.keys(fallbackAnswers),
+          updatedAt: fallbackUpdatedAt!.toISOString(),
+          source: 'purchase' as const,
+        }
+      : null;
 
   res.status(200).json(
     successResponse('Questionnaire response retrieved', {
       category: policyCategory,
       available: true,
-      response: response
-        ? {
-            id: String(response._id),
-            answers: response.answers,
-            completedQuestionIds: response.completedQuestionIds,
-            updatedAt: response.updatedAt.toISOString(),
-          }
-        : null,
+      response: payload,
     })
   );
 }

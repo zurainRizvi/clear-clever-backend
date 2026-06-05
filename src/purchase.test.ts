@@ -12,6 +12,7 @@ import { Notification } from './models/Notification';
 import { Policy } from './models/Policy';
 import { User } from './models/User';
 import { Purchase } from './models/Purchase';
+import { QuestionnaireResponse } from './models/QuestionnaireResponse';
 import { SEED_DEFAULT_PASSWORD } from './seed/userSeedData';
 import { seedAll } from './seed/seedCatalog';
 import { applyTestEnv } from './test/setupEnv';
@@ -96,6 +97,31 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
         .send({ policyId: String(policy!._id) });
 
       expect(res.status).toBe(401);
+    });
+
+    it('persists questionnaire answers for dashboard reuse', async () => {
+      await startPurchase();
+
+      const stored = await QuestionnaireResponse.findOne({
+        userId: (await User.findOne({ email: 'seeker@clearclever.com' }))!._id,
+        category: 'home',
+      });
+
+      expect(stored).toBeTruthy();
+      expect(stored!.answers.city).toBe('Karachi');
+      expect(stored!.answers.property_type).toBe('Apartment');
+    });
+
+    it('rejects pending policies', async () => {
+      const pending = await Policy.findOne({ slug: 'tpl-home-premium' });
+      expect(pending?.status).toBe('pending');
+
+      const res = await request(app)
+        .post('/api/purchase')
+        .set('Authorization', `Bearer ${seekerToken}`)
+        .send({ policyId: String(pending!._id), answers: { city: 'Karachi' } });
+
+      expect(res.status).toBe(404);
     });
   });
 

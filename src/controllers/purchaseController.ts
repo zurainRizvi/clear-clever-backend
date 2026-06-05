@@ -6,7 +6,15 @@ import { InsurerProfile } from '../models/InsurerProfile';
 import { Notification } from '../models/Notification';
 import { Policy } from '../models/Policy';
 import { Purchase } from '../models/Purchase';
+import { QuestionnaireResponse } from '../models/QuestionnaireResponse';
 import { signToken } from '../services/auth';
+import { getCategoryQuestions } from '../services/questionsService';
+import { saveQuestionnaireResponse } from '../services/questionnaireMemory';
+import {
+  hasMeaningfulAnswers,
+  mergeQuestionnaireAnswers,
+  stripContactFields,
+} from '../services/questionnaireAnswers';
 import { trackCheckoutLead } from '../services/leadTrackingService';
 import { completePurchase } from '../services/purchaseCompletion';
 import { toPurchaseSummary } from '../services/purchasePresentation';
@@ -29,12 +37,28 @@ export async function createPurchase(req: AuthenticatedRequest, res: Response): 
     throw new AppError(500, 'Policy insurer profile is missing');
   }
 
+  const purchaseAnswers = answers ?? {};
+  const questionnaireAnswers = stripContactFields(purchaseAnswers);
+  if (hasMeaningfulAnswers(questionnaireAnswers)) {
+    const questionSet = await getCategoryQuestions(policy.category);
+    const existing = await QuestionnaireResponse.findOne({
+      userId: req.user!._id,
+      category: policy.category,
+    });
+    await saveQuestionnaireResponse({
+      userId: req.user!._id,
+      category: policy.category,
+      answers: mergeQuestionnaireAnswers(existing?.answers as Record<string, unknown> | undefined, questionnaireAnswers),
+      questions: questionSet.questions,
+    });
+  }
+
   const purchase = await Purchase.create({
     userId: req.user!._id,
     policyId: policy._id,
     insurerProfileId: insurer._id,
     affiliateSlug: insurer.slug,
-    answers: answers ?? {},
+    answers: purchaseAnswers,
     status: 'pending',
   });
 

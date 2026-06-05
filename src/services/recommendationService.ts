@@ -130,18 +130,41 @@ function buildMatchReasons(
   answers: Record<string, unknown>
 ): string[] {
   const reasons: string[] = [];
-  const vehicleType = answerTokens(answers.vehicle_type)[0];
+  const vehicleTokens = [
+    ...answerTokens(answers.vehicle_type),
+    ...answerTokens(answers.owns_vehicle),
+  ];
   const vehicleModel = typeof answers.vehicle_make_model === 'string' ? answers.vehicle_make_model : '';
-  const petType = answerTokens(answers.pet_type)[0] ?? answerTokens(answers.has_pet)[0];
+  const petTokens = [...answerTokens(answers.pet_type), ...answerTokens(answers.has_pet)];
 
-  if (vehicleType?.includes('motorcycle') || vehicleModel.toLowerCase().includes('motorcycle')) {
+  const hasMotorcycle =
+    vehicleTokens.some((token) => token.includes('motorcycle') || token.includes('bike')) ||
+    vehicleModel.toLowerCase().includes('motorcycle');
+  const hasCar = vehicleTokens.some(
+    (token) =>
+      token.includes('car') ||
+      token.includes('suv') ||
+      token.includes('4x4') ||
+      token.includes('commercial')
+  );
+
+  if (hasMotorcycle) {
     reasons.push('Motorcycle-focused recommendation based on your answers');
-  } else if (vehicleType && !vehicleType.includes('no')) {
-    reasons.push(`Built around your ${vehicleType.replace(/\s*\/.*$/, '')} need`);
+  }
+  if (hasCar) {
+    reasons.push('Built around your car or commercial vehicle need');
   }
 
-  if (petType && !petType.includes('no')) {
-    reasons.push(`${petType.split(' ')[0]} care preference included`);
+  for (const pet of ['dog', 'cat', 'bird'] as const) {
+    if (petTokens.some((token) => token.includes(pet))) {
+      reasons.push(`${pet} care preference included`);
+    }
+  }
+  if (
+    petTokens.some((token) => token.includes('other pet')) &&
+    !reasons.some((reason) => reason.includes('care preference'))
+  ) {
+    reasons.push('Pet care preference included');
   }
 
   if (scores.affordability >= WEIGHTS.affordability * 0.7) {

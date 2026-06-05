@@ -4,6 +4,8 @@ import { loadEnv, resetEnvCache } from './config/env';
 import { Policy } from './models/Policy';
 import { Favorite } from './models/Favorite';
 import { Lead } from './models/Lead';
+import { QuestionnaireResponse } from './models/QuestionnaireResponse';
+import { User } from './models/User';
 import { SEED_DEFAULT_PASSWORD } from './seed/userSeedData';
 import { seedAll } from './seed/seedCatalog';
 import { applyTestEnv } from './test/setupEnv';
@@ -84,7 +86,8 @@ describe('Module 5 — Questionnaire, recommend, compare, favorites', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.data.available).toBe(true);
-      expect(res.body.data.recommendations.length).toBe(3);
+      const approvedHomeCount = await Policy.countDocuments({ category: 'home', status: 'approved' });
+      expect(res.body.data.recommendations.length).toBe(approvedHomeCount);
 
       const scores = res.body.data.recommendations.map((item: { score: number }) => item.score);
       expect(scores).toEqual([...scores].sort((a, b) => b - a));
@@ -134,6 +137,33 @@ describe('Module 5 — Questionnaire, recommend, compare, favorites', () => {
       const top = res.body.data.recommendations[0];
       expect(top.policy.slug).toBe('tpl-home-essential');
       expect(top.policy.premiumMonthlyPkr).toBe(3500);
+    });
+
+    it('reuses purchase answers after checkout when questionnaire row is missing', async () => {
+      const policy = await Policy.findOne({ slug: 'tpl-home-essential', status: 'approved' });
+      await request(app)
+        .post('/api/purchase')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          policyId: String(policy!._id),
+          answers: {
+            property_type: 'House',
+            city: 'Lahore',
+            property_value_pkr: 8000000,
+          },
+        });
+
+      const seeker = await User.findOne({ email: 'seeker@clearclever.com' });
+      await QuestionnaireResponse.deleteMany({ userId: seeker!._id, category: 'home' });
+
+      const stored = await request(app)
+        .get('/api/recommend/answers/home')
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(stored.status).toBe(200);
+      expect(stored.body.data.response.source).toBe('purchase');
+      expect(stored.body.data.response.answers.city).toBe('Lahore');
+      expect(stored.body.data.response.answers.property_type).toBe('House');
     });
 
     it('stores authenticated questionnaire answers for reuse', async () => {
