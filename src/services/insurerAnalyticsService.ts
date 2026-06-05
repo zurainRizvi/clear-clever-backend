@@ -5,6 +5,7 @@ import { Lead } from '../models/Lead';
 import type { ILeadDocument } from '../models/Lead';
 import { Policy } from '../models/Policy';
 import type { IPolicyDocument } from '../models/Policy';
+import { Purchase } from '../models/Purchase';
 import { QuestionnaireResponse } from '../models/QuestionnaireResponse';
 import {
   dayLabelsInRange,
@@ -19,6 +20,7 @@ import {
   detectCategoryDemandSignals,
   inferAudienceLabel,
 } from './insurerSignalAnalysis';
+import { buildUsersByPakistanRegion } from './pakistanRegionStats';
 
 const CATEGORY_COLORS: Record<PolicyCategorySlug, string> = {
   home: '#2563EB',
@@ -167,6 +169,17 @@ export interface InsurerAnalyticsPayload {
     indicators: Array<{ metric: string; status: 'Strong' | 'Average' | 'Needs Improvement' }>;
     footerSuggestion: string;
   };
+  usersByRegion: {
+    title: string;
+    subtitle: string;
+    totalUsers: number;
+    regions: Array<{
+      slug: string;
+      label: string;
+      color: string;
+      userCount: number;
+    }>;
+  };
 }
 
 export async function buildInsurerAnalytics(
@@ -176,10 +189,11 @@ export async function buildInsurerAnalytics(
   const dateRange = parseInsurerDateRange(options?.from, options?.to);
   const priorRange = previousInsurerRange(dateRange);
 
-  const [policies, leads, claims] = await Promise.all([
+  const [policies, leads, claims, purchases] = await Promise.all([
     Policy.find({ insurerProfileId }).sort({ updatedAt: -1 }),
     Lead.find({ insurerProfileId }).sort({ createdAt: -1 }),
     ClaimRequest.find({ insurerProfileId }).sort({ createdAt: -1 }),
+    Purchase.find({ insurerProfileId }).sort({ updatedAt: -1 }),
   ]);
 
   const policyById = new Map(policies.map((p) => [String(p._id), p]));
@@ -512,6 +526,45 @@ export async function buildInsurerAnalytics(
           : 'Needs Improvement';
 
   const weakestCategory = [...currentByCategory.entries()].sort((a, b) => a[1] - b[1])[0];
+
+  const periodUserIds = [...new Set(currentLeads.map((l) => String(l.userId)))];
+  const questionnaireByUser = new Map<string, Record<string, unknown>[]>();
+  for (const doc of questionnaireResponses) {
+    const list = questionnaireByUser.get(doc.userId) ?? [];
+    list.push(doc.answers);
+    questionnaireByUser.set(doc.userId, list);
+  }
+  const leadMetadataByUser = new Map<string, Record<string, unknown>[]>();
+  for (const lead of currentLeads) {
+    const userId = String(lead.userId);
+    if (lead.metadata && typeof lead.metadata === 'object') {
+      const list = leadMetadataByUser.get(userId) ?? [];
+      list.push(lead.metadata as Record<string, unknown>);
+      leadMetadataByUser.set(userId, list);
+    }
+  }
+  const purchaseAnswersByUser = new Map<string, Record<string, unknown>[]>();
+  for (const purchase of purchases) {
+    if (!inInsurerRange(purchase.createdAt, dateRange)) continue;
+    const userId = String(purchase.userId);
+    const list = purchaseAnswersByUser.get(userId) ?? [];
+    list.push(purchase.answers as Record<string, unknown>);
+    purchaseAnswersByUser.set(userId, list);
+  }
+
+  const regionRows = buildUsersByPakistanRegion({
+    userIds: periodUserIds,
+    questionnaireByUser,
+    leadMetadataByUser,
+    purchaseAnswersByUser,
+  });
+  const usersByRegion = {
+    title: 'Users by Region',
+    subtitle: 'Policy seekers in your pipeline mapped to Pakistan regions (from questionnaire & purchase data)',
+    totalUsers: regionRows.reduce((sum, row) => sum + row.userCount, 0),
+    regions: regionRows,
+  };
+
   const competitiveness = {
     score: visibilityScore,
     label: visibilityScore >= 80 ? 'Great Standing' : visibilityScore >= 60 ? 'Good Standing' : 'Needs Focus',
@@ -583,6 +636,7 @@ export async function buildInsurerAnalytics(
     },
     topPolicies,
     competitiveness,
+    usersByRegion,
   };
 }
 

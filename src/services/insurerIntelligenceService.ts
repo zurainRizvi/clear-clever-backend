@@ -153,7 +153,7 @@ function pctChange(current: number, previous: number): { text: string; trend: 'u
   const rounded = Math.round(pct * 10) / 10;
   if (Math.abs(rounded) < 0.5) return { text: 'Flat vs prior period', trend: 'neutral' };
   return {
-    text: `${rounded > 0 ? '+' : ''}${rounded}%`,
+    text: `${rounded > 0 ? '+' : ''}${rounded}% vs prior period`,
     trend: rounded > 0 ? 'up' : 'down',
   };
 }
@@ -382,7 +382,10 @@ export async function buildInsurerDashboard(
     {
       title: 'Total Policies',
       value: String(approvedPolicies.length),
-      change: policiesChange.text === 'No prior activity' ? `${policies.length} in catalog` : `${policiesChange.text} vs prior period`,
+      change:
+        policiesChange.text === 'No prior activity'
+          ? `${policies.length} in catalog`
+          : policiesChange.text,
       trend: policiesChange.trend,
       icon: 'clipboard-check',
       iconColor: '#2563EB',
@@ -390,7 +393,7 @@ export async function buildInsurerDashboard(
     {
       title: 'New Leads',
       value: String(newLeadsCurrent),
-      change: `${leadsChange.text} vs prior period`,
+      change: leadsChange.text,
       trend: leadsChange.trend,
       icon: 'users',
       iconColor: '#10B981',
@@ -398,7 +401,7 @@ export async function buildInsurerDashboard(
     {
       title: 'Conversion Rate',
       value: `${conversionCurrent}%`,
-      change: `${conversionChange.text} vs prior period`,
+      change: conversionChange.text,
       trend: conversionChange.trend,
       icon: 'trending-up',
       iconColor: '#8B5CF6',
@@ -406,7 +409,7 @@ export async function buildInsurerDashboard(
     {
       title: 'Projected Revenue',
       value: formatPkr(revenueCurrent),
-      change: `${revenueChange.text} vs prior period`,
+      change: revenueChange.text,
       trend: revenueChange.trend,
       icon: 'wallet',
       iconColor: '#F59E0B',

@@ -55,6 +55,8 @@ describe('Insurer analytics intelligence', () => {
     expect(res.body.data.analytics.overviewMetrics).toHaveLength(5);
     expect(res.body.data.analytics.funnel.steps.length).toBeGreaterThan(0);
     expect(res.body.data.analytics.interestTrends.datasets).toHaveLength(4);
+    expect(res.body.data.analytics.usersByRegion).toBeDefined();
+    expect(res.body.data.analytics.usersByRegion.regions).toBeInstanceOf(Array);
   });
 
   it('accepts from and to query params', async () => {
@@ -119,7 +121,12 @@ describe('Insurer analytics intelligence', () => {
       {
         userId: seeker!._id,
         category: 'home',
-        answers: { home_owner: 'yes', has_pet: 'yes', property_type: 'Apartment' },
+        answers: {
+          home_owner: 'yes',
+          has_pet: 'yes',
+          property_type: 'Apartment',
+          city: 'Karachi',
+        },
         completedQuestionIds: ['home_owner'],
       },
       { upsert: true, new: true }
@@ -154,6 +161,11 @@ describe('Insurer analytics intelligence', () => {
 
     expect(tplRes.status).toBe(200);
     expect(tplRes.body.data.analytics.funnel.steps[1].users).toBeGreaterThan(0);
+    expect(
+      tplRes.body.data.analytics.usersByRegion.regions.some(
+        (r: { slug: string }) => r.slug === 'sindh'
+      )
+    ).toBe(true);
     expect(String(adamjeeProfile!._id)).not.toBe(String(tplProfile!._id));
   });
 });
