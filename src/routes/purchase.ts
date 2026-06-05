@@ -4,6 +4,7 @@ import {
   completePurchaseHandler,
   createPurchase,
   processPayment,
+  updatePurchaseAnswers,
 } from '../controllers/purchaseController';
 import { authenticate } from '../middleware/authenticate';
 import { authenticateQueryToken } from '../middleware/authenticateQueryToken';
@@ -12,6 +13,7 @@ import {
   completePurchaseQueryValidators,
   createPurchaseValidators,
   processPaymentValidators,
+  updatePurchaseAnswersValidators,
 } from '../validators/purchaseValidators';
 
 export const purchaseRouter = Router();
@@ -21,6 +23,13 @@ purchaseRouter.post(
   authenticate,
   validate(createPurchaseValidators),
   asyncHandler(createPurchase)
+);
+
+purchaseRouter.patch(
+  '/:id/answers',
+  authenticate,
+  validate(updatePurchaseAnswersValidators),
+  asyncHandler(updatePurchaseAnswers)
 );
 
 purchaseRouter.post(

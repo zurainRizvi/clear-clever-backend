@@ -91,7 +91,8 @@ export async function sendTransactionalViaBrevo(
   to: string,
   subject: string,
   html: string,
-  textContent: string
+  textContent: string,
+  options?: { replyTo?: string }
 ): Promise<void> {
   if (!isBrevoConfigured(env)) {
     return;
@@ -108,6 +109,7 @@ export async function sendTransactionalViaBrevo(
     body: JSON.stringify({
       sender,
       to: [{ email: to }],
+      ...(options?.replyTo ? { replyTo: { email: options.replyTo } } : {}),
       subject,
       htmlContent: html,
       textContent,

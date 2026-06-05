@@ -181,7 +181,7 @@ describe('Messaging conversations', () => {
       .send({ displayTitle: 'Seeker support thread' });
 
     expect(renameRes.status).toBe(200);
-    expect(renameRes.body.data.conversation.displayTitle).toBe('Seeker support thread');
+    expect(renameRes.body.data.conversation.displayTitleOverride).toBe('Seeker support thread');
 
     const deleteRes = await request(app)
       .delete(`/api/conversations/${conversationId}`)
@@ -190,5 +190,55 @@ describe('Messaging conversations', () => {
     expect(deleteRes.status).toBe(200);
     expect(await Conversation.countDocuments({ _id: conversationId })).toBe(0);
     expect(await Message.countDocuments({ conversationId })).toBe(0);
+  });
+
+  it('keeps conversation renames private to each participant', async () => {
+    const tplProfile = await InsurerProfile.findOne({ slug: 'tpl-insurance' });
+    const createRes = await request(app)
+      .post('/api/conversations')
+      .set('Authorization', `Bearer ${seekerToken}`)
+      .send({
+        type: 'user_insurer',
+        insurerProfileId: String(tplProfile!._id),
+        initialMessage: 'Hello TPL',
+      });
+
+    expect(createRes.status).toBe(201);
+    const conversationId = createRes.body.data.conversation.id as string;
+
+    const seekerRename = await request(app)
+      .patch(`/api/conversations/${conversationId}`)
+      .set('Authorization', `Bearer ${seekerToken}`)
+      .send({ displayTitle: 'My TPL thread' });
+
+    expect(seekerRename.status).toBe(200);
+    expect(seekerRename.body.data.conversation.displayTitleOverride).toBe('My TPL thread');
+
+    const insurerView = await request(app)
+      .get('/api/conversations')
+      .set('Authorization', `Bearer ${tplToken}`);
+
+    expect(insurerView.status).toBe(200);
+    const insurerConversation = insurerView.body.data.conversations.find(
+      (conversation: { id: string }) => conversation.id === conversationId
+    );
+    expect(insurerConversation.displayTitleOverride).toBeUndefined();
+
+    const insurerRename = await request(app)
+      .patch(`/api/conversations/${conversationId}`)
+      .set('Authorization', `Bearer ${tplToken}`)
+      .send({ displayTitle: 'Seeker inquiry' });
+
+    expect(insurerRename.status).toBe(200);
+    expect(insurerRename.body.data.conversation.displayTitleOverride).toBe('Seeker inquiry');
+
+    const seekerView = await request(app)
+      .get('/api/conversations')
+      .set('Authorization', `Bearer ${seekerToken}`);
+
+    const seekerConversation = seekerView.body.data.conversations.find(
+      (conversation: { id: string }) => conversation.id === conversationId
+    );
+    expect(seekerConversation.displayTitleOverride).toBe('My TPL thread');
   });
 });

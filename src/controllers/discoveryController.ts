@@ -10,6 +10,7 @@ import {
   parseCategoryForRecommend,
 } from '../services/questionsService';
 import { saveQuestionnaireResponse } from '../services/questionnaireMemory';
+import { trackCompareLeads, trackRecommendationLeads } from '../services/leadTrackingService';
 import { scorePolicies } from '../services/recommendationService';
 import { AppError, successResponse } from '../utils/apiResponse';
 
@@ -61,6 +62,20 @@ export async function recommendPolicies(req: AuthenticatedRequest, res: Response
     questionSet.questions,
     answers
   );
+
+  if (req.user && recommendations.length > 0) {
+    await trackRecommendationLeads({
+      userId: req.user._id,
+      category: policyCategory,
+      recommendations: recommendations.map((rec) => ({
+        policy: {
+          id: rec.policy.id,
+          name: rec.policy.name,
+          insurer: { id: rec.policy.insurer.id },
+        },
+      })),
+    });
+  }
 
   res.status(200).json(
     successResponse('Recommendations generated', {
@@ -135,6 +150,18 @@ export async function comparePolicies(req: AuthenticatedRequest, res: Response):
   publicPolicies.sort(
     (a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0)
   );
+
+  if (req.user) {
+    await trackCompareLeads({
+      userId: req.user._id,
+      policies: publicPolicies.map((policy) => ({
+        id: policy.id,
+        name: policy.name,
+        category: policy.category,
+        insurer: { id: policy.insurer.id },
+      })),
+    });
+  }
 
   res.status(200).json(
     successResponse('Policy comparison ready', {

@@ -3,10 +3,14 @@ import { createApp } from './app';
 import { loadEnv, resetEnvCache } from './config/env';
 import { CallSchedule } from './models/CallSchedule';
 import { ClaimRequest } from './models/ClaimRequest';
+import { Conversation } from './models/Conversation';
 import { EmailLog } from './models/EmailLog';
+import { InsurerProfile } from './models/InsurerProfile';
 import { Lead } from './models/Lead';
+import { Message } from './models/Message';
 import { Notification } from './models/Notification';
 import { Policy } from './models/Policy';
+import { User } from './models/User';
 import { Purchase } from './models/Purchase';
 import { SEED_DEFAULT_PASSWORD } from './seed/userSeedData';
 import { seedAll } from './seed/seedCatalog';
@@ -96,17 +100,69 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
   });
 
   describe('Affiliate page', () => {
-    it('renders HTML wizard for a valid purchase', async () => {
+    it('renders step 1 review page for a valid purchase', async () => {
       const { purchaseId, token } = await startPurchase();
 
       const res = await request(app)
         .get('/affiliate/tpl-insurance')
-        .query({ purchaseId, token });
+        .query({ purchaseId, token, step: '1' });
 
       expect(res.status).toBe(200);
       expect(res.headers['content-type']).toMatch(/html/);
       expect(res.text).toContain('Step 1 — Review your policy');
       expect(res.text).toContain('TPL Home Essential');
+      expect(res.text).toContain('ClearClever');
+      expect(res.text).toContain('TPL Insurance');
+      expect(res.text).toContain('Secure partner checkout');
+      expect(res.text).not.toContain('Step 2 — Simulate payment');
+    });
+
+    it('renders payment step and TPL website URL on step 3', async () => {
+      const { purchaseId, token } = await startPurchase();
+
+      const step2 = await request(app)
+        .get('/affiliate/tpl-insurance')
+        .query({ purchaseId, token, step: '2' });
+      expect(step2.text).toContain('Step 2 — Simulate payment');
+
+      await request(app)
+        .post(`/api/purchase/${purchaseId}/process-payment`)
+        .set('Authorization', `Bearer ${seekerToken}`)
+        .send({
+          cardholderName: 'Ali Khan',
+          cardLast4: '4242',
+          cardExpiry: '12/28',
+        });
+
+      const step3 = await request(app)
+        .get('/affiliate/tpl-insurance')
+        .query({ purchaseId, token, step: '3' });
+      expect(step3.text).toContain('https://tplinsurance.com/');
+    });
+
+    it('allows updating answers on a pending purchase', async () => {
+      const { purchaseId } = await startPurchase();
+
+      const res = await request(app)
+        .patch(`/api/purchase/${purchaseId}/answers`)
+        .set('Authorization', `Bearer ${seekerToken}`)
+        .send({
+          answers: {
+            property_type: 'House',
+            city: 'Lahore',
+          },
+        });
+
+      expect(res.status).toBe(200);
+      const purchase = await Purchase.findById(purchaseId);
+      expect(purchase?.answers.property_type).toBe('House');
+      expect(purchase?.answers.city).toBe('Lahore');
+    });
+
+    it('creates a checkout inquiry lead when purchase starts', async () => {
+      const { purchaseId } = await startPurchase();
+      const lead = await Lead.findOne({ type: 'inquiry', 'metadata.purchaseId': purchaseId });
+      expect(lead).toBeTruthy();
     });
   });
 
@@ -158,13 +214,26 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
         .set('Accept', 'application/json');
 
       expect(completeRes.status).toBe(200);
-      expect(completeRes.body.data.notificationsCreated).toBe(3);
+      expect(completeRes.body.data.notificationsCreated).toBe(4);
 
       const purchase = await Purchase.findById(purchaseId);
       const notificationCount = await Notification.countDocuments({
         'metadata.purchaseId': purchaseId,
       });
-      expect(notificationCount).toBe(3);
+      expect(notificationCount).toBe(4);
+
+      const insurerProfile = await InsurerProfile.findById(purchase!.insurerProfileId);
+      const insurerUser = await User.findById(insurerProfile!.userId);
+      const insurerNotification = await Notification.findOne({
+        userId: insurerUser!._id,
+        type: 'new_lead',
+      });
+      expect(insurerNotification).toBeTruthy();
+
+      const conversation = await Conversation.findOne({ purchaseId });
+      expect(conversation?.type).toBe('user_insurer');
+      const message = await Message.findOne({ conversationId: conversation!._id });
+      expect(message?.body).toContain('Thank you for purchasing');
 
       const emailLog = await EmailLog.findOne({ purchaseId });
       expect(emailLog?.status).toBe('sent');
@@ -204,7 +273,7 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
       const notificationCount = await Notification.countDocuments({
         'metadata.purchaseId': purchaseId,
       });
-      expect(notificationCount).toBe(3);
+      expect(notificationCount).toBe(4);
     });
   });
 
@@ -234,6 +303,7 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
       expect(listRes.body.data.purchases[0].timeline.paymentProcessed).toBe(true);
       expect(listRes.body.data.purchases[0].timeline.completed).toBe(true);
       expect(listRes.body.data.purchases[0].timeline.notifications.length).toBe(3);
+      expect(listRes.body.data.purchases[0].timeline.email?.body).toContain('Thank you for choosing');
       expect(listRes.body.data.purchases[0].policy.features.length).toBeGreaterThan(0);
       expect(listRes.body.data.purchases[0].policy.documentSummary.policyNumber).toMatch(/^CC-/);
     });

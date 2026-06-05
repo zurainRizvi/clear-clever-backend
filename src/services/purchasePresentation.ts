@@ -10,7 +10,10 @@ export async function toPurchaseSummary(purchase: IPurchaseDocument) {
   const [policy, insurer, notifications, emailLog, callSchedule, claims] = await Promise.all([
     Policy.findById(purchase.policyId),
     InsurerProfile.findById(purchase.insurerProfileId),
-    Notification.find({ 'metadata.purchaseId': String(purchase._id) }).sort({ createdAt: 1 }),
+    Notification.find({
+      userId: purchase.userId,
+      'metadata.purchaseId': String(purchase._id),
+    }).sort({ createdAt: 1 }),
     EmailLog.findOne({ purchaseId: purchase._id }),
     CallSchedule.findOne({ purchaseId: purchase._id }),
     ClaimRequest.find({ purchaseId: purchase._id }).sort({ createdAt: -1 }),

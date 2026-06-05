@@ -7,6 +7,7 @@ export interface IInsurerProfile {
   contactEmail: string;
   contactPhone: string;
   description?: string;
+  websiteUrl?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -21,6 +22,7 @@ const insurerProfileSchema = new Schema<IInsurerProfileDocument>(
     contactEmail: { type: String, required: true, lowercase: true, trim: true, maxlength: 254 },
     contactPhone: { type: String, required: true, trim: true, maxlength: 20 },
     description: { type: String, trim: true, maxlength: 2000 },
+    websiteUrl: { type: String, trim: true, maxlength: 500 },
   },
   { timestamps: true }
 );

@@ -5,7 +5,15 @@ import { Conversation, type IConversationDocument } from '../models/Conversation
 import { InsurerProfile } from '../models/InsurerProfile';
 import { Message } from '../models/Message';
 import { User } from '../models/User';
+import {
+  createConversationMessage,
+  findOrCreateConversation,
+} from '../services/conversationService';
 import type { AuthenticatedRequest } from '../middleware/authenticate';
+import type { PolicyCategorySlug } from '../constants/categories';
+import { Policy } from '../models/Policy';
+import { Purchase } from '../models/Purchase';
+import { trackInquiryLead } from '../services/leadTrackingService';
 import { AppError, successResponse } from '../utils/apiResponse';
 
 function isAdminRole(role: string): boolean {
@@ -51,7 +59,19 @@ function userSummary(user: {
   };
 }
 
-async function presentConversation(conversation: IConversationDocument) {
+function displayTitleOverrideForUser(
+  conversation: IConversationDocument,
+  requestingUserId?: Types.ObjectId
+): string | undefined {
+  if (!requestingUserId || !conversation.displayTitleByUserId) return undefined;
+  const override = conversation.displayTitleByUserId.get(objectIdString(requestingUserId));
+  return override?.trim() || undefined;
+}
+
+async function presentConversation(
+  conversation: IConversationDocument,
+  requestingUserId?: Types.ObjectId
+) {
   const participants = await User.find({ _id: { $in: conversation.participantUserIds } });
   const insurer = conversation.insurerProfileId
     ? await InsurerProfile.findById(conversation.insurerProfileId)
@@ -62,6 +82,7 @@ async function presentConversation(conversation: IConversationDocument) {
     type: conversation.type,
     subject: conversation.subject,
     displayTitle: conversation.displayTitle,
+    displayTitleOverride: displayTitleOverrideForUser(conversation, requestingUserId),
     participantUserIds: conversation.participantUserIds.map(String),
     participants: participants.map(userSummary),
     insurer: insurer
@@ -78,30 +99,6 @@ async function presentConversation(conversation: IConversationDocument) {
     createdAt: conversation.createdAt.toISOString(),
     updatedAt: conversation.updatedAt.toISOString(),
   };
-}
-
-async function createMessage(
-  conversation: IConversationDocument,
-  senderUserId: Types.ObjectId,
-  body: string,
-  attachments?: { fileName: string; mimeType: string; dataUrl: string }[]
-) {
-  if (!body.trim() && (!attachments || attachments.length === 0)) {
-    throw new AppError(400, 'Message text or attachment is required');
-  }
-  const message = await Message.create({
-    conversationId: conversation._id,
-    senderUserId,
-    body: body.trim(),
-    attachments,
-  });
-
-  conversation.lastMessagePreview = message.body.slice(0, 240);
-  conversation.lastMessageAt = message.createdAt;
-  conversation.readByUserIds = [senderUserId];
-  await conversation.save();
-
-  return message;
 }
 
 function presentMessage(message: {
@@ -124,36 +121,6 @@ function presentMessage(message: {
   };
 }
 
-async function findOrCreateConversation(input: {
-  type: IConversationDocument['type'];
-  participantUserIds: Types.ObjectId[];
-  insurerProfileId?: Types.ObjectId;
-  purchaseId?: Types.ObjectId;
-  subject?: string;
-}): Promise<{ conversation: IConversationDocument; created: boolean }> {
-  const participantIds = [...new Set(input.participantUserIds.map(String))];
-
-  const existing = await Conversation.findOne({
-    type: input.type,
-    participantUserIds: { $all: participantIds, $size: participantIds.length },
-    ...(input.insurerProfileId ? { insurerProfileId: input.insurerProfileId } : {}),
-    ...(input.purchaseId ? { purchaseId: input.purchaseId } : {}),
-  });
-
-  if (existing) return { conversation: existing, created: false };
-
-  const conversation = await Conversation.create({
-    type: input.type,
-    participantUserIds: participantIds,
-    insurerProfileId: input.insurerProfileId,
-    purchaseId: input.purchaseId,
-    subject: input.subject,
-    readByUserIds: [],
-  });
-
-  return { conversation, created: true };
-}
-
 export async function listConversations(req: AuthenticatedRequest, res: Response): Promise<void> {
   const userId = req.user!._id;
   const query = isAdminRole(req.user!.role)
@@ -172,7 +139,9 @@ export async function listConversations(req: AuthenticatedRequest, res: Response
   res.status(200).json(
     successResponse('Conversations retrieved', {
       count: conversations.length,
-      conversations: await Promise.all(conversations.map(presentConversation)),
+      conversations: await Promise.all(
+        conversations.map((conversation) => presentConversation(conversation, userId))
+      ),
     })
   );
 }
@@ -239,14 +208,46 @@ export async function createConversation(req: AuthenticatedRequest, res: Respons
     subject: body.subject,
   });
 
+  if (created && body.type === 'user_insurer' && insurerProfileId) {
+    let policyName: string | undefined;
+    let policyId: Types.ObjectId | undefined;
+    let category: PolicyCategorySlug | undefined;
+
+    if (body.purchaseId) {
+      const purchase = await Purchase.findById(body.purchaseId);
+      if (purchase?.policyId) {
+        const policy = await Policy.findById(purchase.policyId);
+        if (policy) {
+          policyId = policy._id;
+          policyName = policy.name;
+          category = policy.category;
+        }
+      }
+    }
+
+    if (!policyName) {
+      const policyMatch = body.subject?.match(/Inquiry:\s*(.+)/i);
+      if (policyMatch?.[1]) policyName = policyMatch[1].trim();
+    }
+
+    await trackInquiryLead({
+      userId: currentUser._id,
+      insurerProfileId,
+      policyId,
+      policyName,
+      category,
+      source: 'message',
+    });
+  }
+
   let message;
   if (created && body.initialMessage) {
-    message = await createMessage(conversation, currentUser._id, body.initialMessage);
+    message = await createConversationMessage(conversation, currentUser._id, body.initialMessage);
   }
 
   res.status(201).json(
     successResponse('Conversation ready', {
-      conversation: await presentConversation(conversation),
+      conversation: await presentConversation(conversation, currentUser._id),
       message: message ? presentMessage(message) : undefined,
     })
   );
@@ -268,12 +269,12 @@ export async function sendMessage(req: AuthenticatedRequest, res: Response): Pro
   const conversation = await getConversationForUser(req);
   const body = String(req.body.body ?? '');
   const attachments = Array.isArray(req.body.attachments) ? req.body.attachments : undefined;
-  const message = await createMessage(conversation, req.user!._id, body, attachments);
+  const message = await createConversationMessage(conversation, req.user!._id, body, attachments);
 
   res.status(201).json(
     successResponse('Message sent', {
       message: presentMessage(message),
-      conversation: await presentConversation(conversation),
+      conversation: await presentConversation(conversation, req.user!._id),
     })
   );
 }
@@ -289,7 +290,7 @@ export async function markConversationRead(req: AuthenticatedRequest, res: Respo
 
   res.status(200).json(
     successResponse('Conversation marked read', {
-      conversation: await presentConversation(conversation),
+      conversation: await presentConversation(conversation, req.user!._id),
     })
   );
 }
@@ -297,19 +298,28 @@ export async function markConversationRead(req: AuthenticatedRequest, res: Respo
 export async function updateConversation(req: AuthenticatedRequest, res: Response): Promise<void> {
   const conversation = await getConversationForUser(req);
   const displayTitle = req.body.displayTitle as string | null | undefined;
+  const userId = objectIdString(req.user!._id);
+
+  if (!conversation.displayTitleByUserId) {
+    conversation.displayTitleByUserId = new Map();
+  }
 
   if (displayTitle === null || displayTitle === '') {
-    conversation.displayTitle = undefined;
+    conversation.displayTitleByUserId.delete(userId);
   } else if (typeof displayTitle === 'string') {
     const trimmed = displayTitle.trim();
-    conversation.displayTitle = trimmed || undefined;
+    if (trimmed) {
+      conversation.displayTitleByUserId.set(userId, trimmed);
+    } else {
+      conversation.displayTitleByUserId.delete(userId);
+    }
   }
 
   await conversation.save();
 
   res.status(200).json(
     successResponse('Conversation updated', {
-      conversation: await presentConversation(conversation),
+      conversation: await presentConversation(conversation, req.user!._id),
     })
   );
 }

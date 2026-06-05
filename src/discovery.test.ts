@@ -3,6 +3,7 @@ import { createApp } from './app';
 import { loadEnv, resetEnvCache } from './config/env';
 import { Policy } from './models/Policy';
 import { Favorite } from './models/Favorite';
+import { Lead } from './models/Lead';
 import { SEED_DEFAULT_PASSWORD } from './seed/userSeedData';
 import { seedAll } from './seed/seedCatalog';
 import { applyTestEnv } from './test/setupEnv';
@@ -151,6 +152,16 @@ describe('Module 5 — Questionnaire, recommend, compare, favorites', () => {
       expect(stored.body.data.response.answers.city).toBe('Karachi');
       expect(stored.body.data.response.completedQuestionIds).toContain('property_type');
     });
+
+    it('creates inquiry leads for recommended policies when authenticated', async () => {
+      await request(app)
+        .post('/api/recommend')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ category: 'home', answers: homeAnswers });
+
+      const inquiryLeads = await Lead.find({ type: 'inquiry' });
+      expect(inquiryLeads.length).toBeGreaterThanOrEqual(3);
+    });
   });
 
   describe('POST /api/compare', () => {
@@ -223,6 +234,12 @@ describe('Module 5 — Questionnaire, recommend, compare, favorites', () => {
 
       expect(createRes.status).toBe(201);
       expect(createRes.body.data.policy.slug).toBe('tpl-home-essential');
+
+      const favoriteLead = await Lead.findOne({
+        type: 'favorite',
+        policyId: policy!._id,
+      });
+      expect(favoriteLead).toBeTruthy();
 
       const listRes = await request(app)
         .get('/api/favorites')

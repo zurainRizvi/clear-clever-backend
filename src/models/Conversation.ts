@@ -15,6 +15,7 @@ export interface IConversation {
   purchaseId?: Types.ObjectId;
   subject?: string;
   displayTitle?: string;
+  displayTitleByUserId?: Map<string, string>;
   lastMessagePreview?: string;
   lastMessageAt?: Date;
   readByUserIds: Types.ObjectId[];
@@ -34,6 +35,11 @@ const conversationSchema = new Schema<IConversationDocument>(
     purchaseId: { type: Schema.Types.ObjectId, ref: 'Purchase', index: true },
     subject: { type: String, trim: true, maxlength: 200 },
     displayTitle: { type: String, trim: true, maxlength: 120 },
+    displayTitleByUserId: {
+      type: Map,
+      of: { type: String, trim: true, maxlength: 120 },
+      default: {},
+    },
     lastMessagePreview: { type: String, trim: true, maxlength: 240 },
     lastMessageAt: { type: Date, index: true },
     readByUserIds: [{ type: Schema.Types.ObjectId, ref: 'User' }],

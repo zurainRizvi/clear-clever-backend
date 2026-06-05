@@ -41,6 +41,7 @@ export async function seedCatalog(): Promise<SeedCatalogResult> {
       existing.contactEmail = record.contactEmail;
       existing.contactPhone = record.contactPhone;
       existing.description = record.description;
+      existing.websiteUrl = record.websiteUrl;
       await existing.save();
       insurersUpdated += 1;
       insurerIdBySeedKey.set(record.seedKey, String(existing._id));
@@ -52,6 +53,7 @@ export async function seedCatalog(): Promise<SeedCatalogResult> {
         contactEmail: record.contactEmail,
         contactPhone: record.contactPhone,
         description: record.description,
+        websiteUrl: record.websiteUrl,
       });
       insurersCreated += 1;
       insurerIdBySeedKey.set(record.seedKey, String(created._id));

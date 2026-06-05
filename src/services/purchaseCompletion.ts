@@ -14,6 +14,10 @@ import { loadEnv } from '../config/env';
 import { isOutboundEmailConfigured } from './emailDelivery';
 import { sendTransactionalEmail } from './mail';
 import { sendTransactionalViaBrevo } from './brevo';
+import {
+  createConversationMessage,
+  findOrCreateConversation,
+} from './conversationService';
 import { renderBrandedEmail } from './emailTemplates';
 
 export interface CompletionArtifacts {
@@ -73,6 +77,11 @@ export async function completePurchase(
     throw new AppError(500, 'Purchase references missing policy, insurer, or user data');
   }
 
+  const insurerUser = await User.findById(insurer.userId);
+  if (!insurerUser) {
+    throw new AppError(500, 'Insurer account is missing for this purchase');
+  }
+
   const scheduledAt = nextBusinessDayAtTenPkt();
   const purchaseIdStr = String(purchase._id);
 
@@ -102,6 +111,17 @@ export async function completePurchase(
         scheduledAt: scheduledAt.toISOString(),
       },
     },
+    {
+      userId: insurerUser._id,
+      type: 'new_lead',
+      title: 'New policy sold',
+      body: `${user.fullName} completed purchase of ${policy.name}.`,
+      metadata: {
+        purchaseId: purchaseIdStr,
+        policyId: String(policy._id),
+        leadType: 'purchase',
+      },
+    },
   ]);
 
   const emailLog = await EmailLog.create({
@@ -116,37 +136,53 @@ export async function completePurchase(
 
   const env = loadEnv();
   if (isOutboundEmailConfigured(env)) {
+    const emailSubject = emailLog.subject;
+    const emailBodyHtml = emailLog.body
+      .split('\n')
+      .map((line) => `<p>${line || '&nbsp;'}</p>`)
+      .join('');
     const branded = renderBrandedEmail({
-      title: `Policy purchase confirmed - ${policy.name}`,
-      preheader: 'Your policy purchase is confirmed',
-      bodyHtml: `<p>Dear ${user.fullName},</p>
-        <p>Your purchase for <strong>${policy.name}</strong> from <strong>${insurer.companyName}</strong> is confirmed.</p>
-        <p>Premium: PKR ${policy.premiumMonthlyPkr.toLocaleString('en-PK')} / month</p>
-        <p>We have also scheduled your follow-up support call.</p>`,
-      bodyText: `Dear ${user.fullName}, your purchase for ${policy.name} from ${insurer.companyName} is confirmed. Premium: PKR ${policy.premiumMonthlyPkr.toLocaleString('en-PK')} / month.`,
+      title: emailSubject,
+      preheader: `Confirmation from ${insurer.companyName}`,
+      bodyHtml: emailBodyHtml,
+      bodyText: emailLog.body,
     });
     try {
       if (env.BREVO_API_KEY) {
         await sendTransactionalViaBrevo(
           env,
           user.email,
-          `Policy purchase confirmed - ${policy.name}`,
+          emailSubject,
           branded.html,
-          branded.text
+          branded.text,
+          { replyTo: insurer.contactEmail }
         );
       } else {
         await sendTransactionalEmail(
           env,
           user.email,
-          `Policy purchase confirmed - ${policy.name}`,
+          emailSubject,
           branded.html,
-          branded.text
+          branded.text,
+          { replyTo: insurer.contactEmail }
         );
       }
     } catch {
       await EmailLog.findByIdAndUpdate(emailLog._id, { status: 'failed' });
     }
   }
+
+  const welcomeMessage = `Dear ${user.fullName},\n\nThank you for purchasing ${policy.name} with ${insurer.companyName}. Your policy application is confirmed at PKR ${policy.premiumMonthlyPkr.toLocaleString('en-PK')}/month.\n\nOur team is here if you have any questions about coverage or documents.\n\nRegards,\n${insurer.companyName}`;
+
+  const { conversation } = await findOrCreateConversation({
+    type: 'user_insurer',
+    participantUserIds: [user._id, insurerUser._id],
+    insurerProfileId: insurer._id,
+    purchaseId: purchase._id,
+    subject: `Purchase: ${policy.name}`,
+  });
+
+  await createConversationMessage(conversation, insurerUser._id, welcomeMessage);
 
   const callSchedule = await CallSchedule.create({
     userId: purchase.userId,

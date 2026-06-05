@@ -186,10 +186,13 @@ export async function buildInsurerAnalytics(
   const policyById = new Map(policies.map((p) => [String(p._id), p]));
   const approvedPolicies = policies.filter((p) => p.status === 'approved');
   const leadUserIds = new Set(leads.map((l) => String(l.userId)));
+  const insurerCategories = new Set(approvedPolicies.map((p) => p.category));
 
-  const leadQuestionnaires = questionnaireDocs.filter((doc) =>
-    leadUserIds.has(String(doc.userId))
-  );
+  const leadQuestionnaires = questionnaireDocs.filter((doc) => {
+    const userId = String(doc.userId);
+    if (leadUserIds.has(userId)) return true;
+    return insurerCategories.has(doc.category);
+  });
   const questionnaireResponses = leadQuestionnaires.map((doc) => ({
     category: doc.category,
     answers: doc.answers as Record<string, unknown>,

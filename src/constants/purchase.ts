@@ -16,6 +16,7 @@ export const NOTIFICATION_TYPES = [
   'policy_review',
   'account_review',
   'support_inquiry',
+  'new_lead',
 ] as const;
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 

@@ -53,6 +53,11 @@ export const processPaymentValidators = [
     .withMessage('Enter a valid active card expiry date'),
 ];
 
+export const updatePurchaseAnswersValidators = [
+  purchaseIdParamValidator,
+  body('answers').isObject().withMessage('Answers must be an object'),
+];
+
 export const completePurchaseQueryValidators = [
   query('purchaseId')
     .trim()

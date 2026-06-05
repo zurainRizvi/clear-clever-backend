@@ -2,6 +2,7 @@ import type { Response } from 'express';
 import type { AuthenticatedRequest } from '../middleware/authenticate';
 import { Favorite } from '../models/Favorite';
 import { Policy } from '../models/Policy';
+import { trackFavoriteLead } from '../services/leadTrackingService';
 import { enrichPolicies } from '../services/policyPresentation';
 import { AppError, successResponse } from '../utils/apiResponse';
 
@@ -60,6 +61,14 @@ export async function addFavorite(req: AuthenticatedRequest, res: Response): Pro
   });
 
   const [publicPolicy] = await enrichPolicies([policy]);
+
+  await trackFavoriteLead({
+    userId: req.user!._id,
+    policyId: policy._id,
+    insurerProfileId: policy.insurerProfileId,
+    policyName: policy.name,
+    category: policy.category,
+  });
 
   res.status(201).json(
     successResponse('Policy saved to favorites', {

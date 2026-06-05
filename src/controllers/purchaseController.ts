@@ -7,6 +7,7 @@ import { Notification } from '../models/Notification';
 import { Policy } from '../models/Policy';
 import { Purchase } from '../models/Purchase';
 import { signToken } from '../services/auth';
+import { trackCheckoutLead } from '../services/leadTrackingService';
 import { completePurchase } from '../services/purchaseCompletion';
 import { toPurchaseSummary } from '../services/purchasePresentation';
 import { AppError, successResponse } from '../utils/apiResponse';
@@ -37,6 +38,15 @@ export async function createPurchase(req: AuthenticatedRequest, res: Response): 
     status: 'pending',
   });
 
+  await trackCheckoutLead({
+    userId: req.user!._id,
+    policyId: policy._id,
+    insurerProfileId: insurer._id,
+    policyName: policy.name,
+    category: policy.category,
+    purchaseId: String(purchase._id),
+  });
+
   const token = signToken(env, req.user!);
   const redirectUrl = new URL(`${env.API_PUBLIC_URL}/affiliate/${insurer.slug}`);
   redirectUrl.searchParams.set('purchaseId', String(purchase._id));
@@ -47,6 +57,34 @@ export async function createPurchase(req: AuthenticatedRequest, res: Response): 
       purchaseId: String(purchase._id),
       redirectUrl: redirectUrl.toString(),
       affiliateSlug: insurer.slug,
+    })
+  );
+}
+
+export async function updatePurchaseAnswers(
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> {
+  const { answers } = req.body as { answers: Record<string, unknown> };
+
+  const purchase = await Purchase.findById(req.params.id);
+  if (!purchase) {
+    throw new AppError(404, 'Purchase not found');
+  }
+  if (String(purchase.userId) !== String(req.user!._id)) {
+    throw new AppError(403, 'You do not have permission to update this purchase');
+  }
+  if (purchase.status !== 'pending') {
+    throw new AppError(400, 'Only pending purchases can be updated');
+  }
+
+  purchase.answers = answers;
+  await purchase.save();
+
+  res.status(200).json(
+    successResponse('Purchase answers updated', {
+      purchaseId: String(purchase._id),
+      answers: purchase.answers,
     })
   );
 }

@@ -6,6 +6,7 @@ export interface SeedInsurerRecord {
   contactEmail: string;
   contactPhone: string;
   description: string;
+  websiteUrl: string;
 }
 
 export const SEED_INSURERS: SeedInsurerRecord[] = [
@@ -18,6 +19,7 @@ export const SEED_INSURERS: SeedInsurerRecord[] = [
     contactPhone: '+923111234567',
     description:
       'Leading general insurer in Pakistan offering motor, home, and commercial coverage since 2005.',
+    websiteUrl: 'https://tplinsurance.com/',
   },
   {
     seedKey: 'jubilee',
@@ -28,6 +30,7 @@ export const SEED_INSURERS: SeedInsurerRecord[] = [
     contactPhone: '+923211345678',
     description:
       'Trusted nationwide insurer with strong life and health products for Pakistani families.',
+    websiteUrl: 'https://www.jubileeinsurance.com.pk/',
   },
   {
     seedKey: 'adamjee',
@@ -38,5 +41,6 @@ export const SEED_INSURERS: SeedInsurerRecord[] = [
     contactPhone: '+923311456789',
     description:
       'Established insurer serving Karachi, Lahore, and Islamabad with flexible home and auto plans.',
+    websiteUrl: 'https://www.adamjeeinsurance.com.pk/',
   },
 ];

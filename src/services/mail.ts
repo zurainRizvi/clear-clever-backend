@@ -126,7 +126,8 @@ export async function sendTransactionalEmail(
   to: string,
   subject: string,
   html: string,
-  text: string
+  text: string,
+  options?: { replyTo?: string }
 ): Promise<void> {
   if (!isSmtpConfigured(env)) {
     return;
@@ -139,6 +140,7 @@ export async function sendTransactionalEmail(
       transport.sendMail({
         from: env.SMTP_FROM ?? `ClearClever <${env.SMTP_USER}>`,
         to,
+        replyTo: options?.replyTo,
         subject,
         html,
         text,

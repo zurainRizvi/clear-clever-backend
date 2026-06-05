@@ -70,11 +70,24 @@ export async function renderAffiliateWizard(req: Request, res: Response): Promis
     return;
   }
 
-  const answerSummary = Object.entries(purchase.answers ?? {})
-    .map(
-      ([key, value]) =>
-        `<li><strong>${escapeHtml(formatAnswerKey(key))}:</strong> ${escapeHtml(String(value))}</li>`
-    )
+  const rawStep = typeof req.query.step === 'string' ? Number.parseInt(req.query.step, 10) : 1;
+  let step = Number.isFinite(rawStep) ? rawStep : 1;
+  if (step < 1) step = 1;
+  if (step > 4) step = 4;
+  if (step > 1 && !purchase.paymentProcessedAt && step > 2) step = 2;
+  if (step > 3 && !purchase.paymentProcessedAt) step = 2;
+  if (purchase.status === 'completed') step = 4;
+
+  const answers = (purchase.answers ?? {}) as Record<string, unknown>;
+  const answerFieldsHtml = Object.entries(answers)
+    .map(([key, value]) => {
+      const label = escapeHtml(formatAnswerKey(key));
+      const fieldName = escapeHtml(key);
+      const fieldValue = escapeHtml(String(value ?? ''));
+      return `<label>${label}
+        <input name="${fieldName}" value="${fieldValue}" />
+      </label>`;
+    })
     .join('');
 
   const html = renderAffiliatePage({
@@ -82,14 +95,23 @@ export async function renderAffiliateWizard(req: Request, res: Response): Promis
     clientUrl: env.CLIENT_URL,
     insurerSlug: insurer.slug,
     insurerName: insurer.companyName,
-    insurerExternalUrl: `https://www.${insurer.slug.replace(/-insurance$/, '')}.com.pk`,
+    insurerDescription: insurer.description,
+    insurerExternalUrl:
+      insurer.websiteUrl?.trim() ||
+      `https://www.${insurer.slug.replace(/-insurance$/, '')}.com.pk`,
     policyName: policy.name,
+    coverageSummary: policy.coverageSummary,
     premiumMonthlyPkr: policy.premiumMonthlyPkr.toLocaleString('en-PK'),
+    premiumYearlyPkr: policy.premiumYearlyPkr.toLocaleString('en-PK'),
     purchaseId: String(purchase._id),
     token,
+    step,
     paymentProcessed: Boolean(purchase.paymentProcessedAt),
     completed: purchase.status === 'completed',
-    answerSummaryHtml: answerSummary || '<li>No questionnaire answers provided</li>',
+    answers,
+    answerFieldsHtml:
+      answerFieldsHtml ||
+      '<p class="muted">No questionnaire answers provided. You can continue to payment.</p>',
   });
 
   res.status(200).type('html').send(html);
