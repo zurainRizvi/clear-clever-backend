@@ -176,24 +176,22 @@ export async function buildInsurerAnalytics(
   const dateRange = parseInsurerDateRange(options?.from, options?.to);
   const priorRange = previousInsurerRange(dateRange);
 
-  const [policies, leads, claims, questionnaireDocs] = await Promise.all([
+  const [policies, leads, claims] = await Promise.all([
     Policy.find({ insurerProfileId }).sort({ updatedAt: -1 }),
     Lead.find({ insurerProfileId }).sort({ createdAt: -1 }),
     ClaimRequest.find({ insurerProfileId }).sort({ createdAt: -1 }),
-    QuestionnaireResponse.find().sort({ updatedAt: -1 }),
   ]);
 
   const policyById = new Map(policies.map((p) => [String(p._id), p]));
   const approvedPolicies = policies.filter((p) => p.status === 'approved');
-  const leadUserIds = new Set(leads.map((l) => String(l.userId)));
-  const insurerCategories = new Set(approvedPolicies.map((p) => p.category));
+  const leadUserIds = [...new Set(leads.map((l) => l.userId))];
 
-  const leadQuestionnaires = questionnaireDocs.filter((doc) => {
-    const userId = String(doc.userId);
-    if (leadUserIds.has(userId)) return true;
-    return insurerCategories.has(doc.category);
-  });
-  const questionnaireResponses = leadQuestionnaires.map((doc) => ({
+  const questionnaireDocs =
+    leadUserIds.length > 0
+      ? await QuestionnaireResponse.find({ userId: { $in: leadUserIds } }).sort({ updatedAt: -1 })
+      : [];
+
+  const questionnaireResponses = questionnaireDocs.map((doc) => ({
     category: doc.category,
     answers: doc.answers as Record<string, unknown>,
     updatedAt: doc.updatedAt,

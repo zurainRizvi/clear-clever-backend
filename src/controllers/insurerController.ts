@@ -351,7 +351,9 @@ export async function listInsurerLeads(req: AuthenticatedRequest, res: Response)
 
   const [users, policies] = await Promise.all([
     User.find({ _id: { $in: userIds } }),
-    Policy.find({ _id: { $in: policyIds } }),
+    policyIds.length > 0
+      ? Policy.find({ _id: { $in: policyIds }, insurerProfileId: profile._id })
+      : Promise.resolve([]),
   ]);
 
   const userById = new Map(users.map((user) => [String(user._id), user]));

@@ -19,6 +19,7 @@ describe('Insurer analytics intelligence', () => {
   let testMongoUri = '';
   let app: ReturnType<typeof createApp>;
   let tplToken = '';
+  let adamjeeToken = '';
 
   beforeAll(async () => {
     testMongoUri = await connectTestDatabase();
@@ -39,6 +40,10 @@ describe('Insurer analytics intelligence', () => {
       .post('/api/auth/login')
       .send({ email: 'insurer.tpl@clearclever.com', password: SEED_DEFAULT_PASSWORD });
     tplToken = res.body.data.token;
+    const adamjeeRes = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'insurer.adamjee@clearclever.com', password: SEED_DEFAULT_PASSWORD });
+    adamjeeToken = adamjeeRes.body.data.token;
   });
 
   it('returns analytics payload for insurer', async () => {
@@ -98,5 +103,57 @@ describe('Insurer analytics intelligence', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.analytics.smartInsights.length).toBeGreaterThan(0);
     expect(res.body.data.analytics.customerSegments.length).toBeGreaterThan(0);
+  });
+
+  it('does not use questionnaire data from seekers who only interacted with another insurer', async () => {
+    const tplProfile = await InsurerProfile.findOne({ slug: 'tpl-insurance' });
+    const adamjeeProfile = await InsurerProfile.findOne({ slug: 'adamjee-insurance' });
+    const seeker = await User.findOne({ email: 'seeker@clearclever.com' });
+    const tplPolicy = await Policy.findOne({
+      insurerProfileId: tplProfile!._id,
+      status: 'approved',
+    });
+
+    await QuestionnaireResponse.findOneAndUpdate(
+      { userId: seeker!._id, category: 'home' },
+      {
+        userId: seeker!._id,
+        category: 'home',
+        answers: { home_owner: 'yes', has_pet: 'yes', property_type: 'Apartment' },
+        completedQuestionIds: ['home_owner'],
+      },
+      { upsert: true, new: true }
+    );
+
+    await Lead.create({
+      insurerProfileId: tplProfile!._id,
+      userId: seeker!._id,
+      policyId: tplPolicy!._id,
+      type: 'purchase',
+      status: 'new',
+      summary: 'Purchased with TPL',
+    });
+
+    const adamjeeRes = await request(app)
+      .get('/api/insurer/analytics')
+      .set('Authorization', `Bearer ${adamjeeToken}`);
+
+    expect(adamjeeRes.status).toBe(200);
+    expect(adamjeeRes.body.data.analytics.funnel.steps[1].users).toBe(0);
+    expect(adamjeeRes.body.data.analytics.smartInsights).toEqual(
+      expect.not.arrayContaining([
+        expect.objectContaining({
+          description: expect.stringContaining('pet ownership'),
+        }),
+      ])
+    );
+
+    const tplRes = await request(app)
+      .get('/api/insurer/analytics')
+      .set('Authorization', `Bearer ${tplToken}`);
+
+    expect(tplRes.status).toBe(200);
+    expect(tplRes.body.data.analytics.funnel.steps[1].users).toBeGreaterThan(0);
+    expect(String(adamjeeProfile!._id)).not.toBe(String(tplProfile!._id));
   });
 });

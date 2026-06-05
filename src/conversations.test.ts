@@ -3,6 +3,7 @@ import { createApp } from './app';
 import { loadEnv, resetEnvCache } from './config/env';
 import { Conversation } from './models/Conversation';
 import { InsurerProfile } from './models/InsurerProfile';
+import { User } from './models/User';
 import { Message } from './models/Message';
 import { SEED_DEFAULT_PASSWORD } from './seed/userSeedData';
 import { seedAll } from './seed/seedCatalog';
@@ -84,6 +85,30 @@ describe('Messaging conversations', () => {
 
     expect(await Conversation.countDocuments()).toBe(1);
     expect(await Message.countDocuments()).toBe(2);
+  });
+
+  it('lets an insurer start a conversation with a policy seeker lead', async () => {
+    const tplProfile = await InsurerProfile.findOne({ slug: 'tpl-insurance' });
+    const seeker = await User.findOne({ email: 'seeker@clearclever.com' });
+
+    const createRes = await request(app)
+      .post('/api/conversations')
+      .set('Authorization', `Bearer ${tplToken}`)
+      .send({
+        type: 'user_insurer',
+        targetUserId: String(seeker!._id),
+        insurerProfileId: String(tplProfile!._id),
+        subject: 'Follow-up on your inquiry',
+        initialMessage: 'Hi, thanks for your interest in our policy.',
+      });
+
+    expect(createRes.status).toBe(201);
+    expect(createRes.body.data.conversation.insurer.id).toBe(String(tplProfile!._id));
+    expect(
+      createRes.body.data.conversation.participants.some(
+        (participant: { email: string }) => participant.email === 'seeker@clearclever.com'
+      )
+    ).toBe(true);
   });
 
   it('blocks non-participants from reading insurer conversations', async () => {

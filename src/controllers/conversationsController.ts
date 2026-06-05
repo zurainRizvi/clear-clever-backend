@@ -3,6 +3,7 @@ import type { Types } from 'mongoose';
 import { ADMIN_ROLES } from '../constants/roles';
 import { Conversation, type IConversationDocument } from '../models/Conversation';
 import { InsurerProfile } from '../models/InsurerProfile';
+import { getInsurerProfileForUser } from '../services/insurerContext';
 import { Message } from '../models/Message';
 import { User } from '../models/User';
 import {
@@ -28,10 +29,21 @@ function isParticipant(conversation: IConversationDocument, userId: Types.Object
   return conversation.participantUserIds.some((id) => objectIdString(id) === objectIdString(userId));
 }
 
-function canAccessConversation(conversation: IConversationDocument, req: AuthenticatedRequest): boolean {
+async function canAccessConversation(
+  conversation: IConversationDocument,
+  req: AuthenticatedRequest
+): Promise<boolean> {
   if (!req.user) return false;
-  if (isParticipant(conversation, req.user._id)) return true;
-  return isAdminRole(req.user.role);
+  if (!isParticipant(conversation, req.user._id)) {
+    return isAdminRole(req.user.role);
+  }
+  if (req.user.role === 'insurer' && conversation.type === 'user_insurer') {
+    const profile = await InsurerProfile.findOne({ userId: req.user._id });
+    if (!profile || String(conversation.insurerProfileId) !== String(profile._id)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 async function getConversationForUser(req: AuthenticatedRequest): Promise<IConversationDocument> {
@@ -39,7 +51,7 @@ async function getConversationForUser(req: AuthenticatedRequest): Promise<IConve
   if (!conversation) {
     throw new AppError(404, 'Conversation not found');
   }
-  if (!canAccessConversation(conversation, req)) {
+  if (!(await canAccessConversation(conversation, req))) {
     throw new AppError(403, 'You do not have access to this conversation');
   }
   return conversation;
@@ -123,13 +135,26 @@ function presentMessage(message: {
 
 export async function listConversations(req: AuthenticatedRequest, res: Response): Promise<void> {
   const userId = req.user!._id;
-  const query = isAdminRole(req.user!.role)
-    ? {
-        type: {
-          $in: ['user_support', 'insurer_support', 'user_insurer'],
-        },
-      }
-    : { participantUserIds: userId };
+  let query: Record<string, unknown>;
+
+  if (isAdminRole(req.user!.role)) {
+    query = {
+      type: {
+        $in: ['user_support', 'insurer_support', 'user_insurer'],
+      },
+    };
+  } else if (req.user!.role === 'insurer') {
+    const profile = await getInsurerProfileForUser(userId);
+    query = {
+      participantUserIds: userId,
+      $or: [
+        { type: { $ne: 'user_insurer' } },
+        { type: 'user_insurer', insurerProfileId: profile._id },
+      ],
+    };
+  } else {
+    query = { participantUserIds: userId };
+  }
 
   const conversations = await Conversation.find(query).sort({
     lastMessageAt: -1,
@@ -160,18 +185,33 @@ export async function createConversation(req: AuthenticatedRequest, res: Respons
   let insurerProfileId: Types.ObjectId | undefined;
 
   if (body.type === 'user_insurer') {
-    if (currentUser.role !== 'user') {
-      throw new AppError(403, 'Only policy seekers can start insurer conversations');
+    if (currentUser.role === 'user') {
+      if (!body.insurerProfileId) {
+        throw new AppError(400, 'insurerProfileId is required');
+      }
+      const insurer = await InsurerProfile.findById(body.insurerProfileId);
+      if (!insurer) {
+        throw new AppError(404, 'Insurer not found');
+      }
+      insurerProfileId = insurer._id;
+      participantUserIds = [currentUser._id, insurer.userId];
+    } else if (currentUser.role === 'insurer') {
+      if (!body.targetUserId) {
+        throw new AppError(400, 'targetUserId is required');
+      }
+      const seeker = await User.findById(body.targetUserId);
+      if (!seeker || seeker.role !== 'user') {
+        throw new AppError(400, 'targetUserId must be a policy seeker');
+      }
+      const profile = await getInsurerProfileForUser(currentUser._id);
+      if (body.insurerProfileId && String(profile._id) !== body.insurerProfileId) {
+        throw new AppError(403, 'You can only start conversations for your own insurer profile');
+      }
+      insurerProfileId = profile._id;
+      participantUserIds = [seeker._id, currentUser._id];
+    } else {
+      throw new AppError(403, 'Only policy seekers or insurers can start insurer conversations');
     }
-    if (!body.insurerProfileId) {
-      throw new AppError(400, 'insurerProfileId is required');
-    }
-    const insurer = await InsurerProfile.findById(body.insurerProfileId);
-    if (!insurer) {
-      throw new AppError(404, 'Insurer not found');
-    }
-    insurerProfileId = insurer._id;
-    participantUserIds = [currentUser._id, insurer.userId];
   } else if (body.type === 'user_support' || body.type === 'insurer_support') {
     if (body.type === 'user_support' && currentUser.role !== 'user' && !isAdminRole(currentUser.role)) {
       throw new AppError(403, 'Only users or staff can start user support conversations');

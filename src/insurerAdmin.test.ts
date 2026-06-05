@@ -345,6 +345,44 @@ describe('Module 6 — Insurer & admin modules', () => {
       expect(res.body.data.leads[0].isNew).toBe(true);
     });
 
+    it('does not return leads belonging to another insurer', async () => {
+      const tplProfile = await InsurerProfile.findOne({ slug: 'tpl-insurance' });
+      const adamjeeProfile = await InsurerProfile.findOne({ slug: 'adamjee-insurance' });
+      const seeker = await User.findOne({ email: 'seeker@clearclever.com' });
+      const tplPolicy = await Policy.findOne({ slug: 'tpl-home-essential' });
+
+      await Lead.create({
+        insurerProfileId: tplProfile!._id,
+        userId: seeker!._id,
+        policyId: tplPolicy!._id,
+        type: 'purchase',
+        status: 'new',
+        summary: 'Purchased TPL home essential',
+      });
+
+      const adamjeeToken = await login('insurer.adamjee@clearclever.com');
+      const res = await request(app)
+        .get('/api/insurer/leads')
+        .set('Authorization', `Bearer ${adamjeeToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.count).toBe(0);
+      expect(
+        res.body.data.leads.some(
+          (lead: { seeker?: { email?: string } }) => lead.seeker?.email === 'seeker@clearclever.com'
+        )
+      ).toBe(false);
+
+      const tplRes = await request(app)
+        .get('/api/insurer/leads')
+        .set('Authorization', `Bearer ${tplToken}`);
+
+      expect(tplRes.status).toBe(200);
+      expect(tplRes.body.data.count).toBe(1);
+      expect(tplRes.body.data.leads[0].policy.slug).toBe('tpl-home-essential');
+      expect(String(adamjeeProfile!._id)).not.toBe(String(tplProfile!._id));
+    });
+
     it('marks a lead as seen', async () => {
       const tplProfile = await InsurerProfile.findOne({ slug: 'tpl-insurance' });
       const seeker = await User.findOne({ email: 'seeker@clearclever.com' });
