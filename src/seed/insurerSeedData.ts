@@ -43,4 +43,48 @@ export const SEED_INSURERS: SeedInsurerRecord[] = [
       'Established insurer serving Karachi, Lahore, and Islamabad with flexible home and auto plans.',
     websiteUrl: 'https://www.adamjeeinsurance.com.pk/',
   },
+  {
+    seedKey: 'hbl',
+    slug: 'hbl-insurance',
+    companyName: 'HBL Insurance',
+    insurerEmail: 'insurer.hbl@clearclever.com',
+    contactEmail: 'support@hblinsurance.com.pk',
+    contactPhone: '+923221567890',
+    description:
+      'HBL Insurance offers motor, home, and life products backed by one of Pakistan\'s largest banking groups.',
+    websiteUrl: 'https://www.hblinsurance.com.pk/',
+  },
+  {
+    seedKey: 'allianz',
+    slug: 'allianz-insurance',
+    companyName: 'Allianz',
+    insurerEmail: 'insurer.allianz@clearclever.com',
+    contactEmail: 'info@allianz.com.pk',
+    contactPhone: '+923331678901',
+    description:
+      'Global insurer with tailored home, auto, and commercial packages for Pakistani professionals.',
+    websiteUrl: 'https://www.allianz.com.pk/',
+  },
+  {
+    seedKey: 'efu',
+    slug: 'efu-life-insurance',
+    companyName: 'EFU Life',
+    insurerEmail: 'insurer.efu@clearclever.com',
+    contactEmail: 'help@efulife.com',
+    contactPhone: '+923441789012',
+    description:
+      'Pakistan\'s pioneer life insurer with education, retirement, and family protection plans.',
+    websiteUrl: 'https://efulife.com/',
+  },
+  {
+    seedKey: 'igi',
+    slug: 'igi-general-insurance',
+    companyName: 'IGI General',
+    insurerEmail: 'insurer.igi@clearclever.com',
+    contactEmail: 'service@igilife.com.pk',
+    contactPhone: '+923551890123',
+    description:
+      'Established general insurer serving Karachi, Lahore, and Islamabad with flexible motor and property cover.',
+    websiteUrl: 'https://www.igilife.com.pk/',
+  },
 ];

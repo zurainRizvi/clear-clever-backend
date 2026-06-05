@@ -82,6 +82,7 @@ export async function seedCatalog(): Promise<SeedCatalogResult> {
       deductiblePkr: record.deductiblePkr,
       questions: record.questions,
       status: record.status,
+      rejectionReason: record.rejectionReason,
     };
 
     const existing = await Policy.findOne({ slug: record.slug });

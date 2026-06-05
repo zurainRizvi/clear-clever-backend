@@ -1,4 +1,4 @@
-import type { UserRole } from '../constants/roles';
+import type { UserRole, UserStatus } from '../constants/roles';
 
 /** Default password for all seeded accounts (documented in docs/DEPLOYMENT.md). */
 export const SEED_DEFAULT_PASSWORD = 'password';
@@ -8,6 +8,8 @@ export interface SeedUserRecord {
   email: string;
   phone: string;
   role: UserRole;
+  /** Defaults to active when omitted. */
+  status?: UserStatus;
 }
 
 /**
@@ -44,6 +46,37 @@ export const SEED_USERS: SeedUserRecord[] = [
     email: 'insurer.adamjee@clearclever.com',
     phone: '+923051334466',
     role: 'insurer',
+  },
+  {
+    fullName: 'Bilal Raza',
+    email: 'insurer.hbl@clearclever.com',
+    phone: '+923081667788',
+    role: 'insurer',
+  },
+  {
+    fullName: 'Nadia Hussain',
+    email: 'insurer.allianz@clearclever.com',
+    phone: '+923091778899',
+    role: 'insurer',
+  },
+  {
+    fullName: 'Kamran Siddiqui',
+    email: 'insurer.efu@clearclever.com',
+    phone: '+923102889900',
+    role: 'insurer',
+  },
+  {
+    fullName: 'Hina Malik',
+    email: 'insurer.igi@clearclever.com',
+    phone: '+923113990011',
+    role: 'insurer',
+  },
+  {
+    fullName: 'Pending Provider Demo',
+    email: 'insurer.pending@clearclever.com',
+    phone: '+923124001122',
+    role: 'insurer',
+    status: 'pendingVerification',
   },
   {
     fullName: 'Sara Ahmed',

@@ -11,6 +11,7 @@ import {
   SEED_APPROVED_POLICY_COUNT,
   SEED_PENDING_POLICY_COUNT,
   SEED_POLICY_COUNT,
+  SEED_REJECTED_POLICY_COUNT,
 } from './seed/policySeedData';
 import { seedAll } from './seed/seedCatalog';
 import { SEED_USERS } from './seed/userSeedData';
@@ -103,11 +104,13 @@ describe('Module 4 — Catalog, insurers & seed policies', () => {
 
       const approved = await Policy.find({ status: 'approved' });
       const pending = await Policy.find({ status: 'pending' });
+      const rejected = await Policy.find({ status: 'rejected' });
 
       expect(approved).toHaveLength(SEED_APPROVED_POLICY_COUNT);
       expect(pending).toHaveLength(SEED_PENDING_POLICY_COUNT);
+      expect(rejected).toHaveLength(SEED_REJECTED_POLICY_COUNT);
 
-      for (const policy of [...approved, ...pending]) {
+      for (const policy of [...approved, ...pending, ...rejected]) {
         expect(POLICY_CATEGORY_SLUGS).toContain(policy.category);
       }
 
@@ -123,6 +126,10 @@ describe('Module 4 — Catalog, insurers & seed policies', () => {
       const slugs = await InsurerProfile.find().select('slug').sort({ slug: 1 });
       expect(slugs.map((s) => s.slug)).toEqual([
         'adamjee-insurance',
+        'allianz-insurance',
+        'efu-life-insurance',
+        'hbl-insurance',
+        'igi-general-insurance',
         'jubilee-insurance',
         'tpl-insurance',
       ]);

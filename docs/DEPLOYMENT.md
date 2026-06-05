@@ -11,7 +11,7 @@ Public API on **Render** + database on **MongoDB Atlas M0**. Frontend on Vercel 
    `mongodb+srv://<user>:<password>@<cluster>.mongodb.net/clearclever?retryWrites=true&w=majority`
 5. Put it in local `.env` as `MONGODB_URI` and in Render as an environment variable.
 
-### Seed users (Atlas)
+### Seed users and demo data (Atlas)
 
 From `clear-clever-backend` with `MONGODB_URI` pointing at Atlas:
 
@@ -19,20 +19,33 @@ From `clear-clever-backend` with `MONGODB_URI` pointing at Atlas:
 npm run seed
 ```
 
-Re-running is safe (upsert by email). All seeded accounts are **already verified** (`status: active`).
-
-| Email | Role | Notes |
-|-------|------|--------|
-| `syedzurainrizvi@gmail.com` | user | Policy seeker (Lahore) |
-| `seeker@clearclever.com` | user | Second seeker (Lahore) |
-| `insurer.tpl@clearclever.com` | insurer | TPL — Lahore |
-| `insurer.jubilee@clearclever.com` | insurer | Jubilee — Lahore |
-| `insurer.adamjee@clearclever.com` | insurer | Adamjee — Lahore |
-| `admin@clearclever.com` | admin | Platform admin |
-| `superadmin@clearclever.com` | superadmin | Full admin |
+Re-running is safe (users/catalog upsert by email/slug; demo transactions wipe and recreate for seed accounts only). Signup users created after deploy are **never** touched.
 
 **Password (all accounts):** `password`  
 Override locally with `SEED_PASSWORD=your-secret npm run seed` if needed.
+
+| Email | Role | Notes |
+|-------|------|--------|
+| `seeker@clearclever.com` | user | Primary policy seeker demo (purchases, claims, messages) |
+| `syedzurainrizvi@gmail.com` | user | Secondary seeker demo |
+| `insurer.tpl@clearclever.com` | insurer | TPL Insurance |
+| `insurer.jubilee@clearclever.com` | insurer | Jubilee General Insurance |
+| `insurer.adamjee@clearclever.com` | insurer | Adamjee Insurance |
+| `insurer.hbl@clearclever.com` | insurer | HBL Insurance |
+| `insurer.allianz@clearclever.com` | insurer | Allianz |
+| `insurer.efu@clearclever.com` | insurer | EFU Life |
+| `insurer.igi@clearclever.com` | insurer | IGI General |
+| `insurer.pending@clearclever.com` | insurer | Pending verification (superadmin approvals demo) |
+| `admin@clearclever.com` | admin | Employee admin portal |
+| `superadmin@clearclever.com` | superadmin | Super Admin portal |
+
+### Demo walkthrough (evaluators)
+
+1. **Policy seeker** — `seeker@clearclever.com` → Compare Policies → Saved → My Purchases (timeline) → Claims → Messages
+2. **Insurer** — `insurer.tpl@clearclever.com` → Dashboard → Leads & Customers → Analytics → Claims
+3. **Employee admin** — `admin@clearclever.com` → Approvals (4 pending policies) → Providers (7 active) → Reports
+4. **Super Admin** — `superadmin@clearclever.com` → Provider approvals (pending insurer) → Fraud → Platform analytics → System health
+5. **Affiliate checkout** — complete a purchase flow; redirect lands on `/affiliate/{insurer-slug}?purchaseId=...`
 
 ---
 

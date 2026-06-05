@@ -639,7 +639,15 @@ describe('Module 6 — Insurer & admin modules', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.data.insurers.length).toBeGreaterThan(0);
-      expect(res.body.data.insurers[0].profile?.companyName).toBeTruthy();
+      const withProfile = res.body.data.insurers.find(
+        (entry: { profile?: { companyName?: string } }) => entry.profile?.companyName
+      );
+      expect(withProfile).toBeTruthy();
+      const pendingOnly = res.body.data.insurers.find(
+        (entry: { user: { email: string }; profile: unknown }) =>
+          entry.user.email === 'insurer.pending@clearclever.com'
+      );
+      expect(pendingOnly?.profile).toBeNull();
     });
 
     it('approves, revokes, and permanently deletes a pending provider', async () => {

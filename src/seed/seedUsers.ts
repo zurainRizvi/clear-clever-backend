@@ -23,7 +23,7 @@ export async function seedUsers(
       existing.fullName = normalized.fullName;
       existing.phone = normalized.phone;
       existing.role = normalized.role;
-      existing.status = 'active';
+      existing.status = normalized.status ?? 'active';
       existing.passwordHash = passwordHash;
       await existing.save();
       updated += 1;
@@ -33,7 +33,7 @@ export async function seedUsers(
         email: normalized.email,
         phone: normalized.phone,
         role: normalized.role,
-        status: 'active',
+        status: normalized.status ?? 'active',
         passwordHash,
       });
       created += 1;
@@ -47,7 +47,7 @@ export async function seedUsers(
   };
 }
 
-function normalizeSeedUser(record: SeedUserRecord): SeedUserRecord {
+function normalizeSeedUser(record: SeedUserRecord): Required<Pick<SeedUserRecord, 'email' | 'fullName' | 'phone' | 'role'>> & SeedUserRecord {
   return {
     ...record,
     email: record.email.toLowerCase().trim(),
