@@ -25,6 +25,7 @@ import { purchasesRouter } from './routes/purchases';
 import { conversationsRouter } from './routes/conversations';
 import { supportRouter } from './routes/support';
 import { assistantRouter } from './routes/assistant';
+import { kycRouter } from './routes/kyc';
 
 export function createApp(env: Env) {
   const app = express();
@@ -78,6 +79,7 @@ export function createApp(env: Env) {
   app.use('/api/conversations', conversationsRouter);
   app.use('/api/support', supportRouter);
   app.use('/api/assistant', assistantRouter);
+  app.use('/api/kyc', kycRouter);
 
   app.get('/affiliate/:insurerSlug', asyncPublicHandler(renderAffiliateWizard));
 

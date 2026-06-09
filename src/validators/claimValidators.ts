@@ -24,6 +24,7 @@ export const createClaimValidators = [
     .trim()
     .isLength({ min: 5, max: 4000 })
     .withMessage('Description must be between 5 and 4000 characters'),
+  body('intelligenceReport').optional().isObject().withMessage('intelligenceReport must be an object'),
 ];
 
 export const claimIdParamValidator = param('id')

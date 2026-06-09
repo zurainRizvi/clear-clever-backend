@@ -13,7 +13,7 @@ import {
 } from '../services/questionsService';
 import { saveQuestionnaireResponse } from '../services/questionnaireMemory';
 import { trackCompareLeads, trackRecommendationLeads } from '../services/leadTrackingService';
-import { scorePolicies } from '../services/recommendationService';
+import { scorePoliciesHybrid } from '../services/hybridRecommendationService';
 import { AppError, successResponse } from '../utils/apiResponse';
 
 export async function getQuestions(req: AuthenticatedRequest, res: Response): Promise<void> {
@@ -58,7 +58,8 @@ export async function recommendPolicies(req: AuthenticatedRequest, res: Response
   });
 
   const publicPolicies = await enrichPolicies(approvedPolicies);
-  const recommendations = scorePolicies(
+  const recommendations = scorePoliciesHybrid(
+    policyCategory,
     approvedPolicies,
     publicPolicies,
     questionSet.questions,
@@ -79,10 +80,13 @@ export async function recommendPolicies(req: AuthenticatedRequest, res: Response
     });
   }
 
+  const rankingMethod = recommendations[0]?.rankingMethod ?? 'rules';
+
   res.status(200).json(
     successResponse('Recommendations generated', {
       category: policyCategory,
       available: true,
+      rankingMethod,
       recommendations,
     })
   );

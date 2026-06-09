@@ -1,0 +1,110 @@
+{
+  "version": "fraud_v1",
+  "modelType": "logistic_regression",
+  "trainedAt": "2026-06-09T17:38:53.114997+00:00",
+  "featureOrder": [
+    "severity_encoded",
+    "account_age_days",
+    "related_entity_count",
+    "signal_type__duplicate_email",
+    "signal_type__unverified_provider",
+    "signal_type__inactive_spike",
+    "signal_type__claim_burst",
+    "signal_type__rejected_claims_volume",
+    "signal_type__pending_purchases",
+    "signal_type__lead_spike",
+    "signal_type__stale_pending_policies",
+    "signal_type__reject_rate",
+    "signal_type__other",
+    "fraud_category__account",
+    "fraud_category__claims",
+    "fraud_category__commerce",
+    "fraud_category__catalog"
+  ],
+  "numericFeatures": [
+    "severity_encoded",
+    "account_age_days",
+    "related_entity_count"
+  ],
+  "categoricalFeatures": {
+    "signal_type": [
+      "duplicate_email",
+      "unverified_provider",
+      "inactive_spike",
+      "claim_burst",
+      "rejected_claims_volume",
+      "pending_purchases",
+      "lead_spike",
+      "stale_pending_policies",
+      "reject_rate",
+      "other"
+    ],
+    "fraud_category": [
+      "account",
+      "claims",
+      "commerce",
+      "catalog"
+    ]
+  },
+  "scaler": {
+    "mean": [
+      2.5195833333333333,
+      445.8883333333333,
+      15.511666666666667,
+      0.08333333333333333,
+      0.11416666666666667,
+      0.09875,
+      0.11291666666666667,
+      0.11041666666666666,
+      0.11625,
+      0.09583333333333334,
+      0.09875,
+      0.09625,
+      0.07333333333333333,
+      0.24625,
+      0.25333333333333335,
+      0.25166666666666665,
+      0.24875
+    ],
+    "scale": [
+      1.1159972340417736,
+      257.9842373037977,
+      8.774766695220766,
+      0.2763853991962833,
+      0.3180135828685449,
+      0.29832605903608217,
+      0.31649090517036277,
+      0.31340840191176894,
+      0.3205244725446093,
+      0.29436254101966774,
+      0.29832605903608217,
+      0.2949337849416374,
+      0.2606828639468954,
+      0.43082587840100783,
+      0.43492017147466905,
+      0.4339706851338642,
+      0.43228860440682454
+    ]
+  },
+  "coefficients": [
+    0.6237602477081368,
+    -0.052831106762381425,
+    0.7870463736961694,
+    0.16667185034298287,
+    -0.05793842596043522,
+    -0.03304064631001579,
+    0.086273449172754,
+    0.007499476582207919,
+    -0.13324378578577264,
+    0.13007671433561743,
+    -0.07887276530225856,
+    -0.022291680111314566,
+    -0.04954749090702272,
+    -0.04128630899742988,
+    -0.01978233636177728,
+    0.04456348707668757,
+    0.016312482845663983
+  ],
+  "intercept": 0.36134791629323737,
+  "threshold": 0.5
+}

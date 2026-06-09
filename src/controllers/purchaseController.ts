@@ -18,7 +18,9 @@ import {
 import { trackCheckoutLead } from '../services/leadTrackingService';
 import { completePurchase } from '../services/purchaseCompletion';
 import { toPurchaseSummary } from '../services/purchasePresentation';
+import { assignUserCnic } from '../services/userCnicService';
 import { AppError, successResponse } from '../utils/apiResponse';
+import { isValidCnicFormat, normalizeCnic } from '../utils/cnic';
 
 export async function createPurchase(req: AuthenticatedRequest, res: Response): Promise<void> {
   const env = loadEnv();
@@ -38,6 +40,24 @@ export async function createPurchase(req: AuthenticatedRequest, res: Response): 
   }
 
   const purchaseAnswers = answers ?? {};
+
+  const rawContactCnic = purchaseAnswers.contact_cnic;
+  if (typeof rawContactCnic === 'string' && rawContactCnic.trim()) {
+    if (!isValidCnicFormat(rawContactCnic)) {
+      throw new AppError(400, 'Validation failed', [
+        'contact_cnic must be a valid Pakistan CNIC (e.g. 42101-1234567-1)',
+      ]);
+    }
+    await assignUserCnic(req.user!, rawContactCnic);
+    purchaseAnswers.contact_cnic = normalizeCnic(rawContactCnic);
+  }
+
+  if (!req.user!.cnic?.trim()) {
+    throw new AppError(400, 'CNIC is required to purchase a policy', [
+      'Add your CNIC in the purchase contact details before checkout.',
+    ]);
+  }
+
   const questionnaireAnswers = stripContactFields(purchaseAnswers);
   if (hasMeaningfulAnswers(questionnaireAnswers)) {
     const questionSet = await getCategoryQuestions(policy.category);

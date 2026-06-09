@@ -3,22 +3,25 @@ import jwt from 'jsonwebtoken';
 import { isBrevoConfigured, isSmtpConfigured, loadEnv } from '../config/env';
 import type { AuthenticatedRequest } from '../middleware/authenticate';
 import { User } from '../models/User';
-import { comparePassword, hashPassword, sanitizeUser, signToken, verifyPasswordResetToken } from '../services/auth';
+import { comparePassword, hashPassword, signToken, verifyPasswordResetToken } from '../services/auth';
 import { createAndSendOtp, verifyOtpAndConsume } from '../services/otp';
 import { createAndSendPasswordReset } from '../services/passwordReset';
 import { buildAuthUserPayload } from '../services/insurerOnboarding';
 import { ensureUserProfile, sanitizeUserProfile } from '../services/userProfile';
 import { AppError, successResponse } from '../utils/apiResponse';
 import { normalizePkPhone } from '../validators/authValidators';
+import { normalizeCnic } from '../utils/cnic';
+import { assignUserCnic } from '../services/userCnicService';
 import { OtpVerification } from '../models/OtpVerification';
 
 export async function signup(req: AuthenticatedRequest, res: Response): Promise<void> {
   const env = loadEnv();
-  const { fullName, email, phone, password } = req.body as {
+  const { fullName, email, phone, password, cnic } = req.body as {
     fullName: string;
     email: string;
     phone: string;
     password: string;
+    cnic?: string;
   };
 
   const normalizedEmail = email.toLowerCase().trim();
@@ -27,11 +30,20 @@ export async function signup(req: AuthenticatedRequest, res: Response): Promise<
     throw new AppError(409, 'An account with this email already exists');
   }
 
+  if (cnic?.trim()) {
+    const normalizedCnic = normalizeCnic(cnic);
+    const cnicTaken = await User.findOne({ cnic: normalizedCnic });
+    if (cnicTaken) {
+      throw new AppError(409, 'This CNIC is already registered to another account');
+    }
+  }
+
   const passwordHash = await hashPassword(password);
   const user = await User.create({
     fullName: fullName.trim(),
     email: normalizedEmail,
     phone: normalizePkPhone(phone),
+    ...(cnic?.trim() ? { cnic: normalizeCnic(cnic) } : {}),
     passwordHash,
     role: 'user',
     status: 'pendingVerification',
@@ -308,6 +320,7 @@ export async function updateMe(req: AuthenticatedRequest, res: Response): Promis
   const profile = await ensureUserProfile(req.user._id);
   const body = req.body as {
     profilePhotoDataUrl?: string | null;
+    cnic?: string;
     notificationPreferences?: Partial<{
       emailUpdates: boolean;
       claimAlerts: boolean;
@@ -333,14 +346,15 @@ export async function updateMe(req: AuthenticatedRequest, res: Response): Promis
     };
   }
 
+  if (body.cnic?.trim()) {
+    await assignUserCnic(req.user, body.cnic);
+  }
+
   await profile.save();
 
   res.status(200).json(
     successResponse('Profile updated', {
-      user: {
-        ...sanitizeUser(req.user),
-        profile: sanitizeUserProfile(profile),
-      },
+      user: await buildAuthUserPayload(req.user),
     })
   );
 }

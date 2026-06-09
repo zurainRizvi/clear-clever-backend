@@ -6,6 +6,7 @@ import { Lead } from '../models/Lead';
 import { Policy } from '../models/Policy';
 import { Purchase } from '../models/Purchase';
 import type { AuthenticatedRequest } from '../middleware/authenticate';
+import { enrichFraudSignalsWithMl } from '../services/fraudMlService';
 import { successResponse } from '../utils/apiResponse';
 
 export type FraudCategory = 'account' | 'claims' | 'commerce' | 'catalog';
@@ -18,6 +19,9 @@ export interface FraudSignal {
   detail: string;
   detectedAt: string;
   link?: string;
+  mlScore?: number;
+  mlFactors?: string[];
+  mlModelVersion?: string;
 }
 
 async function accountSignals(): Promise<FraudSignal[]> {
@@ -232,13 +236,15 @@ const collectors: Record<FraudCategory, () => Promise<FraudSignal[]>> = {
 export async function getFraudSignals(req: AuthenticatedRequest, res: Response): Promise<void> {
   const category = (req.query.category as FraudCategory) || 'account';
   const collect = collectors[category] ?? accountSignals;
-  const signals = await collect();
+  const rawSignals = await collect();
+  const { signals, mlSummary } = enrichFraudSignalsWithMl(rawSignals, category);
 
   res.status(200).json(
     successResponse('Fraud signals retrieved', {
       category,
       count: signals.length,
       signals,
+      ...(mlSummary ? { mlSummary } : {}),
     })
   );
 }

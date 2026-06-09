@@ -19,6 +19,7 @@ async function main(): Promise<void> {
   console.log(`  created: ${result.users.created}`);
   console.log(`  updated: ${result.users.updated}`);
   console.log(`  accounts: ${result.users.emails.length}`);
+  console.log(`  partial KYC from CNIC: ${result.users.kycPartial}`);
   result.users.emails.forEach((email) => console.log(`    - ${email}`));
 
   console.log('[ClearClever] Catalog seed complete');
@@ -41,6 +42,8 @@ async function main(): Promise<void> {
   console.log(`  messages: ${demo.messages}`);
   console.log(`  support inquiries: ${demo.supportInquiries}`);
   console.log(`  user profiles: ${demo.userProfiles}`);
+  console.log(`  kyc records created: ${demo.kycCreated}`);
+  console.log(`  kyc records updated: ${demo.kycUpdated}`);
 
   await disconnectDatabase();
 }

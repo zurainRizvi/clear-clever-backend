@@ -28,7 +28,9 @@ import {
   detectCategoryDemandSignals,
   inferAudienceLabel,
 } from './insurerSignalAnalysis';
-import { buildUsersByPakistanRegion } from './pakistanRegionStats';
+import { getLatestKycByUserIds } from './kycService';
+import { buildCustomerDemographics } from './kycDemographicsService';
+import { buildUsersByPakistanRegion, type PakistanRegionSlug } from './pakistanRegionStats';
 
 const CATEGORY_COLORS: Record<PolicyCategorySlug, string> = {
   home: '#2563EB',
@@ -272,6 +274,7 @@ export interface InsurerAnalyticsPayload {
       userCount: number;
     }>;
   };
+  customerDemographics: import('./kycDemographicsService').CustomerDemographicsPayload;
 }
 
 export async function buildInsurerAnalytics(
@@ -687,15 +690,30 @@ export async function buildInsurerAnalytics(
   });
 
   const periodUserIds = [...currentSeekers];
+  const purchaserUserIds = [...currentPurchasers];
   const questionnaireByUser = buildAnswersByUser(questionnaireResponses);
   const leadMetadataByUser = buildLeadMetadataByUser(currentLeads);
   const purchaseAnswersByUser = buildPurchaseAnswersByUser(purchases, dateRange);
+
+  const kycByUser = await getLatestKycByUserIds([
+    ...new Set([...periodUserIds, ...purchaserUserIds]),
+  ]);
+  const kycRegionByUser = new Map<string, PakistanRegionSlug>();
+  for (const [userId, kyc] of kycByUser) {
+    if (kyc.regionSlug) kycRegionByUser.set(userId, kyc.regionSlug);
+  }
 
   const regionRows = buildUsersByPakistanRegion({
     userIds: periodUserIds,
     questionnaireByUser,
     leadMetadataByUser,
     purchaseAnswersByUser,
+    kycRegionByUser,
+  });
+
+  const customerDemographics = buildCustomerDemographics({
+    purchaserUserIds,
+    kycByUser,
   });
   const mappedUsers = regionRows.reduce((sum, row) => sum + row.userCount, 0);
   const usersByRegion = {
@@ -763,6 +781,7 @@ export async function buildInsurerAnalytics(
     policyPerformance,
     operations,
     usersByRegion,
+    customerDemographics,
   };
 }
 

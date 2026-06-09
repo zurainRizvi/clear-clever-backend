@@ -29,6 +29,7 @@ import {
   resolveUserId,
   wipeDemoTransactions,
 } from './seedDemoHelpers';
+import { seedKyc } from './seedKyc';
 
 export interface SeedDemoResult {
   questionnaires: number;
@@ -41,6 +42,8 @@ export interface SeedDemoResult {
   messages: number;
   supportInquiries: number;
   userProfiles: number;
+  kycCreated: number;
+  kycUpdated: number;
 }
 
 export async function seedDemo(): Promise<SeedDemoResult> {
@@ -272,6 +275,8 @@ export async function seedDemo(): Promise<SeedDemoResult> {
     userProfiles += 1;
   }
 
+  const kyc = await seedKyc();
+
   return {
     questionnaires,
     favorites,
@@ -283,5 +288,7 @@ export async function seedDemo(): Promise<SeedDemoResult> {
     messages,
     supportInquiries,
     userProfiles,
+    kycCreated: kyc.created,
+    kycUpdated: kyc.updated,
   };
 }

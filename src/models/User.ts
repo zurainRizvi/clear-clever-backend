@@ -5,6 +5,7 @@ export interface IUser {
   fullName: string;
   email: string;
   phone: string;
+  cnic?: string;
   passwordHash: string;
   role: UserRole;
   status: UserStatus;
@@ -26,6 +27,7 @@ const userSchema = new Schema<IUserDocument>(
       maxlength: 254,
     },
     phone: { type: String, required: true, trim: true, maxlength: 20 },
+    cnic: { type: String, trim: true, maxlength: 15, unique: true, sparse: true },
     passwordHash: { type: String, required: true, select: false },
     role: {
       type: String,

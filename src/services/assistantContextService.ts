@@ -12,7 +12,7 @@ import { SupportInquiry } from '../models/SupportInquiry';
 import { AppError } from '../utils/apiResponse';
 import { enrichPolicies } from './policyPresentation';
 import { getCategoryQuestions, parseCategoryForRecommend } from './questionsService';
-import { scorePolicies } from './recommendationService';
+import { scorePoliciesHybrid } from './hybridRecommendationService';
 import { extractFirstName } from './assistantPrompts';
 
 export interface ScoredPolicySummary {
@@ -187,7 +187,8 @@ async function scoreTopRecommendations(
     status: 'approved',
   });
   const publicPolicies = await enrichPolicies(approvedPolicies);
-  const scored = scorePolicies(
+  const scored = scorePoliciesHybrid(
+    policyCategory,
     approvedPolicies,
     publicPolicies,
     questionSet.questions,

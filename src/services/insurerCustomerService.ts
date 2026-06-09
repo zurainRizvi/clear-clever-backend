@@ -3,6 +3,8 @@ import { Lead } from '../models/Lead';
 import { Policy } from '../models/Policy';
 import { Purchase } from '../models/Purchase';
 import { User } from '../models/User';
+import { demographicsChipFromKyc } from './kycDemographicsService';
+import { getLatestKycByUserIds } from './kycService';
 
 export interface InsurerCustomerLeadItem {
   id: string;
@@ -36,6 +38,15 @@ export interface InsurerCustomerPurchaseItem {
   };
 }
 
+export interface InsurerCustomerDemographics {
+  gender?: string;
+  ageBand?: string;
+  province?: string;
+  district?: string;
+  kycStatus: string;
+  kycScore?: number;
+}
+
 export interface InsurerCustomerGroup {
   seeker: {
     id: string;
@@ -43,6 +54,7 @@ export interface InsurerCustomerGroup {
     email: string;
     phone: string;
   };
+  demographics?: InsurerCustomerDemographics;
   leads: InsurerCustomerLeadItem[];
   purchases: InsurerCustomerPurchaseItem[];
   isNew: boolean;
@@ -82,8 +94,15 @@ export async function buildInsurerCustomerGroups(
 
   const userById = new Map(users.map((user) => [String(user._id), user]));
   const policyById = new Map(policies.map((policy) => [String(policy._id), policy]));
+  const kycByUser = await getLatestKycByUserIds(userIds);
 
   const groups = new Map<string, InsurerCustomerGroup>();
+
+  function demographicsForUser(userId: string): InsurerCustomerDemographics | undefined {
+    const kyc = kycByUser.get(userId);
+    if (!kyc) return undefined;
+    return demographicsChipFromKyc(kyc);
+  }
 
   for (const lead of leads) {
     const user = userById.get(String(lead.userId));
@@ -127,6 +146,7 @@ export async function buildInsurerCustomerGroups(
         email: user.email,
         phone: user.phone,
       },
+      demographics: demographicsForUser(String(user._id)),
       leads: [leadItem],
       purchases: [],
       isNew: leadItem.isNew,
@@ -174,6 +194,7 @@ export async function buildInsurerCustomerGroups(
         email: user.email,
         phone: user.phone,
       },
+      demographics: demographicsForUser(String(user._id)),
       leads: [],
       purchases: [purchaseItem],
       isNew: false,

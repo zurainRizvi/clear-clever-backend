@@ -107,6 +107,7 @@ export function buildUsersByPakistanRegion(input: {
   questionnaireByUser: Map<string, Record<string, unknown>[]>;
   leadMetadataByUser: Map<string, Record<string, unknown>[]>;
   purchaseAnswersByUser: Map<string, Record<string, unknown>[]>;
+  kycRegionByUser?: Map<string, PakistanRegionSlug>;
 }): UsersByPakistanRegionRow[] {
   const counts = new Map<PakistanRegionSlug, Set<string>>();
   for (const region of PAKISTAN_REGIONS) {
@@ -114,6 +115,12 @@ export function buildUsersByPakistanRegion(input: {
   }
 
   for (const userId of input.userIds) {
+    const kycRegion = input.kycRegionByUser?.get(userId);
+    if (kycRegion) {
+      counts.get(kycRegion)!.add(userId);
+      continue;
+    }
+
     const candidates: string[] = [];
 
     for (const answers of input.questionnaireByUser.get(userId) ?? []) {

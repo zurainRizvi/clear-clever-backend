@@ -1,4 +1,4 @@
-export type AssistantUsageRoute = 'chat' | 'explain' | 'probe';
+export type AssistantUsageRoute = 'chat' | 'explain' | 'probe' | 'claim_intelligence' | 'kyc';
 
 export interface AssistantUsageEvent {
   at: string;
@@ -23,6 +23,7 @@ export interface AssistantUsageSummary {
   chatApiCalls: number;
   explainApiCalls: number;
   probeApiCalls: number;
+  claimIntelligenceApiCalls: number;
   totalPromptTokens: number;
   totalCompletionTokens: number;
   totalTokens: number;
@@ -62,6 +63,7 @@ export function getAssistantUsageSummary(now = Date.now()): AssistantUsageSummar
   let chatApiCalls = 0;
   let explainApiCalls = 0;
   let probeApiCalls = 0;
+  let claimIntelligenceApiCalls = 0;
   let totalPromptTokens = 0;
   let totalCompletionTokens = 0;
   let totalTokens = 0;
@@ -91,6 +93,7 @@ export function getAssistantUsageSummary(now = Date.now()): AssistantUsageSummar
     if (event.route === 'chat') chatApiCalls += 1;
     if (event.route === 'explain') explainApiCalls += 1;
     if (event.route === 'probe') probeApiCalls += 1;
+    if (event.route === 'claim_intelligence') claimIntelligenceApiCalls += 1;
 
     totalPromptTokens += event.promptTokens ?? 0;
     totalCompletionTokens += event.completionTokens ?? 0;
@@ -111,6 +114,7 @@ export function getAssistantUsageSummary(now = Date.now()): AssistantUsageSummar
     chatApiCalls,
     explainApiCalls,
     probeApiCalls,
+    claimIntelligenceApiCalls,
     totalPromptTokens,
     totalCompletionTokens,
     totalTokens,

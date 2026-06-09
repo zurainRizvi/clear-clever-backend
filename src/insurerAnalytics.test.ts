@@ -65,6 +65,8 @@ describe('Insurer analytics intelligence', () => {
     expect(res.body.data.analytics.interestTrends.datasets).toHaveLength(4);
     expect(res.body.data.analytics.usersByRegion).toBeDefined();
     expect(res.body.data.analytics.usersByRegion.regions).toBeInstanceOf(Array);
+    expect(res.body.data.analytics.customerDemographics).toBeDefined();
+    expect(res.body.data.analytics.customerDemographics.gender).toBeDefined();
   });
 
   it('accepts from and to query params', async () => {

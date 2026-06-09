@@ -2,6 +2,7 @@ import { InsurerProfile } from '../models/InsurerProfile';
 import { Policy } from '../models/Policy';
 import { User } from '../models/User';
 import type { IClaimRequestDocument } from '../models/ClaimRequest';
+import { scoreClaimRisk } from './claimRiskService';
 
 export async function toClaimSummary(claim: IClaimRequestDocument) {
   const [policy, insurer] = await Promise.all([
@@ -19,6 +20,7 @@ export async function toClaimSummary(claim: IClaimRequestDocument) {
     status: claim.status,
     createdAt: claim.createdAt.toISOString(),
     updatedAt: claim.updatedAt.toISOString(),
+    ...(claim.intelligenceReport ? { intelligenceReport: claim.intelligenceReport } : {}),
     policy: policy
       ? {
           id: String(policy._id),
@@ -42,6 +44,8 @@ export async function toInsurerClaimSummary(claim: IClaimRequestDocument) {
     User.findById(claim.userId),
   ]);
 
+  const mlRisk = await scoreClaimRisk(claim);
+
   return {
     ...(await toClaimSummary(claim)),
     seeker: seeker
@@ -59,5 +63,6 @@ export async function toInsurerClaimSummary(claim: IClaimRequestDocument) {
           category: policy.category,
         }
       : undefined,
+    ...(mlRisk ? { mlRisk } : {}),
   };
 }

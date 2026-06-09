@@ -22,6 +22,15 @@ export interface GenerateAssistantReplyResult {
   text: string;
 }
 
+export interface GenerateStructuredJsonInput {
+  systemInstruction: string;
+  userMessage: string;
+  attachmentParts?: GeminiInlinePart[];
+  responseSchema: Record<string, unknown>;
+  usageRoute?: AssistantUsageRoute;
+  env?: Env;
+}
+
 interface GeminiApiResponse {
   candidates?: Array<{
     content?: {
@@ -144,32 +153,14 @@ function buildContents(
   return contents;
 }
 
-async function generateAssistantReplyInner(
-  input: GenerateAssistantReplyInput
-): Promise<GenerateAssistantReplyResult> {
-  const env = input.env ?? loadEnv();
-  assertGeminiConfigured(env);
-
-  const model = env.GEMINI_MODEL ?? 'gemini-2.5-flash';
+async function callGeminiApi(
+  env: Env,
+  model: string,
+  body: Record<string, unknown>,
+  usageRoute: AssistantUsageRoute
+): Promise<{ text: string; usageMetadata?: GeminiApiResponse['usageMetadata'] }> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
-  const usageRoute = input.usageRoute ?? 'chat';
   const upstreamRpm = env.GEMINI_UPSTREAM_RPM;
-
-  const body = {
-    systemInstruction: {
-      parts: [{ text: input.systemInstruction }],
-    },
-    contents: buildContents(
-      input.history,
-      input.userMessage,
-      input.attachmentParts ?? []
-    ),
-    generationConfig: {
-      maxOutputTokens: env.GEMINI_MAX_OUTPUT_TOKENS,
-      temperature: 0.35,
-    },
-  };
-
   let lastError: AppError | null = null;
 
   for (let attempt = 0; attempt < MAX_503_ATTEMPTS; attempt += 1) {
@@ -251,16 +242,81 @@ async function generateAssistantReplyInner(
       totalTokens: payload.usageMetadata?.totalTokenCount,
     });
 
-    return { text };
+    return { text, usageMetadata: payload.usageMetadata };
   }
 
   throw lastError ?? new AppError(503, 'AI assistant is temporarily unavailable');
+}
+
+async function generateAssistantReplyInner(
+  input: GenerateAssistantReplyInput
+): Promise<GenerateAssistantReplyResult> {
+  const env = input.env ?? loadEnv();
+  assertGeminiConfigured(env);
+
+  const model = env.GEMINI_MODEL ?? 'gemini-2.5-flash';
+  const usageRoute = input.usageRoute ?? 'chat';
+
+  const body = {
+    systemInstruction: {
+      parts: [{ text: input.systemInstruction }],
+    },
+    contents: buildContents(
+      input.history,
+      input.userMessage,
+      input.attachmentParts ?? []
+    ),
+    generationConfig: {
+      maxOutputTokens: env.GEMINI_MAX_OUTPUT_TOKENS,
+      temperature: 0.35,
+    },
+  };
+
+  const { text } = await callGeminiApi(env, model, body, usageRoute);
+  return { text };
 }
 
 export async function generateAssistantReply(
   input: GenerateAssistantReplyInput
 ): Promise<GenerateAssistantReplyResult> {
   return withGeminiMutex(() => generateAssistantReplyInner(input));
+}
+
+async function generateStructuredJsonInner<T>(
+  input: GenerateStructuredJsonInput
+): Promise<T> {
+  const env = input.env ?? loadEnv();
+  assertGeminiConfigured(env);
+
+  const model = env.GEMINI_MODEL ?? 'gemini-2.5-flash';
+  const usageRoute = input.usageRoute ?? 'claim_intelligence';
+
+  const body = {
+    systemInstruction: {
+      parts: [{ text: input.systemInstruction }],
+    },
+    contents: buildContents(undefined, input.userMessage, input.attachmentParts ?? []),
+    generationConfig: {
+      maxOutputTokens: env.GEMINI_MAX_OUTPUT_TOKENS,
+      temperature: 0.2,
+      responseMimeType: 'application/json',
+      responseSchema: input.responseSchema,
+    },
+  };
+
+  const { text } = await callGeminiApi(env, model, body, usageRoute);
+
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new AppError(502, 'AI returned invalid JSON', ['Could not parse structured response']);
+  }
+}
+
+export async function generateStructuredJson<T>(
+  input: GenerateStructuredJsonInput
+): Promise<T> {
+  return withGeminiMutex(() => generateStructuredJsonInner<T>(input));
 }
 
 /** @internal test helper */

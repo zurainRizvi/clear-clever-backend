@@ -123,6 +123,56 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
 
       expect(res.status).toBe(404);
     });
+
+    it('requires CNIC when user has none on file', async () => {
+      const seeker = await User.findOne({ email: 'seeker@clearclever.com' });
+      seeker!.cnic = undefined;
+      await seeker!.save();
+
+      const policy = await Policy.findOne({ slug: 'tpl-home-essential', status: 'approved' });
+
+      const res = await request(app)
+        .post('/api/purchase')
+        .set('Authorization', `Bearer ${seekerToken}`)
+        .send({
+          policyId: String(policy!._id),
+          answers: { city: 'Karachi' },
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toMatch(/CNIC is required/i);
+    });
+
+    it('assigns CNIC from contact_cnic and starts checkout', async () => {
+      const seeker = await User.findOne({ email: 'seeker@clearclever.com' });
+      seeker!.cnic = undefined;
+      await seeker!.save();
+
+      const policy = await Policy.findOne({ slug: 'tpl-home-essential', status: 'approved' });
+
+      const res = await request(app)
+        .post('/api/purchase')
+        .set('Authorization', `Bearer ${seekerToken}`)
+        .send({
+          policyId: String(policy!._id),
+          answers: {
+            property_type: 'Apartment',
+            city: 'Karachi',
+            contact_cnic: '42101-1234567-1',
+            contact_full_name: 'Ali Khan',
+            contact_email: 'seeker@clearclever.com',
+            contact_phone: '+923001234567',
+            contact_address: '123 Main St',
+            contact_city: 'Karachi',
+          },
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.data.redirectUrl).toContain('/affiliate/tpl-insurance');
+
+      const updated = await User.findOne({ email: 'seeker@clearclever.com' });
+      expect(updated?.cnic).toBe('42101-1234567-1');
+    });
   });
 
   describe('Affiliate page', () => {

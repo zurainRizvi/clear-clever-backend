@@ -2,6 +2,7 @@ import type { Types } from 'mongoose';
 import { InsurerProfile } from '../models/InsurerProfile';
 import type { IUserDocument } from '../models/User';
 import { sanitizeUser } from './auth';
+import { getKycSummaryForAuth } from './kycService';
 import { sanitizeUserProfile, ensureUserProfile } from './userProfile';
 
 export interface InsurerOnboardingHint {
@@ -26,8 +27,10 @@ export async function getInsurerOnboardingHint(
 
 export async function buildAuthUserPayload(user: IUserDocument) {
   const profile = await ensureUserProfile(user._id);
+  const kyc = await getKycSummaryForAuth(user._id);
   const payload: Record<string, unknown> = {
     ...sanitizeUser(user),
+    ...kyc,
     profile: sanitizeUserProfile(profile),
   };
 

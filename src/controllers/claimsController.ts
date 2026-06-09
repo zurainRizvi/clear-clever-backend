@@ -4,7 +4,9 @@ import { ClaimRequest } from '../models/ClaimRequest';
 import { InsurerProfile } from '../models/InsurerProfile';
 import { Notification } from '../models/Notification';
 import { Purchase } from '../models/Purchase';
+import { assertUserHasCnic } from '../services/claimCnicGuard';
 import { toClaimSummary } from '../services/claimPresentation';
+import { sanitizeIntelligenceReportForStorage } from '../services/claimIntelligenceService';
 import { AppError, successResponse } from '../utils/apiResponse';
 
 export async function listClaims(req: AuthenticatedRequest, res: Response): Promise<void> {
@@ -20,12 +22,16 @@ export async function listClaims(req: AuthenticatedRequest, res: Response): Prom
 }
 
 export async function createClaim(req: AuthenticatedRequest, res: Response): Promise<void> {
-  const { purchaseId, claimType, incidentDate, estimatedAmountPkr, description } = req.body as {
+  assertUserHasCnic(req.user!);
+
+  const { purchaseId, claimType, incidentDate, estimatedAmountPkr, description, intelligenceReport } =
+    req.body as {
     purchaseId: string;
     claimType: string;
     incidentDate: string;
     estimatedAmountPkr?: number;
     description: string;
+    intelligenceReport?: unknown;
   };
 
   const purchase = await Purchase.findOne({
@@ -38,6 +44,8 @@ export async function createClaim(req: AuthenticatedRequest, res: Response): Pro
   }
   const insurer = await InsurerProfile.findById(purchase.insurerProfileId);
 
+  const storedReport = sanitizeIntelligenceReportForStorage(intelligenceReport);
+
   const claim = await ClaimRequest.create({
     userId: purchase.userId,
     purchaseId: purchase._id,
@@ -48,6 +56,7 @@ export async function createClaim(req: AuthenticatedRequest, res: Response): Pro
     estimatedAmountPkr,
     description,
     status: 'submitted',
+    ...(storedReport ? { intelligenceReport: storedReport } : {}),
   });
 
   await Notification.insertMany(

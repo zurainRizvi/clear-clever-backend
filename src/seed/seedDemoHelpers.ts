@@ -13,6 +13,7 @@ import { Purchase } from '../models/Purchase';
 import { QuestionnaireResponse } from '../models/QuestionnaireResponse';
 import { SupportInquiry } from '../models/SupportInquiry';
 import { User } from '../models/User';
+import { KycVerification } from '../models/KycVerification';
 import { UserProfile } from '../models/UserProfile';
 import { completePurchase } from '../services/purchaseCompletion';
 import { SEED_USERS } from './userSeedData';
@@ -73,6 +74,7 @@ export async function wipeDemoTransactions(): Promise<void> {
     Favorite.deleteMany({ userId: { $in: seedUserIds } }),
     QuestionnaireResponse.deleteMany({ userId: { $in: seedUserIds } }),
     UserProfile.deleteMany({ userId: { $in: seedUserIds } }),
+    KycVerification.deleteMany({ userId: { $in: seedUserIds } }),
     SupportInquiry.deleteMany({
       $or: [{ userId: { $in: seedUserIds } }, { email: { $in: seedEmails } }],
     }),

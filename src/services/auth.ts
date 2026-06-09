@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import type { Env } from '../config/env';
 import type { UserRole } from '../constants/roles';
 import type { IUserDocument } from '../models/User';
+import { maskCnic } from '../utils/cnic';
 
 const BCRYPT_ROUNDS = 12;
 
@@ -75,6 +76,8 @@ export function sanitizeUser(user: IUserDocument) {
     fullName: user.fullName,
     email: user.email,
     phone: user.phone,
+    cnicMasked: user.cnic ? maskCnic(user.cnic) : undefined,
+    hasCnic: Boolean(user.cnic),
     role: user.role,
     status: user.status,
     createdAt: user.createdAt,

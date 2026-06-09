@@ -1,5 +1,6 @@
 import { body } from 'express-validator';
 import { OTP_PURPOSES, SELF_SERVICE_ROLES, USER_ROLES } from '../constants/roles';
+import { isValidCnicFormat } from '../utils/cnic';
 
 /** Pakistan mobile: 03XXXXXXXXX or +923XXXXXXXXX */
 const PK_PHONE_REGEX = /^(?:\+92|0)?3[0-9]{9}$/;
@@ -29,6 +30,16 @@ export const signupValidators = [
   body('password')
     .isLength({ min: 8 })
     .withMessage('password must be at least 8 characters'),
+  body('cnic')
+    .optional({ values: 'null' })
+    .trim()
+    .custom((value: string) => {
+      if (!value) return true;
+      if (!isValidCnicFormat(value)) {
+        throw new Error('cnic must be a valid Pakistan CNIC (e.g. 42101-1234567-1)');
+      }
+      return true;
+    }),
 ];
 
 export const loginValidators = [
@@ -108,6 +119,16 @@ export const updateMeValidators = [
     .optional()
     .isBoolean()
     .withMessage('policyReminders must be boolean'),
+  body('cnic')
+    .optional({ values: 'null' })
+    .trim()
+    .custom((value: string) => {
+      if (!value) return true;
+      if (!isValidCnicFormat(value)) {
+        throw new Error('cnic must be a valid Pakistan CNIC (e.g. 42101-1234567-1)');
+      }
+      return true;
+    }),
 ];
 
 export { USER_ROLES, PK_PHONE_REGEX };

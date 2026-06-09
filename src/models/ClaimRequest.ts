@@ -1,4 +1,5 @@
 import mongoose, { Schema, type Document, type Model, type Types } from 'mongoose';
+import type { ClaimIntelligenceReport } from '../types/claimIntelligence';
 
 export const CLAIM_STATUSES = ['submitted', 'in_review', 'approved', 'rejected'] as const;
 export type ClaimStatus = (typeof CLAIM_STATUSES)[number];
@@ -27,6 +28,7 @@ export interface IClaimRequest {
   estimatedAmountPkr?: number;
   description: string;
   status: ClaimStatus;
+  intelligenceReport?: ClaimIntelligenceReport;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -49,6 +51,7 @@ const claimRequestSchema = new Schema<IClaimRequestDocument>(
     estimatedAmountPkr: { type: Number, min: 0 },
     description: { type: String, required: true, trim: true, maxlength: 4000 },
     status: { type: String, enum: CLAIM_STATUSES, default: 'submitted', index: true },
+    intelligenceReport: { type: Schema.Types.Mixed },
   },
   { timestamps: true }
 );
