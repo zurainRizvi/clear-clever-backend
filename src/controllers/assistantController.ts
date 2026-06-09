@@ -19,6 +19,7 @@ import {
   rateLimitKeyForRequest,
 } from '../services/assistantRateLimit';
 import { generateAssistantReply, type GeminiContentPart } from '../services/geminiService';
+import { getGeminiUpstreamRateLimitStats } from '../services/geminiUpstreamRateLimit';
 import { AppError, successResponse } from '../utils/apiResponse';
 import { parseCategoryForRecommend } from '../services/questionsService';
 
@@ -79,10 +80,18 @@ function hasPriorAssistantReply(history: GeminiContentPart[] | undefined): boole
 
 export async function getAssistantStatus(_req: AuthenticatedRequest, res: Response): Promise<void> {
   const env = loadEnv();
+  const upstream = getGeminiUpstreamRateLimitStats();
   res.status(200).json(
     successResponse('Assistant status', {
       configured: isGeminiConfigured(env),
       model: env.GEMINI_MODEL ?? 'gemini-2.5-flash',
+      quota: {
+        dailyLimit: env.GEMINI_UPSTREAM_RPD,
+        dailyUsed: upstream.dailyCalls,
+        dailyExhausted: upstream.dailyQuotaExhausted,
+        rpmLimit: env.GEMINI_UPSTREAM_RPM,
+        rpmUsed: upstream.rpmWindowCount,
+      },
       attachments: {
         maxFiles: 3,
         maxBytesPerFile: 4 * 1024 * 1024,

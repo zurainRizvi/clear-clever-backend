@@ -89,8 +89,11 @@ const envSchema = z.object({
     .optional()
     .transform((v) => stripEnvValue(v) ?? 'gemini-2.5-flash'),
   GEMINI_MAX_OUTPUT_TOKENS: z.coerce.number().int().positive().default(1024),
-  GEMINI_UPSTREAM_RPM: z.coerce.number().int().positive().default(18),
-  ASSISTANT_RATE_LIMIT_PER_MIN: z.coerce.number().int().positive().default(15),
+  /** Free tier ~5 RPM — keep below Google's cap. */
+  GEMINI_UPSTREAM_RPM: z.coerce.number().int().positive().default(4),
+  /** Free tier ~20 RPD — app-side guard to avoid burning the daily quota. */
+  GEMINI_UPSTREAM_RPD: z.coerce.number().int().positive().default(18),
+  ASSISTANT_RATE_LIMIT_PER_MIN: z.coerce.number().int().positive().default(4),
 });
 
 export type Env = z.infer<typeof envSchema> & {

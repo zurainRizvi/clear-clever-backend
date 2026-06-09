@@ -14,6 +14,7 @@ import { enrichPolicies } from '../services/policyPresentation';
 import { toInsurerPolicySummary } from '../services/insurerContext';
 import { sanitizeUser } from '../services/auth';
 import { deleteInsurerAccountPermanently } from '../services/insurerDeletion';
+import { buildAdminMlOverview } from '../services/adminMlOverviewService';
 import { getAssistantHealthReport } from '../services/assistantHealthService';
 import { getInfrastructureHealth } from '../services/infrastructureHealth';
 import { getDatabaseStatus } from '../config/db';
@@ -526,4 +527,9 @@ export async function getAdminSystemHealth(_req: AuthenticatedRequest, res: Resp
       timestamp: new Date().toISOString(),
     })
   );
+}
+
+export async function getAdminMlOverview(_req: AuthenticatedRequest, res: Response): Promise<void> {
+  const overview = await buildAdminMlOverview();
+  res.status(200).json(successResponse('ML overview retrieved', overview));
 }

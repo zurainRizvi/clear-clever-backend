@@ -3,8 +3,35 @@ import type { AuthenticatedRequest } from '../middleware/authenticate';
 import { Favorite } from '../models/Favorite';
 import { Policy } from '../models/Policy';
 import { trackFavoriteLead } from '../services/leadTrackingService';
-import { enrichPolicies } from '../services/policyPresentation';
+import { enrichPolicies, type PublicPolicy } from '../services/policyPresentation';
 import { AppError, successResponse } from '../utils/apiResponse';
+
+import type { IPolicyDocument } from '../models/Policy';
+
+async function enrichPoliciesSafe(
+  policies: IPolicyDocument[]
+): Promise<Map<string, PublicPolicy>> {
+  const map = new Map<string, PublicPolicy>();
+  if (policies.length === 0) return map;
+
+  try {
+    const enriched = await enrichPolicies(policies);
+    for (const policy of enriched) {
+      map.set(policy.id, policy);
+    }
+    return map;
+  } catch {
+    for (const policy of policies) {
+      try {
+        const [single] = await enrichPolicies([policy]);
+        if (single) map.set(single.id, single);
+      } catch {
+        /* skip policies that cannot be enriched */
+      }
+    }
+    return map;
+  }
+}
 
 export async function listFavorites(req: AuthenticatedRequest, res: Response): Promise<void> {
   const favorites = await Favorite.find({ userId: req.user!._id }).sort({ createdAt: -1 });
@@ -14,8 +41,7 @@ export async function listFavorites(req: AuthenticatedRequest, res: Response): P
     status: 'approved',
   });
 
-  const publicPolicies = await enrichPolicies(policies);
-  const policyById = new Map(publicPolicies.map((policy) => [policy.id, policy]));
+  const policyById = await enrichPoliciesSafe(policies);
 
   const items = favorites
     .map((favorite) => {

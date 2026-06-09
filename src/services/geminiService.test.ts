@@ -79,7 +79,7 @@ describe('geminiService', () => {
       })
     ).rejects.toMatchObject({
       statusCode: 429,
-      message: expect.stringMatching(/rate-limited|busy/i),
+      message: expect.stringMatching(/daily ai quota|rate-limited|busy/i),
     });
 
     expect(fetchCalls).toBe(1);

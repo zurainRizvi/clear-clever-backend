@@ -274,6 +274,7 @@ export interface InsurerAnalyticsPayload {
       userCount: number;
     }>;
   };
+  usersByRegionLifetime: InsurerAnalyticsPayload['usersByRegion'];
   customerDemographics: import('./kycDemographicsService').CustomerDemographicsPayload;
 }
 
@@ -667,6 +668,27 @@ export async function buildInsurerAnalytics(
 
   const insurerCategories = new Set(approvedPolicies.map((p) => p.category as PolicyCategorySlug));
 
+  const periodUserIds = [...currentSeekers];
+  const purchaserUserIds = [...currentPurchasers];
+  const lifetimeUserIds = [
+    ...new Set(
+      purchases.filter((p) => p.status === 'completed').map((p) => String(p.userId))
+    ),
+  ];
+  const questionnaireByUser = buildAnswersByUser(questionnaireResponses);
+  const allLeadMetadataByUser = buildLeadMetadataByUser(leads);
+  const leadMetadataByUser = buildLeadMetadataByUser(currentLeads);
+  const purchaseAnswersByUser = buildPurchaseAnswersByUser(purchases, dateRange);
+  const allPurchaseAnswersByUser = buildAllPurchaseAnswersByUser(purchases);
+
+  const kycByUser = await getLatestKycByUserIds([
+    ...new Set([...periodUserIds, ...purchaserUserIds, ...lifetimeUserIds]),
+  ]);
+  const kycRegionByUser = new Map<string, PakistanRegionSlug>();
+  for (const [userId, kyc] of kycByUser) {
+    if (kyc.regionSlug) kycRegionByUser.set(userId, kyc.regionSlug);
+  }
+
   const smartInsights = buildAnalyticsInsights({
     demandSignals,
     questionnaireResponses,
@@ -680,34 +702,29 @@ export async function buildInsurerAnalytics(
     insurerCategories,
     missingCategories,
     policyPerformance,
-    periodUserIds: [...currentSeekers],
+    periodUserIds,
     regionRows: buildUsersByPakistanRegion({
-      userIds: [...currentSeekers],
-      questionnaireByUser: buildAnswersByUser(questionnaireResponses),
-      leadMetadataByUser: buildLeadMetadataByUser(currentLeads),
-      purchaseAnswersByUser: buildPurchaseAnswersByUser(purchases, dateRange),
+      userIds: periodUserIds,
+      questionnaireByUser,
+      leadMetadataByUser,
+      purchaseAnswersByUser,
+      kycRegionByUser,
     }),
   });
-
-  const periodUserIds = [...currentSeekers];
-  const purchaserUserIds = [...currentPurchasers];
-  const questionnaireByUser = buildAnswersByUser(questionnaireResponses);
-  const leadMetadataByUser = buildLeadMetadataByUser(currentLeads);
-  const purchaseAnswersByUser = buildPurchaseAnswersByUser(purchases, dateRange);
-
-  const kycByUser = await getLatestKycByUserIds([
-    ...new Set([...periodUserIds, ...purchaserUserIds]),
-  ]);
-  const kycRegionByUser = new Map<string, PakistanRegionSlug>();
-  for (const [userId, kyc] of kycByUser) {
-    if (kyc.regionSlug) kycRegionByUser.set(userId, kyc.regionSlug);
-  }
 
   const regionRows = buildUsersByPakistanRegion({
     userIds: periodUserIds,
     questionnaireByUser,
     leadMetadataByUser,
     purchaseAnswersByUser,
+    kycRegionByUser,
+  });
+
+  const lifetimeRegionRows = buildUsersByPakistanRegion({
+    userIds: lifetimeUserIds,
+    questionnaireByUser,
+    leadMetadataByUser: allLeadMetadataByUser,
+    purchaseAnswersByUser: allPurchaseAnswersByUser,
     kycRegionByUser,
   });
 
@@ -718,7 +735,7 @@ export async function buildInsurerAnalytics(
   const mappedUsers = regionRows.reduce((sum, row) => sum + row.userCount, 0);
   const usersByRegion = {
     title: 'Seekers by region',
-    subtitle: 'Mapped from city and location answers in questionnaires and purchase forms',
+    subtitle: `Activity in ${dateRange.label} — mapped from city, KYC, and questionnaire answers`,
     totalUsers: periodUserIds.length,
     mappedUsers,
     coverageNote:
@@ -726,6 +743,19 @@ export async function buildInsurerAnalytics(
         ? `${periodUserIds.length - mappedUsers} seeker(s) had no location data in this period.`
         : undefined,
     regions: regionRows,
+  };
+
+  const lifetimeMapped = lifetimeRegionRows.reduce((sum, row) => sum + row.userCount, 0);
+  const usersByRegionLifetime = {
+    title: 'All customers by region',
+    subtitle: 'Cumulative map of everyone who completed a purchase — counts persist across sessions',
+    totalUsers: lifetimeUserIds.length,
+    mappedUsers: lifetimeMapped,
+    coverageNote:
+      lifetimeMapped < lifetimeUserIds.length
+        ? `${lifetimeUserIds.length - lifetimeMapped} customer(s) had no locatable region data.`
+        : undefined,
+    regions: lifetimeRegionRows,
   };
 
   const operations = buildOperationsSnapshot({
@@ -781,6 +811,7 @@ export async function buildInsurerAnalytics(
     policyPerformance,
     operations,
     usersByRegion,
+    usersByRegionLifetime,
     customerDemographics,
   };
 }
@@ -819,6 +850,20 @@ function buildPurchaseAnswersByUser(
   const map = new Map<string, Record<string, unknown>[]>();
   for (const purchase of purchases) {
     if (!inInsurerRange(purchase.createdAt, range)) continue;
+    const userId = String(purchase.userId);
+    const list = map.get(userId) ?? [];
+    list.push(purchase.answers as Record<string, unknown>);
+    map.set(userId, list);
+  }
+  return map;
+}
+
+function buildAllPurchaseAnswersByUser(
+  purchases: IPurchaseDocument[]
+): Map<string, Record<string, unknown>[]> {
+  const map = new Map<string, Record<string, unknown>[]>();
+  for (const purchase of purchases) {
+    if (purchase.status !== 'completed') continue;
     const userId = String(purchase.userId);
     const list = map.get(userId) ?? [];
     list.push(purchase.answers as Record<string, unknown>);

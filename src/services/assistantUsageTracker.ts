@@ -24,6 +24,7 @@ export interface AssistantUsageSummary {
   explainApiCalls: number;
   probeApiCalls: number;
   claimIntelligenceApiCalls: number;
+  kycApiCalls: number;
   totalPromptTokens: number;
   totalCompletionTokens: number;
   totalTokens: number;
@@ -64,6 +65,7 @@ export function getAssistantUsageSummary(now = Date.now()): AssistantUsageSummar
   let explainApiCalls = 0;
   let probeApiCalls = 0;
   let claimIntelligenceApiCalls = 0;
+  let kycApiCalls = 0;
   let totalPromptTokens = 0;
   let totalCompletionTokens = 0;
   let totalTokens = 0;
@@ -94,6 +96,7 @@ export function getAssistantUsageSummary(now = Date.now()): AssistantUsageSummar
     if (event.route === 'explain') explainApiCalls += 1;
     if (event.route === 'probe') probeApiCalls += 1;
     if (event.route === 'claim_intelligence') claimIntelligenceApiCalls += 1;
+    if (event.route === 'kyc') kycApiCalls += 1;
 
     totalPromptTokens += event.promptTokens ?? 0;
     totalCompletionTokens += event.completionTokens ?? 0;
@@ -115,6 +118,7 @@ export function getAssistantUsageSummary(now = Date.now()): AssistantUsageSummar
     explainApiCalls,
     probeApiCalls,
     claimIntelligenceApiCalls,
+    kycApiCalls,
     totalPromptTokens,
     totalCompletionTokens,
     totalTokens,

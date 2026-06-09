@@ -2,6 +2,7 @@ import { isGeminiConfigured, loadEnv, type Env } from '../config/env';
 import type { ServiceProbe } from './infrastructureHealth';
 import { getAssistantRateLimitStats } from './assistantRateLimit';
 import { getAssistantUsageSummary } from './assistantUsageTracker';
+import { getGeminiUpstreamRateLimitStats } from './geminiUpstreamRateLimit';
 
 const PROBE_TIMEOUT_MS = 8000;
 
@@ -43,12 +44,14 @@ export interface AssistantHealthReport {
     assistantRateLimitPerMin: number;
     anonymousRateLimitPerMin: number;
     geminiUpstreamRpm: number;
+    geminiUpstreamRpd: number;
     maxAttachmentsPerMessage: number;
     maxBytesPerAttachment: number;
     allowedAttachmentMimeTypes: string[];
   };
   usage: ReturnType<typeof getAssistantUsageSummary>;
   internalRateLimits: ReturnType<typeof getAssistantRateLimitStats>;
+  upstreamRateLimits: ReturnType<typeof getGeminiUpstreamRateLimitStats>;
   diagnostics: string[];
   notes: string[];
 }
@@ -107,15 +110,26 @@ export async function getAssistantHealthReport(env: Env = loadEnv()): Promise<As
   const model = normalizeModelId(env.GEMINI_MODEL ?? 'gemini-2.5-flash');
   const usage = getAssistantUsageSummary();
   const internalRateLimits = getAssistantRateLimitStats();
+  const upstreamRateLimits = getGeminiUpstreamRateLimitStats();
   const diagnostics: string[] = [];
   const notes: string[] = [
-    'Google does not expose remaining free-tier quota via API key alone. Token and request totals below are tracked by this API process since last deploy.',
-    'If you see repeated 429 errors with "limit: 0", link billing in Google Cloud or verify the API key tier at https://aistudio.google.com/apikey',
+    'Google AI Studio free tier is ~5 requests/min and ~20 requests/day per model (see Rate limits in AI Studio). Totals below are tracked by this API process since last deploy.',
+    'If daily quota is exhausted, enable billing in Google AI Studio or wait until the daily reset.',
   ];
+
+  if (upstreamRateLimits.dailyQuotaExhausted) {
+    diagnostics.push(
+      `Daily AI quota exhausted (${upstreamRateLimits.dailyCalls} generateContent call(s) today). Resets at midnight UTC or enable billing in Google AI Studio.`
+    );
+  } else if (upstreamRateLimits.dailyCalls >= env.GEMINI_UPSTREAM_RPD - 2) {
+    diagnostics.push(
+      `Approaching daily AI cap: ${upstreamRateLimits.dailyCalls}/${env.GEMINI_UPSTREAM_RPD} guarded requests today (Google free tier ~20/day).`
+    );
+  }
 
   if (usage.rateLimitErrors > 0) {
     diagnostics.push(
-      `${usage.rateLimitErrors} Gemini 429 response(s) since deploy — free tier is ~20 generateContent RPM. Wait ~60s between tests; do not rapid-retry the chat widget.`
+      `${usage.rateLimitErrors} Gemini 429 response(s) since deploy — free tier is ~5 RPM and ~20 RPD. Wait ~60s between tests; do not rapid-retry.`
     );
   }
 
@@ -147,6 +161,7 @@ export async function getAssistantHealthReport(env: Env = loadEnv()): Promise<As
     assistantRateLimitPerMin: env.ASSISTANT_RATE_LIMIT_PER_MIN,
     anonymousRateLimitPerMin: Math.max(1, Math.floor(env.ASSISTANT_RATE_LIMIT_PER_MIN / 2)),
     geminiUpstreamRpm: env.GEMINI_UPSTREAM_RPM,
+    geminiUpstreamRpd: env.GEMINI_UPSTREAM_RPD,
     maxAttachmentsPerMessage: 3,
     maxBytesPerAttachment: 4 * 1024 * 1024,
     allowedAttachmentMimeTypes: [
@@ -175,6 +190,7 @@ export async function getAssistantHealthReport(env: Env = loadEnv()): Promise<As
       limits,
       usage,
       internalRateLimits,
+      upstreamRateLimits,
       diagnostics,
       notes,
     };
@@ -217,6 +233,7 @@ export async function getAssistantHealthReport(env: Env = loadEnv()): Promise<As
     limits,
     usage,
     internalRateLimits,
+    upstreamRateLimits,
     diagnostics,
     notes,
   };

@@ -59,6 +59,30 @@ export async function getCategoryQuestions(category: string): Promise<CategoryQu
   };
 }
 
+function isOtherAnswerValue(value: string): boolean {
+  return /^other(\s|$| pet| condition)/i.test(value.trim());
+}
+
+function validateOtherDetail(
+  question: IPolicyQuestion,
+  answers: Record<string, unknown>,
+  errors: string[]
+): void {
+  const value = answers[question.id];
+  const otherKey = `${question.id}_other`;
+  const otherDetail = answers[otherKey];
+
+  const needsOther =
+    (typeof value === 'string' && isOtherAnswerValue(value)) ||
+    (Array.isArray(value) && value.some((item) => isOtherAnswerValue(String(item))));
+
+  if (needsOther) {
+    if (typeof otherDetail !== 'string' || otherDetail.trim().length < 2) {
+      errors.push(`${otherKey}: required when Other is selected`);
+    }
+  }
+}
+
 export function assertAnswersForQuestions(
   answers: Record<string, unknown>,
   questions: IPolicyQuestion[]
@@ -73,7 +97,14 @@ export function assertAnswersForQuestions(
     value !== '' &&
     (!Array.isArray(value) || value.length > 0);
 
-  const providedKeys = Object.keys(answers).filter((key) => isAnswered(answers[key]));
+  const questionIds = new Set(questions.map((q) => q.id));
+  const providedKeys = Object.keys(answers).filter((key) => {
+    if (key.endsWith('_other')) {
+      const baseId = key.replace(/_other$/, '');
+      return questionIds.has(baseId) && isAnswered(answers[key]);
+    }
+    return isAnswered(answers[key]);
+  });
 
   if (providedKeys.length === 0) {
     throw new AppError(400, 'Validation failed', ['answers: at least one answer is required']);
@@ -82,12 +113,14 @@ export function assertAnswersForQuestions(
   const errors: string[] = [];
   for (const question of questions) {
     if (!question.required) {
+      validateOtherDetail(question, answers, errors);
       continue;
     }
     const value = answers[question.id];
     if (!isAnswered(value)) {
       errors.push(`${question.id}: required`);
     }
+    validateOtherDetail(question, answers, errors);
   }
 
   if (errors.length > 0) {
