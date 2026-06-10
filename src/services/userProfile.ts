@@ -22,6 +22,10 @@ export function sanitizeUserProfile(profile: IUserProfileDocument) {
     id: profile._id.toString(),
     userId: profile.userId.toString(),
     profilePhotoDataUrl: profile.profilePhotoDataUrl,
+    addressLine: profile.addressLine,
+    city: profile.city,
+    province: profile.province,
+    postalCode: profile.postalCode,
     notificationPreferences: {
       emailUpdates: profile.notificationPreferences.emailUpdates,
       claimAlerts: profile.notificationPreferences.claimAlerts,

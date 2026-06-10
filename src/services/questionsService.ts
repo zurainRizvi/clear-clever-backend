@@ -4,6 +4,23 @@ import type { IPolicyQuestion } from '../models/Policy';
 import { Policy } from '../models/Policy';
 import { AppError } from '../utils/apiResponse';
 
+const CATEGORY_ALIASES: Record<string, PolicyCategorySlug> = {
+  motorcycle: 'auto',
+  vehicle: 'auto',
+  car: 'auto',
+  bike: 'auto',
+  'pet-dog': 'pet',
+  'pet-cat': 'pet',
+  'pet-bird': 'pet',
+  'pet-other': 'pet',
+};
+
+export function resolvePolicyCategorySlug(raw: string): PolicyCategorySlug | null {
+  const key = raw.trim().toLowerCase();
+  if (isPolicyCategory(key)) return key;
+  return CATEGORY_ALIASES[key] ?? null;
+}
+
 export interface CategoryQuestionsResult {
   category: string;
   name: string;
@@ -28,12 +45,26 @@ function mergeQuestions(
 }
 
 export async function getCategoryQuestions(category: string): Promise<CategoryQuestionsResult> {
-  const definition = CATEGORIES.find((item) => item.slug === category);
+  const normalized = category.trim().toLowerCase();
+  if (normalized === 'others') {
+    return {
+      category: 'others',
+      name: 'Other Insurance',
+      available: false,
+      questions: [],
+    };
+  }
+
+  const slug = resolvePolicyCategorySlug(category);
+  if (!slug) {
+    throw new AppError(400, 'Invalid category', [`category: must be one of ${CATEGORIES.map((c) => c.slug).join(', ')}`]);
+  }
+  const definition = CATEGORIES.find((item) => item.slug === slug);
   if (!definition) {
     throw new AppError(400, 'Invalid category', [`category: must be one of ${CATEGORIES.map((c) => c.slug).join(', ')}`]);
   }
 
-  if (category === 'others' || !definition.available) {
+  if (definition.slug === 'others' || !definition.available) {
     return {
       category: definition.slug,
       name: definition.name,
@@ -42,7 +73,7 @@ export async function getCategoryQuestions(category: string): Promise<CategoryQu
     };
   }
 
-  const policyCategory = category as PolicyCategorySlug;
+  const policyCategory = slug;
   const approvedPolicies = await Policy.find({
     category: policyCategory,
     status: 'approved',
@@ -129,11 +160,13 @@ export function assertAnswersForQuestions(
 }
 
 export function parseCategoryForRecommend(category: string): PolicyCategorySlug | null {
-  if (category === 'others') {
+  const normalized = category.trim().toLowerCase();
+  if (normalized === 'others') {
     return null;
   }
-  if (!isPolicyCategory(category)) {
+  const slug = resolvePolicyCategorySlug(category);
+  if (!slug) {
     throw new AppError(400, 'Invalid category', [`category: must be one of home, auto, life, pet, others`]);
   }
-  return category;
+  return slug;
 }

@@ -15,6 +15,7 @@ import { toInsurerPolicySummary } from '../services/insurerContext';
 import { sanitizeUser } from '../services/auth';
 import { deleteInsurerAccountPermanently } from '../services/insurerDeletion';
 import { buildAdminMlOverview } from '../services/adminMlOverviewService';
+import { clearAuditEvents, listAuditEvents } from '../services/auditLogService';
 import { getAssistantHealthReport } from '../services/assistantHealthService';
 import { getInfrastructureHealth } from '../services/infrastructureHealth';
 import { getDatabaseStatus } from '../config/db';
@@ -532,4 +533,18 @@ export async function getAdminSystemHealth(_req: AuthenticatedRequest, res: Resp
 export async function getAdminMlOverview(_req: AuthenticatedRequest, res: Response): Promise<void> {
   const overview = await buildAdminMlOverview();
   res.status(200).json(successResponse('ML overview retrieved', overview));
+}
+
+export async function getAdminAuditLogs(_req: AuthenticatedRequest, res: Response): Promise<void> {
+  const events = await listAuditEvents(50);
+  res.status(200).json(successResponse('Audit logs retrieved', { events }));
+}
+
+export async function clearAdminAuditLogs(_req: AuthenticatedRequest, res: Response): Promise<void> {
+  const deletedCount = await clearAuditEvents();
+  res.status(200).json(
+    successResponse('Audit logs cleared', {
+      deletedCount,
+    })
+  );
 }

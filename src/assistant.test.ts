@@ -101,7 +101,7 @@ describe('Assistant — Gemini proxy', () => {
     it('returns 503 when Gemini is not configured', async () => {
       const res = await request(app)
         .post('/api/assistant/chat')
-        .send({ message: 'What is ClearClever?' });
+        .send({ message: 'Compare pet insurance options for my dog in Lahore' });
 
       expect(res.status).toBe(503);
     });

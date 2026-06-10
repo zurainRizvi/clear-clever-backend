@@ -2,8 +2,11 @@ import { AppError } from '../utils/apiResponse';
 import { InsurerProfile } from '../models/InsurerProfile';
 import { Policy } from '../models/Policy';
 import { User } from '../models/User';
+import { seedDerivedAuditEvents } from '../services/auditLogService';
 import { SEED_INSURERS } from './insurerSeedData';
 import { SEED_POLICIES } from './policySeedData';
+import { seedUsers, type SeedUsersResult } from './seedUsers';
+import { seedKyc, type SeedKycResult } from './seedKyc';
 
 export interface SeedCatalogResult {
   insurersCreated: number;
@@ -106,13 +109,30 @@ export async function seedCatalog(): Promise<SeedCatalogResult> {
   };
 }
 
-import { seedUsers, type SeedUsersResult } from './seedUsers';
-
 export async function seedAll(password?: string): Promise<{
   users: SeedUsersResult;
   catalog: SeedCatalogResult;
+  kyc: SeedKycResult;
 }> {
   const users = await seedUsers(password);
   const catalog = await seedCatalog();
-  return { users, catalog };
+  const kyc = await seedKyc();
+
+  const [seedUsersDocs, pendingPolicies] = await Promise.all([
+    User.find().sort({ createdAt: -1 }).limit(12).select('fullName email createdAt'),
+    Policy.find({ status: 'pending' }).sort({ createdAt: -1 }).limit(12).select('name createdAt'),
+  ]);
+  await seedDerivedAuditEvents({
+    users: seedUsersDocs.map((user) => ({
+      fullName: user.fullName,
+      email: user.email,
+      createdAt: user.createdAt,
+    })),
+    pendingPolicies: pendingPolicies.map((policy) => ({
+      name: policy.name,
+      createdAt: policy.createdAt,
+    })),
+  });
+
+  return { users, catalog, kyc };
 }

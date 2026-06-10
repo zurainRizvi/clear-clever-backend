@@ -29,7 +29,12 @@ export async function getInsurerAnalytics(req: AuthenticatedRequest, res: Respon
   const from = typeof req.query.from === 'string' ? req.query.from : undefined;
   const to = typeof req.query.to === 'string' ? req.query.to : undefined;
   const audienceRaw = typeof req.query.audience === 'string' ? req.query.audience : undefined;
-  const audience = audienceRaw === 'purchasers' ? 'purchasers' : 'all';
+  const audience =
+    audienceRaw === 'purchasers'
+      ? 'purchasers'
+      : audienceRaw === 'leads'
+        ? 'leads'
+        : 'all';
   const region = typeof req.query.region === 'string' && req.query.region.trim()
     ? req.query.region.trim()
     : undefined;

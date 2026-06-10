@@ -9,6 +9,10 @@ export interface IUserNotificationPreferences {
 export interface IUserProfile {
   userId: Types.ObjectId;
   profilePhotoDataUrl?: string;
+  addressLine?: string;
+  city?: string;
+  province?: string;
+  postalCode?: string;
   notificationPreferences: IUserNotificationPreferences;
   createdAt: Date;
   updatedAt: Date;
@@ -35,6 +39,10 @@ const userProfileSchema = new Schema<IUserProfileDocument>(
       index: true,
     },
     profilePhotoDataUrl: { type: String, trim: true, maxlength: 7_000_000 },
+    addressLine: { type: String, trim: true, maxlength: 240 },
+    city: { type: String, trim: true, maxlength: 80 },
+    province: { type: String, trim: true, maxlength: 80 },
+    postalCode: { type: String, trim: true, maxlength: 20 },
     notificationPreferences: {
       type: notificationPreferencesSchema,
       default: () => ({

@@ -8,6 +8,8 @@ export const KYC_GEMINI_SCHEMA = {
     issueDate: { type: 'string' },
     expiryDate: { type: 'string' },
     gender: { type: 'string' },
+    address: { type: 'string' },
+    city: { type: 'string' },
     documentReadable: { type: 'boolean' },
     missingFields: { type: 'array', items: { type: 'string' } },
     suspiciousDocument: { type: 'boolean' },
@@ -23,7 +25,8 @@ Extract identity information from a CNIC (National Identity Card) image.
 Return ONLY valid JSON matching the schema.
 
 Rules:
-- Extract full name, father's name, CNIC number (format xxxxx-xxxxxxx-x), date of birth, issue date, expiry date, and gender if visible.
+- Extract full name, father's name, CNIC number (format xxxxx-xxxxxxx-x), date of birth, issue date, expiry date, gender, and residential address if visible.
+- Extract address line and city separately when possible (city is the town or district on the card).
 - Set documentReadable to false if the image is too blurry, cropped, or not a CNIC.
 - List any missing fields in missingFields (e.g. "dob", "expiryDate", "cnicNumber").
 - Assess image quality: blurScore (Low/Medium/High), croppedDocument, suspiciousDocument, tamperingRisk (Low/Medium/High).
@@ -41,7 +44,9 @@ export function buildKycUserMessage(input: {
   if (input.profileCnicMasked) {
     lines.push(`CNIC on file (masked): ${input.profileCnicMasked}`);
   }
-  lines.push('Extract all visible fields and assess document quality.');
+  lines.push(
+    'Cross-check extracted name and CNIC number against the values on file. Extract address when visible.'
+  );
   return lines.join('\n');
 }
 
@@ -53,6 +58,8 @@ export interface GeminiKycRaw {
   issueDate?: string;
   expiryDate?: string;
   gender?: string;
+  address?: string;
+  city?: string;
   documentReadable?: boolean;
   missingFields?: string[];
   suspiciousDocument?: boolean;

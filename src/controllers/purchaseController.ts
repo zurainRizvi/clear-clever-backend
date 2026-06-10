@@ -19,6 +19,7 @@ import { trackCheckoutLead } from '../services/leadTrackingService';
 import { completePurchase } from '../services/purchaseCompletion';
 import { toPurchaseSummary } from '../services/purchasePresentation';
 import { assignUserCnic } from '../services/userCnicService';
+import { assertUserKycVerified } from '../services/kycService';
 import { AppError, successResponse } from '../utils/apiResponse';
 import { isValidCnicFormat, normalizeCnic } from '../utils/cnic';
 
@@ -38,6 +39,8 @@ export async function createPurchase(req: AuthenticatedRequest, res: Response): 
   if (!insurer) {
     throw new AppError(500, 'Policy insurer profile is missing');
   }
+
+  await assertUserKycVerified(req.user!._id);
 
   const purchaseAnswers = answers ?? {};
 

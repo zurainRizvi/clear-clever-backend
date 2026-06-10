@@ -42,9 +42,18 @@ function usersMatching(
   return ids;
 }
 
+function intersectSets(base: Set<string>, subset: Set<string>): Set<string> {
+  const result = new Set<string>();
+  for (const id of base) {
+    if (subset.has(id)) result.add(id);
+  }
+  return result;
+}
+
 function pctBetween(current: number, previous: number): string {
   if (previous === 0) return current > 0 ? '100%' : '0%';
-  return `${Math.round((current / previous) * 100)}%`;
+  const pct = Math.min(100, Math.round((current / previous) * 100));
+  return `${pct}%`;
 }
 
 export function buildInsurerFunnel(input: {
@@ -112,13 +121,31 @@ export function buildInsurerFunnel(input: {
   }
   const purchasedUsers = new Set([...purchasedLeadUsers, ...completedPurchaseUsers]);
 
-  const stepCounts = [
-    questionnaireUsers.size,
-    recommendedUsers.size,
-    engagedUsers.size,
-    checkoutUsers.size,
-    paymentUsers.size,
-    purchasedUsers.size,
+  const stepSets = [
+    questionnaireUsers,
+    intersectSets(questionnaireUsers, recommendedUsers),
+    intersectSets(intersectSets(questionnaireUsers, recommendedUsers), engagedUsers),
+    intersectSets(
+      intersectSets(intersectSets(questionnaireUsers, recommendedUsers), engagedUsers),
+      checkoutUsers
+    ),
+    intersectSets(
+      intersectSets(
+        intersectSets(intersectSets(questionnaireUsers, recommendedUsers), engagedUsers),
+        checkoutUsers
+      ),
+      paymentUsers
+    ),
+    intersectSets(
+      intersectSets(
+        intersectSets(
+          intersectSets(intersectSets(questionnaireUsers, recommendedUsers), engagedUsers),
+          checkoutUsers
+        ),
+        paymentUsers
+      ),
+      purchasedUsers
+    ),
   ];
 
   const stepNames = [
@@ -130,6 +157,8 @@ export function buildInsurerFunnel(input: {
     'Policy purchased',
   ];
 
+  const stepCounts = stepSets.map((set) => set.size);
+
   const steps: InsurerFunnelStep[] = stepNames.map((name, index) => {
     const users = stepCounts[index] ?? 0;
     const previousUsers = index === 0 ? users : (stepCounts[index - 1] ?? 0);
@@ -137,7 +166,7 @@ export function buildInsurerFunnel(input: {
     return {
       name,
       users,
-      conversion: index === 0 ? undefined : pctBetween(users, previousUsers || users),
+      conversion: index === 0 ? undefined : pctBetween(users, previousUsers),
       dropOff,
     };
   });
@@ -189,6 +218,19 @@ export function uniquePurchasersInRange(
       if (inInsurerRange(purchase.completedAt, range)) {
         ids.add(String(purchase.userId));
       }
+    }
+  }
+  return ids;
+}
+
+export function questionnaireUsersInRange(
+  questionnaireResponses: QuestionnaireRow[],
+  range: InsurerDateRange
+): Set<string> {
+  const ids = new Set<string>();
+  for (const row of questionnaireResponses) {
+    if (inInsurerRange(row.updatedAt, range)) {
+      ids.add(row.userId);
     }
   }
   return ids;

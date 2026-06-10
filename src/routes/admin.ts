@@ -10,6 +10,8 @@ import {
   getAnalytics,
   getAdminSystemHealth,
   getAdminMlOverview,
+  getAdminAuditLogs,
+  clearAdminAuditLogs,
   listInsurers,
   listPendingPolicies,
   listUsers,
@@ -66,6 +68,8 @@ adminRouter.patch(
 adminRouter.get('/analytics', asyncHandler(getAnalytics));
 adminRouter.get('/health', authorize('superadmin'), asyncHandler(getAdminSystemHealth));
 adminRouter.get('/ml-overview', authorize('superadmin'), asyncHandler(getAdminMlOverview));
+adminRouter.get('/audit', authorize('superadmin'), asyncHandler(getAdminAuditLogs));
+adminRouter.delete('/audit', authorize('superadmin'), asyncHandler(clearAdminAuditLogs));
 adminRouter.get('/fraud-signals', asyncHandler(getFraudSignals));
 
 adminRouter.get('/insurers', asyncHandler(listInsurers));

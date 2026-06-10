@@ -9,6 +9,7 @@ import type { IPolicyDocument } from '../models/Policy';
 import { Purchase } from '../models/Purchase';
 import type { IPurchaseDocument } from '../models/Purchase';
 import { QuestionnaireResponse } from '../models/QuestionnaireResponse';
+import { User } from '../models/User';
 import {
   dayLabelsInRange,
   inInsurerRange,
@@ -20,6 +21,7 @@ import {
 import {
   buildInsurerFunnel,
   countLeadSources,
+  questionnaireUsersInRange,
   uniquePurchasersInRange,
   uniqueSeekersInRange,
 } from './insurerFunnelService';
@@ -267,7 +269,7 @@ export interface InsurerAnalyticsPayload {
     totalUsers: number;
     mappedUsers: number;
     coverageNote?: string;
-    audience: 'all' | 'purchasers';
+    audience: 'all' | 'purchasers' | 'leads';
     regionFilter: string | null;
     regions: Array<{
       slug: string;
@@ -276,10 +278,17 @@ export interface InsurerAnalyticsPayload {
       userCount: number;
     }>;
   };
+  audienceUsers: Array<{
+    userId: string;
+    name: string;
+    category: string;
+    lastStage: string;
+    purchased: boolean;
+  }>;
   customerDemographics: import('./kycDemographicsService').CustomerDemographicsPayload;
 }
 
-export type InsurerAnalyticsAudience = 'all' | 'purchasers';
+export type InsurerAnalyticsAudience = 'all' | 'purchasers' | 'leads';
 
 export async function buildInsurerAnalytics(
   insurerProfileId: Types.ObjectId | string,
@@ -672,14 +681,30 @@ export async function buildInsurerAnalytics(
   const insurerCategories = new Set(approvedPolicies.map((p) => p.category as PolicyCategorySlug));
 
   const audience: InsurerAnalyticsAudience =
-    options?.audience === 'purchasers' ? 'purchasers' : 'all';
+    options?.audience === 'purchasers'
+      ? 'purchasers'
+      : options?.audience === 'leads'
+        ? 'leads'
+        : 'all';
   const regionFilter =
     options?.region && PAKISTAN_REGIONS.some((r) => r.slug === options.region)
       ? (options.region as PakistanRegionSlug)
       : null;
 
+  const questionnaireUserIds = questionnaireUsersInRange(
+    questionnaireResponses.map((row) => ({ userId: row.userId, updatedAt: row.updatedAt })),
+    dateRange
+  );
+  const leadAudienceUserIds = [...new Set([...questionnaireUserIds, ...currentSeekers])].filter(
+    (userId) => !currentPurchasers.has(userId)
+  );
+
   let regionUserIds =
-    audience === 'purchasers' ? [...currentPurchasers] : [...currentSeekers];
+    audience === 'purchasers'
+      ? [...currentPurchasers]
+      : audience === 'leads'
+        ? leadAudienceUserIds
+        : [...currentSeekers];
   const purchaserUserIds = [...currentPurchasers];
   const questionnaireByUser = buildAnswersByUser(questionnaireResponses);
   const leadMetadataByUser = buildLeadMetadataByUser(currentLeads);
@@ -744,7 +769,12 @@ export async function buildInsurerAnalytics(
     kycByUser,
   });
   const mappedUsers = regionRows.reduce((sum, row) => sum + row.userCount, 0);
-  const audienceLabel = audience === 'purchasers' ? 'Policy purchasers' : 'All active users';
+  const audienceLabel =
+    audience === 'purchasers'
+      ? 'Policy purchasers'
+      : audience === 'leads'
+        ? 'Leads (questionnaire, no purchase)'
+        : 'All active users';
   const regionLabel = regionFilter
     ? PAKISTAN_REGIONS.find((r) => r.slug === regionFilter)?.label
     : null;
@@ -763,6 +793,15 @@ export async function buildInsurerAnalytics(
         : undefined,
     regions: regionRows,
   };
+
+  const audienceUsers = await buildAudienceUserSnapshots({
+    userIds: periodUserIds.slice(0, 25),
+    questionnaireResponses,
+    currentLeads,
+    purchases,
+    dateRange,
+    currentPurchasers,
+  });
 
   const operations = buildOperationsSnapshot({
     unreadLeads,
@@ -795,9 +834,9 @@ export async function buildInsurerAnalytics(
       insightBanner,
     },
     funnel: {
-      title: 'Seeker journey on ClearClever',
+      title: 'Where seekers drop off before buying',
       definition:
-        'Unique seekers at each stage based on questionnaires, lead sources, and purchase records. Drop-off shows seekers who did not reach the next step.',
+        'Each step shows seekers who reached that milestone. The percentage is how many continued from the previous step; drop-off is who stopped there.',
       steps: funnel.steps,
     },
     leadSources,
@@ -817,6 +856,7 @@ export async function buildInsurerAnalytics(
     policyPerformance,
     operations,
     usersByRegion,
+    audienceUsers,
     customerDemographics,
   };
 }
@@ -1027,4 +1067,100 @@ function buildAnalyticsInsights(input: {
     .sort((a, b) => b.priority - a.priority)
     .slice(0, 4)
     .map(({ priority: _priority, ...rest }) => rest);
+}
+
+async function buildAudienceUserSnapshots(input: {
+  userIds: string[];
+  questionnaireResponses: Array<{ userId: string; category: string; updatedAt: Date }>;
+  currentLeads: ILeadDocument[];
+  purchases: IPurchaseDocument[];
+  dateRange: InsurerDateRange;
+  currentPurchasers: Set<string>;
+}): Promise<InsurerAnalyticsPayload['audienceUsers']> {
+  if (input.userIds.length === 0) return [];
+
+  const users = await User.find({ _id: { $in: input.userIds } }).select('fullName');
+  const nameById = new Map(users.map((u) => [String(u._id), u.fullName]));
+
+  const categoryByUser = new Map<string, string>();
+  for (const row of input.questionnaireResponses) {
+    if (!categoryByUser.has(row.userId)) {
+      categoryByUser.set(row.userId, row.category);
+    }
+  }
+
+  const completedPurchaseUsers = new Set<string>();
+  for (const purchase of input.purchases) {
+    if (
+      purchase.status === 'completed' &&
+      purchase.completedAt &&
+      inInsurerRange(purchase.completedAt, input.dateRange)
+    ) {
+      completedPurchaseUsers.add(String(purchase.userId));
+    }
+  }
+
+  const paymentUsers = new Set<string>();
+  for (const purchase of input.purchases) {
+    if (
+      purchase.paymentProcessedAt &&
+      inInsurerRange(purchase.paymentProcessedAt, input.dateRange)
+    ) {
+      paymentUsers.add(String(purchase.userId));
+    }
+  }
+
+  const checkoutUsers = new Set<string>();
+  for (const lead of input.currentLeads) {
+    if (!inInsurerRange(lead.createdAt, input.dateRange)) continue;
+    const source = lead.metadata?.source;
+    if (source === 'checkout') checkoutUsers.add(String(lead.userId));
+  }
+  for (const purchase of input.purchases) {
+    if (inInsurerRange(purchase.createdAt, input.dateRange)) {
+      checkoutUsers.add(String(purchase.userId));
+    }
+  }
+
+  const engagedUsers = new Set<string>();
+  for (const lead of input.currentLeads) {
+    if (!inInsurerRange(lead.createdAt, input.dateRange)) continue;
+    const source = lead.metadata?.source;
+    if (source === 'favorite' || source === 'compare' || source === 'message') {
+      engagedUsers.add(String(lead.userId));
+    }
+  }
+
+  const recommendedUsers = new Set<string>();
+  for (const lead of input.currentLeads) {
+    if (!inInsurerRange(lead.createdAt, input.dateRange)) continue;
+    if (lead.type === 'inquiry' && lead.metadata?.source === 'recommend') {
+      recommendedUsers.add(String(lead.userId));
+    }
+  }
+
+  const questionnaireUsers = questionnaireUsersInRange(
+    input.questionnaireResponses.map((row) => ({ userId: row.userId, updatedAt: row.updatedAt })),
+    input.dateRange
+  );
+
+  function inferLastStage(userId: string): string {
+    if (completedPurchaseUsers.has(userId) || input.currentPurchasers.has(userId)) {
+      return 'Policy purchased';
+    }
+    if (paymentUsers.has(userId)) return 'Payment submitted';
+    if (checkoutUsers.has(userId)) return 'Started checkout';
+    if (engagedUsers.has(userId)) return 'Engaged';
+    if (recommendedUsers.has(userId)) return 'Saw recommendations';
+    if (questionnaireUsers.has(userId)) return 'Shared needs';
+    return 'Lead activity';
+  }
+
+  return input.userIds.map((userId) => ({
+    userId,
+    name: nameById.get(userId) ?? 'Seeker',
+    category: categoryByUser.get(userId) ?? '—',
+    lastStage: inferLastStage(userId),
+    purchased: input.currentPurchasers.has(userId),
+  }));
 }

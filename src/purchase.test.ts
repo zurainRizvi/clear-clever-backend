@@ -13,6 +13,7 @@ import { Policy } from './models/Policy';
 import { User } from './models/User';
 import { Purchase } from './models/Purchase';
 import { QuestionnaireResponse } from './models/QuestionnaireResponse';
+import { KycVerification } from './models/KycVerification';
 import { SEED_DEFAULT_PASSWORD } from './seed/userSeedData';
 import { seedAll } from './seed/seedCatalog';
 import { applyTestEnv } from './test/setupEnv';
@@ -141,6 +142,30 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.message).toMatch(/CNIC is required/i);
+    });
+
+    it('blocks purchase when KYC is not verified', async () => {
+      const seeker = await User.findOne({ email: 'seeker@clearclever.com' });
+      await KycVerification.updateMany(
+        { userId: seeker!._id },
+        { $set: { status: 'none', identityVerified: false } }
+      );
+
+      const policy = await Policy.findOne({ slug: 'tpl-home-essential', status: 'approved' });
+
+      const res = await request(app)
+        .post('/api/purchase')
+        .set('Authorization', `Bearer ${seekerToken}`)
+        .send({
+          policyId: String(policy!._id),
+          answers: {
+            property_type: 'Apartment',
+            city: 'Karachi',
+          },
+        });
+
+      expect(res.status).toBe(403);
+      expect(res.body.message).toMatch(/KYC verification/i);
     });
 
     it('assigns CNIC from contact_cnic and starts checkout', async () => {

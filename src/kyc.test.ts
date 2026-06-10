@@ -39,12 +39,12 @@ describe('KYC API', () => {
     token = res.body.data.token;
   });
 
-  it('returns partial status for seeded seeker with CNIC-derived KYC', async () => {
+  it('returns verified status for seeded seeker with completed KYC upload', async () => {
     const res = await request(app)
       .get('/api/kyc/status')
       .set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(200);
-    expect(res.body.data.kyc.status).toBe('partial');
+    expect(res.body.data.kyc.status).toBe('verified');
     expect(res.body.data.kyc.district).toBe('Karachi');
   });
 
@@ -60,20 +60,21 @@ describe('KYC API', () => {
     expect(res.body.data.kyc.status).toBe('none');
   });
 
-  it('derives local demographics from CNIC', async () => {
+  it('derives local demographics from CNIC without marking KYC under review', async () => {
     const res = await request(app)
       .post('/api/kyc/derive')
       .set('Authorization', `Bearer ${token}`)
       .send({ cnic: '42101-1234567-2' });
 
     expect(res.status).toBe(200);
-    expect(res.body.data.kyc.status).toBe('partial');
+    expect(res.body.data.kyc.status).toBe('none');
     expect(res.body.data.kyc.genderPredicted).toBe('female');
     expect(res.body.data.kyc.district).toBe('Karachi');
 
     const seeker = await User.findOne({ email: 'seeker@clearclever.com' });
     const record = await KycVerification.findOne({ userId: seeker?._id });
     expect(record?.district).toBe('Karachi');
+    expect(record?.status).toBe('none');
   });
 
   it('includes kyc fields in auth me payload after derive', async () => {
@@ -87,14 +88,18 @@ describe('KYC API', () => {
       .set('Authorization', `Bearer ${token}`);
 
     expect(me.status).toBe(200);
-    expect(me.body.data.user.kycStatus).toBe('partial');
     expect(me.body.data.user.kycSummary?.district).toBe('Karachi');
   });
 
   it('rejects verify without Gemini configured', async () => {
+    const failedLogin = await request(app)
+      .post('/api/auth/login')
+      .send({ email: 'bilal.ahmed@clearclever.com', password: SEED_DEFAULT_PASSWORD });
+    const failedToken = failedLogin.body.data.token;
+
     const res = await request(app)
       .post('/api/kyc/verify')
-      .set('Authorization', `Bearer ${token}`)
+      .set('Authorization', `Bearer ${failedToken}`)
       .send({
         attachment: {
           mimeType: 'image/jpeg',
@@ -106,7 +111,7 @@ describe('KYC API', () => {
     expect(res.status).toBe(503);
   });
 
-  it('auto-derives KYC when CNIC assigned via profile update', async () => {
+  it('auto-derives regional metadata when CNIC assigned via profile update', async () => {
     const seeker = await User.findOne({ email: 'seeker@clearclever.com' });
     await request(app)
       .patch('/api/auth/me')
@@ -115,7 +120,22 @@ describe('KYC API', () => {
 
     const kyc = await KycVerification.findOne({ userId: seeker?._id });
     expect(kyc?.district).toBe('Lahore');
-    expect(kyc?.status).toBe('partial');
+    expect(kyc?.status).toBe('none');
+  });
+
+  it('blocks verify resubmission when KYC is already verified', async () => {
+    const res = await request(app)
+      .post('/api/kyc/verify')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        attachment: {
+          mimeType: 'image/jpeg',
+          fileName: 'cnic.jpg',
+          dataBase64: Buffer.from('fake').toString('base64'),
+        },
+      });
+
+    expect(res.status).toBe(409);
   });
 });
 

@@ -40,7 +40,7 @@ export interface AdminMlModelInsight {
   useCase: string;
   businessValue: string;
   whereUsed: string;
-  metrics: Array<{ label: string; value: string }>;
+  metrics: Array<{ label: string; value: string; description?: string }>;
 }
 
 export interface AdminMlOverview {
@@ -125,9 +125,21 @@ function buildClaimRiskInsight(): AdminMlModelInsight {
       'Reduces manual review load and helps catch suspicious claims early — surfaced in insurer claim cards and AI intelligence reports.',
     whereUsed: 'Insurer Claims tab · Claim AI reports · Admin fraud signals',
     metrics: [
-      { label: 'Accuracy', value: formatMetricPct(meta?.metrics?.accuracy) },
-      { label: 'AUC score', value: formatMetricPct(meta?.metrics?.roc_auc) },
-      { label: 'Training rows', value: meta?.metrics?.train_rows?.toLocaleString() ?? '—' },
+      {
+        label: 'Overall correctness',
+        value: formatMetricPct(meta?.metrics?.accuracy),
+        description: 'How often the model’s risk prediction matched reality in practice tests.',
+      },
+      {
+        label: 'Ranking quality',
+        value: formatMetricPct(meta?.metrics?.roc_auc),
+        description: 'How well the model separates risky claims from routine ones.',
+      },
+      {
+        label: 'Practice dataset size',
+        value: meta?.metrics?.train_rows?.toLocaleString() ?? '—',
+        description: 'Number of historical examples used to train this model.',
+      },
     ],
   };
 }
@@ -147,9 +159,21 @@ function buildFraudInsight(): AdminMlModelInsight {
       'Protects insurers and seekers from coordinated abuse before it spreads across the marketplace.',
     whereUsed: 'Super Admin → Fraud Detection · Risk signal queue',
     metrics: [
-      { label: 'Precision', value: formatMetricPct(meta?.metrics?.precision) },
-      { label: 'Recall', value: formatMetricPct(meta?.metrics?.recall) },
-      { label: 'F1 score', value: formatMetricPct(meta?.metrics?.f1) },
+      {
+        label: 'Correct fraud alerts',
+        value: formatMetricPct(meta?.metrics?.precision),
+        description: 'Of all fraud flags raised, how many were truly suspicious.',
+      },
+      {
+        label: 'Fraud caught',
+        value: formatMetricPct(meta?.metrics?.recall),
+        description: 'Of all actual fraud patterns, how much the model detected.',
+      },
+      {
+        label: 'Overall balance',
+        value: formatMetricPct(meta?.metrics?.f1),
+        description: 'Combined score when both precision and recall matter equally.',
+      },
     ],
   };
 }
@@ -170,9 +194,21 @@ function buildRankerInsights(): AdminMlModelInsight[] {
         'Drives higher-quality recommendations in Compare Policies — improving lead quality for insurers.',
       whereUsed: 'Seeker Compare Policies · Questionnaire results · Insurer lead analytics',
       metrics: [
-        { label: 'Accuracy', value: formatMetricPct(meta?.metrics?.accuracy) },
-        { label: 'AUC score', value: formatMetricPct(meta?.metrics?.roc_auc) },
-        { label: 'Test rows', value: meta?.metrics?.test_rows?.toLocaleString() ?? '—' },
+        {
+          label: 'Overall correctness',
+          value: formatMetricPct(meta?.metrics?.accuracy),
+          description: 'How often recommended policies matched seeker needs in test data.',
+        },
+        {
+          label: 'Ranking quality',
+          value: formatMetricPct(meta?.metrics?.roc_auc),
+          description: 'How well the ranker separates strong matches from weak ones.',
+        },
+        {
+          label: 'Validation dataset size',
+          value: meta?.metrics?.test_rows?.toLocaleString() ?? '—',
+          description: 'Number of held-out examples used to validate recommendations.',
+        },
       ],
     };
   });

@@ -738,6 +738,51 @@ describe('Module 6 — Insurer & admin modules', () => {
     });
   });
 
+  describe('Audit logs', () => {
+    it('lists audit events for superadmin', async () => {
+      const superToken = await login('superadmin@clearclever.com');
+
+      const res = await request(app)
+        .get('/api/admin/audit')
+        .set('Authorization', `Bearer ${superToken}`);
+
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body.data.events)).toBe(true);
+      expect(res.body.data.events.length).toBeGreaterThan(0);
+    });
+
+    it('clears audit logs for superadmin', async () => {
+      const superToken = await login('superadmin@clearclever.com');
+
+      const listRes = await request(app)
+        .get('/api/admin/audit')
+        .set('Authorization', `Bearer ${superToken}`);
+      expect(listRes.body.data.events.length).toBeGreaterThan(0);
+
+      const clearRes = await request(app)
+        .delete('/api/admin/audit')
+        .set('Authorization', `Bearer ${superToken}`);
+
+      expect(clearRes.status).toBe(200);
+      expect(clearRes.body.data.deletedCount).toBeGreaterThan(0);
+
+      const afterRes = await request(app)
+        .get('/api/admin/audit')
+        .set('Authorization', `Bearer ${superToken}`);
+
+      expect(afterRes.status).toBe(200);
+      expect(afterRes.body.data.events).toEqual([]);
+    });
+
+    it('returns 403 when admin hits superadmin-only audit routes', async () => {
+      const res = await request(app)
+        .get('/api/admin/audit')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(403);
+    });
+  });
+
   describe('Fraud signals', () => {
     it('returns fraud signals for admin', async () => {
       const res = await request(app)

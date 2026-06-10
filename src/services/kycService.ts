@@ -18,6 +18,7 @@ import {
 import { generateStructuredJson } from './geminiService';
 import { computeIdentityMatchScore } from './identityVerificationService';
 import { evaluatePolicyLinkage } from './kycPolicyLinkageService';
+import { ensureUserProfile } from './userProfile';
 import {
   buildKycUserMessage,
   KYC_GEMINI_SCHEMA,
@@ -132,6 +133,19 @@ async function upsertKycRecord(
   return KycVerification.create({ userId, ...data });
 }
 
+async function applyExtractedAddress(
+  userId: IUserDocument['_id'],
+  raw: GeminiKycRaw,
+  provinceHint?: string
+): Promise<void> {
+  if (!raw.address?.trim() && !raw.city?.trim() && !provinceHint) return;
+  const profile = await ensureUserProfile(userId);
+  if (raw.address?.trim()) profile.addressLine = raw.address.trim();
+  if (raw.city?.trim()) profile.city = raw.city.trim();
+  if (provinceHint?.trim()) profile.province = provinceHint.trim();
+  await profile.save();
+}
+
 export async function deriveFromCnic(user: IUserDocument, rawCnic?: string): Promise<KycReportPayload> {
   const cnic = rawCnic?.trim() ? normalizeCnic(rawCnic) : user.cnic;
   if (!cnic) {
@@ -147,7 +161,7 @@ export async function deriveFromCnic(user: IUserDocument, rawCnic?: string): Pro
 
   const doc = await upsertKycRecord(user._id, {
     cnicMasked: local.cnicMasked,
-    status: 'partial',
+    status: 'none',
     source: 'manual',
     genderPredicted: local.genderPredicted,
     province: local.province,
@@ -163,12 +177,24 @@ export async function verifyCnicDocument(
   user: IUserDocument,
   attachments: unknown
 ): Promise<KycReportPayload> {
+  if (!user.cnic?.trim()) {
+    throw new AppError(400, 'Add your CNIC to your profile before uploading a document');
+  }
+
+  const existing = await KycVerification.findOne({ userId: user._id }).sort({
+    verifiedAt: -1,
+    updatedAt: -1,
+  });
+  if (existing?.status === 'verified') {
+    throw new AppError(409, 'KYC is already verified — resubmission is not allowed');
+  }
+  if (existing?.status === 'partial' && existing.source === 'upload') {
+    throw new AppError(409, 'KYC is under review — resubmission is not allowed until it is rejected');
+  }
+
   const env = loadEnv();
   if (!isGeminiConfigured(env)) {
     throw new AppError(503, 'AI KYC verification is not configured (GEMINI_API_KEY missing)');
-  }
-  if (!user.cnic?.trim()) {
-    throw new AppError(400, 'Add your CNIC to your profile before uploading a document');
   }
 
   const parsed: AssistantAttachmentInput[] = parseAttachments(attachments);
@@ -207,20 +233,14 @@ export async function verifyCnicDocument(
     blurScore: pickBlurScore(raw.blurScore),
   });
 
-  const linkage = await evaluatePolicyLinkage(user, raw.fullName?.trim());
   const documentVerified = match.identityVerified;
-  const identityVerified = documentVerified && linkage.policyLinked;
+  const identityVerified = documentVerified;
 
   let status: KycStatus = 'failed';
   if (identityVerified) status = 'verified';
   else if (documentReadable || match.kycScore >= 60) status = 'partial';
 
   const missingFields = [...(raw.missingFields ?? [])];
-  if (documentVerified && !linkage.hasCompletedPurchases) {
-    missingFields.push('completed_policy_purchase');
-  } else if (documentVerified && !linkage.policyLinked) {
-    missingFields.push('policyholder_match');
-  }
 
   const doc = await upsertKycRecord(user._id, {
     cnicMasked: maskCnic(user.cnic),
@@ -255,7 +275,17 @@ export async function verifyCnicDocument(
     geminiModel: env.GEMINI_MODEL,
   });
 
+  await applyExtractedAddress(user._id, raw, local?.province ?? doc.province);
+
   return enrichReportWithPolicyLinkage(user, toKycReport(doc), raw.fullName?.trim());
+}
+
+export async function assertUserKycVerified(userId: IUserDocument['_id']): Promise<void> {
+  const doc = await KycVerification.findOne({ userId }).sort({ verifiedAt: -1, updatedAt: -1 });
+  if (doc?.status === 'verified' && doc.identityVerified) return;
+  throw new AppError(403, 'Complete KYC verification in Settings before purchasing a policy', [
+    'Save your CNIC in Settings, upload your CNIC photo, and wait for verification to complete.',
+  ]);
 }
 
 export async function getKycStatus(userId: IUserDocument['_id']): Promise<KycReportPayload> {

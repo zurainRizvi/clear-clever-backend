@@ -13,6 +13,15 @@ export function normalizePkPhone(raw: string): string {
   return digits;
 }
 
+function assertStrongPassword(value: string): boolean {
+  if (value.length < 8) return false;
+  if (!/[A-Z]/.test(value)) return false;
+  if (!/[a-z]/.test(value)) return false;
+  if (!/[0-9]/.test(value)) return false;
+  if (!/^[A-Za-z0-9]+$/.test(value)) return false;
+  return true;
+}
+
 export const signupValidators = [
   body('fullName').trim().notEmpty().withMessage('fullName is required').isLength({ max: 120 }),
   body('email').trim().isEmail().withMessage('Valid email is required').normalizeEmail(),
@@ -29,7 +38,15 @@ export const signupValidators = [
     }),
   body('password')
     .isLength({ min: 8 })
-    .withMessage('password must be at least 8 characters'),
+    .withMessage('password must be at least 8 characters')
+    .custom((value: string) => {
+      if (!assertStrongPassword(value)) {
+        throw new Error(
+          'password must include upper & lower case letters, a number, and no special characters'
+        );
+      }
+      return true;
+    }),
   body('cnic')
     .optional({ values: 'null' })
     .trim()
@@ -55,7 +72,15 @@ export const resetPasswordValidators = [
   body('token').trim().notEmpty().withMessage('token is required'),
   body('password')
     .isLength({ min: 8 })
-    .withMessage('password must be at least 8 characters'),
+    .withMessage('password must be at least 8 characters')
+    .custom((value: string) => {
+      if (!assertStrongPassword(value)) {
+        throw new Error(
+          'password must include upper & lower case letters, a number, and no special characters'
+        );
+      }
+      return true;
+    }),
   body('confirmPassword')
     .custom((value: string, { req }) => {
       const password = (req.body as { password?: string }).password;

@@ -8,6 +8,7 @@ import { createAndSendOtp, verifyOtpAndConsume } from '../services/otp';
 import { createAndSendPasswordReset } from '../services/passwordReset';
 import { buildAuthUserPayload } from '../services/insurerOnboarding';
 import { ensureUserProfile, sanitizeUserProfile } from '../services/userProfile';
+import { recordAuditEvent } from '../services/auditLogService';
 import { AppError, successResponse } from '../utils/apiResponse';
 import { normalizePkPhone } from '../validators/authValidators';
 import { normalizeCnic } from '../utils/cnic';
@@ -49,6 +50,11 @@ export async function signup(req: AuthenticatedRequest, res: Response): Promise<
     status: 'pendingVerification',
   });
   const profile = await ensureUserProfile(user._id);
+  void recordAuditEvent({
+    action: 'User registered',
+    subject: `${user.fullName} (${user.email})`,
+    severity: 'low',
+  }).catch(() => undefined);
 
   const awaitOtpForDebug =
     (env.NODE_ENV === 'development' || env.NODE_ENV === 'test') &&
@@ -321,6 +327,10 @@ export async function updateMe(req: AuthenticatedRequest, res: Response): Promis
   const body = req.body as {
     profilePhotoDataUrl?: string | null;
     cnic?: string;
+    addressLine?: string;
+    city?: string;
+    province?: string;
+    postalCode?: string;
     notificationPreferences?: Partial<{
       emailUpdates: boolean;
       claimAlerts: boolean;
@@ -350,11 +360,29 @@ export async function updateMe(req: AuthenticatedRequest, res: Response): Promis
     await assignUserCnic(req.user, body.cnic);
   }
 
+  if (Object.prototype.hasOwnProperty.call(body, 'addressLine')) {
+    profile.addressLine = body.addressLine?.trim() || undefined;
+  }
+  if (Object.prototype.hasOwnProperty.call(body, 'city')) {
+    profile.city = body.city?.trim() || undefined;
+  }
+  if (Object.prototype.hasOwnProperty.call(body, 'province')) {
+    profile.province = body.province?.trim() || undefined;
+  }
+  if (Object.prototype.hasOwnProperty.call(body, 'postalCode')) {
+    profile.postalCode = body.postalCode?.trim() || undefined;
+  }
+
   await profile.save();
+
+  const freshUser = await User.findById(req.user._id);
+  if (!freshUser) {
+    throw new AppError(404, 'User not found');
+  }
 
   res.status(200).json(
     successResponse('Profile updated', {
-      user: await buildAuthUserPayload(req.user),
+      user: await buildAuthUserPayload(freshUser),
     })
   );
 }
