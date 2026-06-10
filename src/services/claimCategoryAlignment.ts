@@ -4,9 +4,9 @@ import type { CategorySlug } from '../constants/categories';
 const CLAIM_TYPE_CATEGORIES: Record<ClaimType, CategorySlug[]> = {
   accident: ['auto'],
   auto: ['auto'],
-  theft: ['auto', 'home', 'others'],
-  damage: ['auto', 'home', 'others'],
-  medical: ['life'],
+  theft: ['auto', 'home', 'pet', 'others'],
+  damage: ['auto', 'home', 'pet', 'others'],
+  medical: ['life', 'pet'],
   life: ['life'],
   pet_care: ['pet'],
   pet: ['pet'],
@@ -14,9 +14,20 @@ const CLAIM_TYPE_CATEGORIES: Record<ClaimType, CategorySlug[]> = {
   other: ['home', 'auto', 'life', 'pet', 'others'],
 };
 
+const PET_CLAIM_TYPES: ClaimType[] = ['pet_care', 'pet'];
+const LIFE_CLAIM_TYPES: ClaimType[] = ['medical', 'life'];
+
 export interface PolicyAlignmentResult {
   matchesPolicyCategory: boolean;
   reason: string;
+}
+
+function isPetContext(category: CategorySlug, claimType: ClaimType): boolean {
+  return category === 'pet' || PET_CLAIM_TYPES.includes(claimType);
+}
+
+function isLifeHealthContext(category: CategorySlug, claimType: ClaimType): boolean {
+  return category === 'life' || LIFE_CLAIM_TYPES.includes(claimType);
 }
 
 export function assessClaimPolicyAlignment(input: {
@@ -34,11 +45,18 @@ export function assessClaimPolicyAlignment(input: {
     };
   }
 
-  if (input.analysisTypes.includes('medical') && category !== 'life') {
-    return {
-      matchesPolicyCategory: false,
-      reason: `Medical documentation was detected, but the linked policy is ${category} insurance — not health/life.`,
-    };
+  // Injury photos on pet policies are often tagged "medical" by AI (vet injury) — that is expected.
+  if (input.analysisTypes.includes('medical')) {
+    if (isPetContext(category, input.claimType)) {
+      // Pet injury / vet treatment evidence aligns with pet insurance.
+    } else if (isLifeHealthContext(category, input.claimType)) {
+      // Human health evidence on life/health policies.
+    } else if (category === 'auto' || category === 'home') {
+      return {
+        matchesPolicyCategory: false,
+        reason: `Injury or treatment evidence was detected, but your linked policy is ${category} insurance. Use a pet or life/health policy if this is a veterinary or medical claim.`,
+      };
+    }
   }
 
   if (input.claimType === 'accident' && category !== 'auto') {
@@ -55,10 +73,10 @@ export function assessClaimPolicyAlignment(input: {
     };
   }
 
-  if (input.claimType === 'medical' && category !== 'life') {
+  if (input.claimType === 'medical' && category !== 'life' && category !== 'pet') {
     return {
       matchesPolicyCategory: false,
-      reason: `Medical claims require a life/health policy. The selected policy is ${category}.`,
+      reason: `Medical or veterinary claims require a life/health or pet policy. The selected policy is ${category}.`,
     };
   }
 
@@ -85,7 +103,7 @@ export function claimTypesForPolicyCategory(category: string | undefined): Claim
     case 'life':
       return ['medical', 'life', 'other'];
     case 'pet':
-      return ['pet_care', 'pet', 'other'];
+      return ['pet_care', 'damage', 'pet', 'other'];
     default:
       return ['accident', 'damage', 'theft', 'medical', 'pet_care', 'other'];
   }

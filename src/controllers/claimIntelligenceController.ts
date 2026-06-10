@@ -2,15 +2,12 @@ import type { Response } from 'express';
 import type { AuthenticatedRequest } from '../middleware/authenticate';
 import { CLAIM_TYPES, type ClaimType } from '../models/ClaimRequest';
 import { analyzeClaimIntelligence } from '../services/claimIntelligenceService';
-import { assertUserHasCnic } from '../services/claimCnicGuard';
 import { successResponse } from '../utils/apiResponse';
 
 export async function analyzeClaimIntelligenceHandler(
   req: AuthenticatedRequest,
   res: Response
 ): Promise<void> {
-  assertUserHasCnic(req.user!);
-
   const body = req.body as {
     purchaseId: string;
     claimType: string;

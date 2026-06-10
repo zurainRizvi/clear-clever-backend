@@ -82,9 +82,13 @@ export interface ClaimIntelligencePolicyAlignment {
 export interface ClaimIntelligenceSubmissionChecklist {
   cnicDocumentUploaded: boolean;
   cnicVerified: boolean;
+  /** True when the application looks complete for highest approval confidence (does not block submission). */
   readyToSubmit: boolean;
   missingItems: string[];
 }
+
+/** Actionable steps to raise claim-readiness toward 100% approval confidence. */
+export type ClaimIntelligenceApprovalImprovements = string[];
 
 export interface ClaimIntelligenceReport {
   reportVersion: '1';
@@ -100,6 +104,7 @@ export interface ClaimIntelligenceReport {
   claimReadiness: ClaimIntelligenceReadiness;
   policyAlignment: ClaimIntelligencePolicyAlignment;
   submissionChecklist: ClaimIntelligenceSubmissionChecklist;
+  approvalImprovements: ClaimIntelligenceApprovalImprovements;
   executiveSummary: string;
   insurerRecommendation: InsurerRecommendation;
   modelVersion: string;

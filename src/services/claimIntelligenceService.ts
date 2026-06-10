@@ -133,6 +133,77 @@ export function computeClaimReadiness(input: {
   };
 }
 
+export function buildApprovalImprovements(input: {
+  userHasCnic: boolean;
+  cnicDocumentUploaded: boolean;
+  cnicVerified: boolean;
+  identity?: ClaimIntelligenceReport['identity'];
+  claimReadiness: ClaimIntelligenceReport['claimReadiness'];
+  policyAlignment: ClaimIntelligenceReport['policyAlignment'];
+  policyDoc?: ClaimIntelligenceReport['policyDoc'];
+  missingItems: string[];
+}): string[] {
+  const suggestions: string[] = [];
+
+  if (!input.userHasCnic) {
+    suggestions.push(
+      'Add your CNIC to your ClearClever profile (Settings) — insurers expect a registered identity on file.'
+    );
+  }
+  if (!input.cnicDocumentUploaded) {
+    suggestions.push(
+      'Upload a clear, well-lit photo of your CNIC alongside your damage or incident evidence.'
+    );
+  } else if (!input.cnicVerified && input.identity) {
+    if (input.identity.expiryStatus === 'expired') {
+      suggestions.push('Your CNIC appears expired — renew it and upload the updated card.');
+    } else if (!input.identity.matchesCnic) {
+      suggestions.push(
+        'Use a CNIC that matches your profile number, or update your profile CNIC in Settings.'
+      );
+    } else if (!input.identity.matchesName) {
+      suggestions.push('Ensure the name on your CNIC matches your account name exactly.');
+    } else {
+      suggestions.push('Re-upload a sharper CNIC photo so identity can be verified automatically.');
+    }
+  }
+
+  if (!input.policyAlignment.matchesPolicyCategory) {
+    suggestions.push(
+      'Confirm you selected the right claim type for your policy category, or adjust your description to match coverage.'
+    );
+  }
+
+  if (!input.claimReadiness.documentsComplete) {
+    suggestions.push('Include all key documents insurers typically need (CNIC, policy copy, and incident proof).');
+  }
+  if (!input.claimReadiness.photosClear) {
+    suggestions.push(
+      'Upload brighter, in-focus photos — blurry or dark images lower approval confidence.'
+    );
+  }
+  if (!input.claimReadiness.informationConsistent) {
+    suggestions.push(
+      'Align your written description with what is visible in photos (location, damage type, and timeline).'
+    );
+  }
+  if (!input.claimReadiness.noMajorIssues) {
+    suggestions.push('Resolve flagged identity, policy, or consistency issues highlighted in this report.');
+  }
+
+  if (input.policyDoc && !input.policyDoc.matchesLinkedPolicy) {
+    suggestions.push('Upload a policy document that matches your linked ClearClever policy number and insurer.');
+  }
+
+  for (const item of input.missingItems) {
+    if (!suggestions.some((s) => s.toLowerCase().includes(item.slice(0, 24).toLowerCase()))) {
+      suggestions.push(item);
+    }
+  }
+
+  return [...new Set(suggestions)].slice(0, 8);
+}
+
 export function computeInsurerRecommendation(input: {
   consistencyLevel: ConsistencyLevel;
   readinessScore: number;
@@ -307,7 +378,7 @@ export function enrichClaimIntelligenceReport(input: {
   const cnicDocumentUploaded = hasCnicAttachment(input.attachments) || Boolean(identity);
   if (!cnicDocumentUploaded) {
     suspiciousFlags.push(
-      'CNIC not uploaded — add a clear photo of your CNIC before submitting. Submission requires identity verification.'
+      'CNIC not uploaded — add a clear photo of your CNIC to strengthen identity verification.'
     );
   } else if (input.user.cnic && !identity) {
     suspiciousFlags.push(
@@ -410,13 +481,24 @@ export function enrichClaimIntelligenceReport(input: {
 
   const cnicVerified = Boolean(identity?.matchesUserProfile);
   const missingItems: string[] = [];
+  if (!input.user.cnic?.trim()) {
+    missingItems.push('No CNIC registered on your ClearClever profile.');
+  }
   if (!cnicDocumentUploaded) {
-    missingItems.push('Upload a clear photo of your CNIC (required for submission).');
+    missingItems.push('CNIC photo not included in uploaded evidence.');
   } else if (!cnicVerified) {
-    missingItems.push('CNIC on file must match your registered CNIC.');
+    if (identity?.expiryStatus === 'expired') {
+      missingItems.push('CNIC on upload appears expired.');
+    } else if (identity && !identity.matchesCnic) {
+      missingItems.push('CNIC on upload does not match your registered CNIC.');
+    } else if (identity && !identity.matchesName) {
+      missingItems.push('Name on CNIC does not match your account name.');
+    } else {
+      missingItems.push('CNIC could not be fully verified from the upload.');
+    }
   }
   if (!policyAlignment.matchesPolicyCategory) {
-    missingItems.push('Select the correct policy category for this claim type.');
+    missingItems.push('Claim type may not align with your policy category.');
   }
 
   const submissionChecklist = {
@@ -449,6 +531,17 @@ export function enrichClaimIntelligenceReport(input: {
     policyCategoryAligned: policyAlignment.matchesPolicyCategory,
   });
 
+  const approvalImprovements = buildApprovalImprovements({
+    userHasCnic: Boolean(input.user.cnic?.trim()),
+    cnicDocumentUploaded,
+    cnicVerified,
+    identity,
+    claimReadiness,
+    policyAlignment,
+    policyDoc,
+    missingItems,
+  });
+
   const base: Omit<ClaimIntelligenceReport, 'executiveSummary'> = {
     reportVersion: '1',
     analyzedAt: new Date().toISOString(),
@@ -466,6 +559,7 @@ export function enrichClaimIntelligenceReport(input: {
     claimReadiness,
     policyAlignment,
     submissionChecklist,
+    approvalImprovements,
     insurerRecommendation,
     modelVersion: input.modelVersion,
   };
@@ -633,6 +727,9 @@ export function sanitizeIntelligenceReportForStorage(
       readyToSubmit: Boolean(r.submissionChecklist?.readyToSubmit),
       missingItems: (r.submissionChecklist?.missingItems ?? []).slice(0, 8).map(String),
     },
+    approvalImprovements: (r.approvalImprovements ?? r.submissionChecklist?.missingItems ?? [])
+      .slice(0, 8)
+      .map(String),
     executiveSummary: String(r.executiveSummary).slice(0, 2000),
     insurerRecommendation: pickEnum(
       r.insurerRecommendation,

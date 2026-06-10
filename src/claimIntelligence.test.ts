@@ -350,7 +350,7 @@ describe('AI Claims Intelligence Engine', () => {
       expect(res.status).toBe(401);
     });
 
-    it('requires CNIC on profile before analysis', async () => {
+    it('allows analysis without CNIC on profile and flags gaps in the report', async () => {
       const purchaseId = await completePurchase();
       const user = await User.findOne({ email: 'seeker@clearclever.com' });
       expect(user).toBeTruthy();
@@ -369,7 +369,9 @@ describe('AI Claims Intelligence Engine', () => {
           attachments: attachmentPayload(),
         });
 
-      expect(res.status).toBe(403);
+      expect(res.status).toBe(200);
+      expect(res.body.data.intelligenceReport.submissionChecklist.readyToSubmit).toBe(false);
+      expect(res.body.data.intelligenceReport.approvalImprovements.length).toBeGreaterThan(0);
     });
   });
 

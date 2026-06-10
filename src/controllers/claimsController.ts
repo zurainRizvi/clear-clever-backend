@@ -4,7 +4,6 @@ import { ClaimRequest } from '../models/ClaimRequest';
 import { InsurerProfile } from '../models/InsurerProfile';
 import { Notification } from '../models/Notification';
 import { Purchase } from '../models/Purchase';
-import { assertUserHasCnic } from '../services/claimCnicGuard';
 import { toClaimSummary } from '../services/claimPresentation';
 import { sanitizeIntelligenceReportForStorage } from '../services/claimIntelligenceService';
 import {
@@ -27,8 +26,6 @@ export async function listClaims(req: AuthenticatedRequest, res: Response): Prom
 }
 
 export async function createClaim(req: AuthenticatedRequest, res: Response): Promise<void> {
-  assertUserHasCnic(req.user!);
-
   const {
     purchaseId,
     claimType,
@@ -128,8 +125,6 @@ export async function getClaim(req: AuthenticatedRequest, res: Response): Promis
 }
 
 export async function resubmitClaim(req: AuthenticatedRequest, res: Response): Promise<void> {
-  assertUserHasCnic(req.user!);
-
   const claim = await ClaimRequest.findOne({
     _id: req.params.id,
     userId: req.user!._id,
