@@ -102,6 +102,45 @@ export interface UsersByPakistanRegionRow {
   userCount: number;
 }
 
+export function resolveUserPakistanRegion(input: {
+  userId: string;
+  questionnaireByUser: Map<string, Record<string, unknown>[]>;
+  leadMetadataByUser: Map<string, Record<string, unknown>[]>;
+  purchaseAnswersByUser: Map<string, Record<string, unknown>[]>;
+  kycRegionByUser?: Map<string, PakistanRegionSlug>;
+}): PakistanRegionSlug | null {
+  const kycRegion = input.kycRegionByUser?.get(input.userId);
+  if (kycRegion) return kycRegion;
+
+  const candidates: string[] = [];
+
+  for (const answers of input.questionnaireByUser.get(input.userId) ?? []) {
+    const city = extractCityFromAnswers(answers);
+    if (city) candidates.push(city);
+  }
+
+  for (const meta of input.leadMetadataByUser.get(input.userId) ?? []) {
+    if (typeof meta.city === 'string' && meta.city.trim()) {
+      candidates.push(meta.city.trim());
+    }
+    if (typeof meta.registration_city === 'string' && meta.registration_city.trim()) {
+      candidates.push(meta.registration_city.trim());
+    }
+  }
+
+  for (const answers of input.purchaseAnswersByUser.get(input.userId) ?? []) {
+    const city = extractCityFromAnswers(answers);
+    if (city) candidates.push(city);
+  }
+
+  for (const candidate of candidates) {
+    const region = resolvePakistanRegion(candidate);
+    if (region) return region;
+  }
+
+  return null;
+}
+
 export function buildUsersByPakistanRegion(input: {
   userIds: string[];
   questionnaireByUser: Map<string, Record<string, unknown>[]>;
@@ -115,39 +154,15 @@ export function buildUsersByPakistanRegion(input: {
   }
 
   for (const userId of input.userIds) {
-    const kycRegion = input.kycRegionByUser?.get(userId);
-    if (kycRegion) {
-      counts.get(kycRegion)!.add(userId);
-      continue;
-    }
-
-    const candidates: string[] = [];
-
-    for (const answers of input.questionnaireByUser.get(userId) ?? []) {
-      const city = extractCityFromAnswers(answers);
-      if (city) candidates.push(city);
-    }
-
-    for (const meta of input.leadMetadataByUser.get(userId) ?? []) {
-      if (typeof meta.city === 'string' && meta.city.trim()) {
-        candidates.push(meta.city.trim());
-      }
-      if (typeof meta.registration_city === 'string' && meta.registration_city.trim()) {
-        candidates.push(meta.registration_city.trim());
-      }
-    }
-
-    for (const answers of input.purchaseAnswersByUser.get(userId) ?? []) {
-      const city = extractCityFromAnswers(answers);
-      if (city) candidates.push(city);
-    }
-
-    for (const candidate of candidates) {
-      const region = resolvePakistanRegion(candidate);
-      if (region) {
-        counts.get(region)!.add(userId);
-        break;
-      }
+    const region = resolveUserPakistanRegion({
+      userId,
+      questionnaireByUser: input.questionnaireByUser,
+      leadMetadataByUser: input.leadMetadataByUser,
+      purchaseAnswersByUser: input.purchaseAnswersByUser,
+      kycRegionByUser: input.kycRegionByUser,
+    });
+    if (region) {
+      counts.get(region)!.add(userId);
     }
   }
 

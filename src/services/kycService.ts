@@ -1,6 +1,7 @@
 import { loadEnv, isGeminiConfigured } from '../config/env';
 import type { IKycVerificationDocument, KycStatus } from '../models/KycVerification';
 import { KycVerification } from '../models/KycVerification';
+import { User } from '../models/User';
 import type { IUserDocument } from '../models/User';
 import { AppError } from '../utils/apiResponse';
 import { maskCnic, normalizeCnic } from '../utils/cnic';
@@ -16,6 +17,7 @@ import {
 } from './cnicDerivationService';
 import { generateStructuredJson } from './geminiService';
 import { computeIdentityMatchScore } from './identityVerificationService';
+import { evaluatePolicyLinkage } from './kycPolicyLinkageService';
 import {
   buildKycUserMessage,
   KYC_GEMINI_SCHEMA,
@@ -51,6 +53,10 @@ export interface KycReportPayload {
   blurScore?: 'Low' | 'Medium' | 'High';
   tamperingRisk?: 'Low' | 'Medium' | 'High';
   verifiedAt?: string;
+  policyLinked?: boolean;
+  linkedPolicyCount?: number;
+  linkedPolicyNames?: string[];
+  policyLinkageNote?: string;
 }
 
 function pickBlurScore(value: string | undefined): 'Low' | 'Medium' | 'High' {
@@ -95,6 +101,21 @@ function toKycReport(doc: IKycVerificationDocument | null): KycReportPayload {
     blurScore: doc.blurScore,
     tamperingRisk: doc.tamperingRisk,
     verifiedAt: doc.verifiedAt?.toISOString(),
+  };
+}
+
+async function enrichReportWithPolicyLinkage(
+  user: IUserDocument,
+  report: KycReportPayload,
+  extractedName?: string
+): Promise<KycReportPayload> {
+  const linkage = await evaluatePolicyLinkage(user, extractedName ?? report.extractedFullName);
+  return {
+    ...report,
+    policyLinked: linkage.policyLinked,
+    linkedPolicyCount: linkage.linkedPolicyCount,
+    linkedPolicyNames: linkage.linkedPolicyNames,
+    policyLinkageNote: linkage.note,
   };
 }
 
@@ -186,9 +207,20 @@ export async function verifyCnicDocument(
     blurScore: pickBlurScore(raw.blurScore),
   });
 
+  const linkage = await evaluatePolicyLinkage(user, raw.fullName?.trim());
+  const documentVerified = match.identityVerified;
+  const identityVerified = documentVerified && linkage.policyLinked;
+
   let status: KycStatus = 'failed';
-  if (match.identityVerified) status = 'verified';
-  else if (documentReadable) status = 'partial';
+  if (identityVerified) status = 'verified';
+  else if (documentReadable || match.kycScore >= 60) status = 'partial';
+
+  const missingFields = [...(raw.missingFields ?? [])];
+  if (documentVerified && !linkage.hasCompletedPurchases) {
+    missingFields.push('completed_policy_purchase');
+  } else if (documentVerified && !linkage.policyLinked) {
+    missingFields.push('policyholder_match');
+  }
 
   const doc = await upsertKycRecord(user._id, {
     cnicMasked: maskCnic(user.cnic),
@@ -213,8 +245,8 @@ export async function verifyCnicDocument(
     cnicMatch: match.cnicMatch,
     profileMatchesDocument: match.profileMatchesDocument,
     documentReadable,
-    identityVerified: match.identityVerified,
-    missingFields: raw.missingFields ?? [],
+    identityVerified,
+    missingFields,
     suspiciousDocument: raw.suspiciousDocument,
     croppedDocument: raw.croppedDocument,
     blurScore: pickBlurScore(raw.blurScore),
@@ -223,12 +255,14 @@ export async function verifyCnicDocument(
     geminiModel: env.GEMINI_MODEL,
   });
 
-  return toKycReport(doc);
+  return enrichReportWithPolicyLinkage(user, toKycReport(doc), raw.fullName?.trim());
 }
 
 export async function getKycStatus(userId: IUserDocument['_id']): Promise<KycReportPayload> {
   const doc = await KycVerification.findOne({ userId }).sort({ verifiedAt: -1, updatedAt: -1 });
-  return toKycReport(doc);
+  const user = await User.findById(userId);
+  if (!user) return toKycReport(doc);
+  return enrichReportWithPolicyLinkage(user, toKycReport(doc));
 }
 
 export async function getKycSummaryForAuth(userId: IUserDocument['_id']): Promise<{

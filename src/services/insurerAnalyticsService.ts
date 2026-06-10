@@ -30,7 +30,7 @@ import {
 } from './insurerSignalAnalysis';
 import { getLatestKycByUserIds } from './kycService';
 import { buildCustomerDemographics } from './kycDemographicsService';
-import { buildUsersByPakistanRegion, type PakistanRegionSlug } from './pakistanRegionStats';
+import { buildUsersByPakistanRegion, PAKISTAN_REGIONS, resolveUserPakistanRegion, type PakistanRegionSlug } from './pakistanRegionStats';
 
 const CATEGORY_COLORS: Record<PolicyCategorySlug, string> = {
   home: '#2563EB',
@@ -267,6 +267,8 @@ export interface InsurerAnalyticsPayload {
     totalUsers: number;
     mappedUsers: number;
     coverageNote?: string;
+    audience: 'all' | 'purchasers';
+    regionFilter: string | null;
     regions: Array<{
       slug: string;
       label: string;
@@ -274,13 +276,14 @@ export interface InsurerAnalyticsPayload {
       userCount: number;
     }>;
   };
-  usersByRegionLifetime: InsurerAnalyticsPayload['usersByRegion'];
   customerDemographics: import('./kycDemographicsService').CustomerDemographicsPayload;
 }
 
+export type InsurerAnalyticsAudience = 'all' | 'purchasers';
+
 export async function buildInsurerAnalytics(
   insurerProfileId: Types.ObjectId | string,
-  options?: { from?: string; to?: string }
+  options?: { from?: string; to?: string; audience?: InsurerAnalyticsAudience; region?: string }
 ): Promise<InsurerAnalyticsPayload> {
   const dateRange = parseInsurerDateRange(options?.from, options?.to);
   const priorRange = previousInsurerRange(dateRange);
@@ -668,26 +671,42 @@ export async function buildInsurerAnalytics(
 
   const insurerCategories = new Set(approvedPolicies.map((p) => p.category as PolicyCategorySlug));
 
-  const periodUserIds = [...currentSeekers];
+  const audience: InsurerAnalyticsAudience =
+    options?.audience === 'purchasers' ? 'purchasers' : 'all';
+  const regionFilter =
+    options?.region && PAKISTAN_REGIONS.some((r) => r.slug === options.region)
+      ? (options.region as PakistanRegionSlug)
+      : null;
+
+  let regionUserIds =
+    audience === 'purchasers' ? [...currentPurchasers] : [...currentSeekers];
   const purchaserUserIds = [...currentPurchasers];
-  const lifetimeUserIds = [
-    ...new Set(
-      purchases.filter((p) => p.status === 'completed').map((p) => String(p.userId))
-    ),
-  ];
   const questionnaireByUser = buildAnswersByUser(questionnaireResponses);
-  const allLeadMetadataByUser = buildLeadMetadataByUser(leads);
   const leadMetadataByUser = buildLeadMetadataByUser(currentLeads);
   const purchaseAnswersByUser = buildPurchaseAnswersByUser(purchases, dateRange);
-  const allPurchaseAnswersByUser = buildAllPurchaseAnswersByUser(purchases);
 
   const kycByUser = await getLatestKycByUserIds([
-    ...new Set([...periodUserIds, ...purchaserUserIds, ...lifetimeUserIds]),
+    ...new Set([...regionUserIds, ...purchaserUserIds]),
   ]);
   const kycRegionByUser = new Map<string, PakistanRegionSlug>();
   for (const [userId, kyc] of kycByUser) {
     if (kyc.regionSlug) kycRegionByUser.set(userId, kyc.regionSlug);
   }
+
+  if (regionFilter) {
+    regionUserIds = regionUserIds.filter(
+      (userId) =>
+        resolveUserPakistanRegion({
+          userId,
+          questionnaireByUser,
+          leadMetadataByUser,
+          purchaseAnswersByUser,
+          kycRegionByUser,
+        }) === regionFilter
+    );
+  }
+
+  const periodUserIds = regionUserIds;
 
   const smartInsights = buildAnalyticsInsights({
     demandSignals,
@@ -720,42 +739,29 @@ export async function buildInsurerAnalytics(
     kycRegionByUser,
   });
 
-  const lifetimeRegionRows = buildUsersByPakistanRegion({
-    userIds: lifetimeUserIds,
-    questionnaireByUser,
-    leadMetadataByUser: allLeadMetadataByUser,
-    purchaseAnswersByUser: allPurchaseAnswersByUser,
-    kycRegionByUser,
-  });
-
   const customerDemographics = buildCustomerDemographics({
     purchaserUserIds,
     kycByUser,
   });
   const mappedUsers = regionRows.reduce((sum, row) => sum + row.userCount, 0);
+  const audienceLabel = audience === 'purchasers' ? 'Policy purchasers' : 'All active users';
+  const regionLabel = regionFilter
+    ? PAKISTAN_REGIONS.find((r) => r.slug === regionFilter)?.label
+    : null;
   const usersByRegion = {
-    title: 'Seekers by region',
-    subtitle: `Activity in ${dateRange.label} — mapped from city, KYC, and questionnaire answers`,
+    title: 'Customers by region',
+    subtitle: `${audienceLabel} in ${dateRange.label}${
+      regionLabel ? ` · ${regionLabel} only` : ''
+    } — mapped from city, KYC, and questionnaire answers`,
     totalUsers: periodUserIds.length,
     mappedUsers,
+    audience,
+    regionFilter,
     coverageNote:
       mappedUsers < periodUserIds.length
-        ? `${periodUserIds.length - mappedUsers} seeker(s) had no location data in this period.`
+        ? `${periodUserIds.length - mappedUsers} user(s) had no location data for this view.`
         : undefined,
     regions: regionRows,
-  };
-
-  const lifetimeMapped = lifetimeRegionRows.reduce((sum, row) => sum + row.userCount, 0);
-  const usersByRegionLifetime = {
-    title: 'All customers by region',
-    subtitle: 'Cumulative map of everyone who completed a purchase — counts persist across sessions',
-    totalUsers: lifetimeUserIds.length,
-    mappedUsers: lifetimeMapped,
-    coverageNote:
-      lifetimeMapped < lifetimeUserIds.length
-        ? `${lifetimeUserIds.length - lifetimeMapped} customer(s) had no locatable region data.`
-        : undefined,
-    regions: lifetimeRegionRows,
   };
 
   const operations = buildOperationsSnapshot({
@@ -811,7 +817,6 @@ export async function buildInsurerAnalytics(
     policyPerformance,
     operations,
     usersByRegion,
-    usersByRegionLifetime,
     customerDemographics,
   };
 }
@@ -850,20 +855,6 @@ function buildPurchaseAnswersByUser(
   const map = new Map<string, Record<string, unknown>[]>();
   for (const purchase of purchases) {
     if (!inInsurerRange(purchase.createdAt, range)) continue;
-    const userId = String(purchase.userId);
-    const list = map.get(userId) ?? [];
-    list.push(purchase.answers as Record<string, unknown>);
-    map.set(userId, list);
-  }
-  return map;
-}
-
-function buildAllPurchaseAnswersByUser(
-  purchases: IPurchaseDocument[]
-): Map<string, Record<string, unknown>[]> {
-  const map = new Map<string, Record<string, unknown>[]>();
-  for (const purchase of purchases) {
-    if (purchase.status !== 'completed') continue;
     const userId = String(purchase.userId);
     const list = map.get(userId) ?? [];
     list.push(purchase.answers as Record<string, unknown>);

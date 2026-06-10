@@ -28,8 +28,13 @@ export async function getInsurerAnalytics(req: AuthenticatedRequest, res: Respon
   const profile = await getInsurerProfileForUser(req.user!._id, req.user!);
   const from = typeof req.query.from === 'string' ? req.query.from : undefined;
   const to = typeof req.query.to === 'string' ? req.query.to : undefined;
+  const audienceRaw = typeof req.query.audience === 'string' ? req.query.audience : undefined;
+  const audience = audienceRaw === 'purchasers' ? 'purchasers' : 'all';
+  const region = typeof req.query.region === 'string' && req.query.region.trim()
+    ? req.query.region.trim()
+    : undefined;
 
-  const analytics = await buildInsurerAnalytics(profile._id, { from, to });
+  const analytics = await buildInsurerAnalytics(profile._id, { from, to, audience, region });
 
   res.status(200).json(
     successResponse('Insurer analytics retrieved', {
