@@ -65,9 +65,14 @@ export const updateInsurerClaimValidators = [
   insurerClaimIdValidator,
   body('status')
     .trim()
-    .isIn(['in_review', 'approved', 'rejected'])
-    .withMessage('Status must be in_review, approved, or rejected'),
+    .isIn(['in_review', 'needs_info', 'approved', 'rejected'])
+    .withMessage('Status must be in_review, needs_info, approved, or rejected'),
   body('revert').optional().isBoolean().withMessage('revert must be a boolean'),
+  body('comment')
+    .optional()
+    .trim()
+    .isLength({ min: 3, max: 2000 })
+    .withMessage('Comment must be between 3 and 2000 characters'),
 ];
 
 export const createInsurerProfileValidators = [

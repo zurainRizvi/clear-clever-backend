@@ -21,6 +21,8 @@ export async function toClaimSummary(claim: IClaimRequestDocument) {
     createdAt: claim.createdAt.toISOString(),
     updatedAt: claim.updatedAt.toISOString(),
     ...(claim.intelligenceReport ? { intelligenceReport: claim.intelligenceReport } : {}),
+    ...(claim.attachments?.length ? { attachments: claim.attachments } : {}),
+    ...(claim.insurerComment ? { insurerComment: claim.insurerComment } : {}),
     policy: policy
       ? {
           id: String(policy._id),

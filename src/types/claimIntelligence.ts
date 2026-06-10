@@ -74,6 +74,18 @@ export interface ClaimIntelligenceReadiness {
   noMajorIssues: boolean;
 }
 
+export interface ClaimIntelligencePolicyAlignment {
+  matchesPolicyCategory: boolean;
+  reason: string;
+}
+
+export interface ClaimIntelligenceSubmissionChecklist {
+  cnicDocumentUploaded: boolean;
+  cnicVerified: boolean;
+  readyToSubmit: boolean;
+  missingItems: string[];
+}
+
 export interface ClaimIntelligenceReport {
   reportVersion: '1';
   analyzedAt: string;
@@ -86,6 +98,8 @@ export interface ClaimIntelligenceReport {
   consistency: { level: ConsistencyLevel; reason: string };
   suspiciousFlags: string[];
   claimReadiness: ClaimIntelligenceReadiness;
+  policyAlignment: ClaimIntelligencePolicyAlignment;
+  submissionChecklist: ClaimIntelligenceSubmissionChecklist;
   executiveSummary: string;
   insurerRecommendation: InsurerRecommendation;
   modelVersion: string;

@@ -37,6 +37,11 @@ import {
   CLAIM_INTELLIGENCE_SYSTEM_INSTRUCTION,
 } from './claimIntelligencePrompts';
 import { generateStructuredJson } from './geminiService';
+import { assessClaimPolicyAlignment } from './claimCategoryAlignment';
+import {
+  hasCnicAttachment,
+  hasPolicyAttachment,
+} from './claimAttachmentService';
 
 export interface AnalyzeClaimIntelligenceInput {
   user: IUserDocument;
@@ -103,14 +108,18 @@ export function computeClaimReadiness(input: {
   consistencyLevel: ConsistencyLevel;
   identityMatch?: boolean;
   policyMatch?: boolean;
+  policyCategoryAligned?: boolean;
+  cnicDocumentUploaded?: boolean;
 }): ClaimIntelligenceReport['claimReadiness'] {
-  const documentsComplete = input.attachmentCount >= 1;
+  const documentsComplete =
+    input.attachmentCount >= 1 && Boolean(input.cnicDocumentUploaded);
   const photosClear = !photosUnclear(input.suspiciousFlags);
-  const informationConsistent = input.consistencyLevel !== 'low';
+  const informationConsistent =
+    input.consistencyLevel !== 'low' && input.policyCategoryAligned !== false;
   const identityOk = input.identityMatch !== false;
   const policyOk = input.policyMatch !== false;
   const noMajorIssues =
-    identityOk && policyOk && input.suspiciousFlags.length < 2;
+    identityOk && policyOk && input.policyCategoryAligned !== false && input.suspiciousFlags.length < 2;
 
   const checks = [documentsComplete, photosClear, informationConsistent, noMajorIssues];
   const score = checks.filter(Boolean).length * 25;
@@ -130,14 +139,18 @@ export function computeInsurerRecommendation(input: {
   suspiciousFlags: string[];
   identityMatch?: boolean;
   policyMatch?: boolean;
+  policyCategoryAligned?: boolean;
 }): InsurerRecommendation {
   const failedDocMatch =
-    input.identityMatch === false || input.policyMatch === false;
+    input.identityMatch === false ||
+    input.policyMatch === false ||
+    input.policyCategoryAligned === false;
 
   if (
     input.consistencyLevel === 'low' ||
     input.readinessScore < 60 ||
-    input.suspiciousFlags.length >= 2
+    input.suspiciousFlags.length >= 2 ||
+    input.policyCategoryAligned === false
   ) {
     return 'escalate_review';
   }
@@ -170,10 +183,45 @@ function buildExecutiveSummaryFallback(report: Omit<ClaimIntelligenceReport, 'ex
   return parts.join(' ') || 'AI-assisted claim evidence review completed.';
 }
 
+function normalizeGeminiRaw(
+  raw: GeminiClaimIntelligenceRaw,
+  attachments: AssistantAttachmentInput[]
+): GeminiClaimIntelligenceRaw {
+  const cnicUploaded = hasCnicAttachment(attachments);
+  const policyUploaded = hasPolicyAttachment(attachments);
+
+  const analysisTypes = (raw.analysisTypes ?? []).filter((type) => {
+    if (type === 'policy' && !policyUploaded) return false;
+    if (type === 'identity' && !cnicUploaded && !raw.identity?.extractedCnic) return false;
+    return true;
+  });
+
+  const normalized: GeminiClaimIntelligenceRaw = {
+    ...raw,
+    analysisTypes: analysisTypes.length > 0 ? analysisTypes : ['general'],
+    consistency: {
+      level: raw.consistency?.level,
+      reason: raw.consistency?.reason?.trim() || 'Evidence reviewed against claim description.',
+    },
+    suspiciousFlags: raw.suspiciousFlags ?? [],
+    executiveSummary: raw.executiveSummary?.trim() || '',
+  };
+
+  if (!policyUploaded) {
+    delete normalized.policyDoc;
+  }
+  if (!cnicUploaded && !raw.identity?.extractedCnic) {
+    delete normalized.identity;
+  }
+
+  return normalized;
+}
+
 export function enrichClaimIntelligenceReport(input: {
   raw: GeminiClaimIntelligenceRaw;
   user: IUserDocument;
   purchaseId: string;
+  claimType: ClaimType;
   policyName?: string;
   policyCategory?: string;
   insurerName?: string;
@@ -181,6 +229,7 @@ export function enrichClaimIntelligenceReport(input: {
   attachments: AssistantAttachmentInput[];
   modelVersion: string;
 }): ClaimIntelligenceReport {
+  const raw = normalizeGeminiRaw(input.raw, input.attachments);
   const suspiciousFlags = (input.raw.suspiciousFlags ?? []).slice(0, 10);
   const consistencyLevel = pickEnum(input.raw.consistency?.level, CONSISTENCY_LEVELS, 'medium');
   const consistencyReason =
@@ -253,9 +302,16 @@ export function enrichClaimIntelligenceReport(input: {
       matchesUserProfile: accountVerified,
       profileMatchReason: reasons.join(' '),
     };
-  } else if (input.user.cnic) {
+  }
+
+  const cnicDocumentUploaded = hasCnicAttachment(input.attachments) || Boolean(identity);
+  if (!cnicDocumentUploaded) {
     suspiciousFlags.push(
-      'No identity document uploaded — CNIC verification against the account holder was not possible.'
+      'CNIC not uploaded — add a clear photo of your CNIC before submitting. Submission requires identity verification.'
+    );
+  } else if (input.user.cnic && !identity) {
+    suspiciousFlags.push(
+      'CNIC image uploaded but could not be read — upload a clearer photo of your CNIC.'
     );
   }
 
@@ -341,12 +397,47 @@ export function enrichClaimIntelligenceReport(input: {
       }
     : undefined;
 
+  const analysisTypes = pickAnalysisTypes(raw.analysisTypes);
+  const policyAlignment = assessClaimPolicyAlignment({
+    claimType: input.claimType,
+    policyCategory: input.policyCategory,
+    analysisTypes,
+  });
+
+  if (!policyAlignment.matchesPolicyCategory) {
+    suspiciousFlags.push(policyAlignment.reason);
+  }
+
+  const cnicVerified = Boolean(identity?.matchesUserProfile);
+  const missingItems: string[] = [];
+  if (!cnicDocumentUploaded) {
+    missingItems.push('Upload a clear photo of your CNIC (required for submission).');
+  } else if (!cnicVerified) {
+    missingItems.push('CNIC on file must match your registered CNIC.');
+  }
+  if (!policyAlignment.matchesPolicyCategory) {
+    missingItems.push('Select the correct policy category for this claim type.');
+  }
+
+  const submissionChecklist = {
+    cnicDocumentUploaded,
+    cnicVerified,
+    readyToSubmit:
+      cnicDocumentUploaded &&
+      cnicVerified &&
+      policyAlignment.matchesPolicyCategory &&
+      missingItems.length === 0,
+    missingItems,
+  };
+
   const claimReadiness = computeClaimReadiness({
     attachmentCount: input.attachments.length,
     suspiciousFlags,
     consistencyLevel,
     identityMatch: identity?.matchesUserProfile,
     policyMatch: policyDoc?.matchesLinkedPolicy,
+    policyCategoryAligned: policyAlignment.matchesPolicyCategory,
+    cnicDocumentUploaded,
   });
 
   const insurerRecommendation = computeInsurerRecommendation({
@@ -355,12 +446,13 @@ export function enrichClaimIntelligenceReport(input: {
     suspiciousFlags,
     identityMatch: identity?.matchesUserProfile,
     policyMatch: policyDoc?.matchesLinkedPolicy,
+    policyCategoryAligned: policyAlignment.matchesPolicyCategory,
   });
 
   const base: Omit<ClaimIntelligenceReport, 'executiveSummary'> = {
     reportVersion: '1',
     analyzedAt: new Date().toISOString(),
-    analysisTypes: pickAnalysisTypes(input.raw.analysisTypes),
+    analysisTypes,
     attachmentSummary: {
       count: input.attachments.length,
       mimeTypes: input.attachments.map((a) => a.mimeType),
@@ -372,6 +464,8 @@ export function enrichClaimIntelligenceReport(input: {
     consistency: { level: consistencyLevel, reason: consistencyReason },
     suspiciousFlags,
     claimReadiness,
+    policyAlignment,
+    submissionChecklist,
     insurerRecommendation,
     modelVersion: input.modelVersion,
   };
@@ -435,6 +529,7 @@ export async function analyzeClaimIntelligence(
     raw,
     user: input.user,
     purchaseId: String(purchase._id),
+    claimType: input.claimType,
     policyName: policy?.name,
     policyCategory: policy?.category,
     insurerName: insurer?.companyName,
@@ -525,6 +620,18 @@ export function sanitizeIntelligenceReportForStorage(
       photosClear: Boolean(r.claimReadiness?.photosClear),
       informationConsistent: Boolean(r.claimReadiness?.informationConsistent),
       noMajorIssues: Boolean(r.claimReadiness?.noMajorIssues),
+    },
+    policyAlignment: {
+      matchesPolicyCategory: r.policyAlignment?.matchesPolicyCategory !== false,
+      reason: String(
+        r.policyAlignment?.reason ?? 'Policy alignment was not re-evaluated on this snapshot.'
+      ).slice(0, 500),
+    },
+    submissionChecklist: {
+      cnicDocumentUploaded: Boolean(r.submissionChecklist?.cnicDocumentUploaded),
+      cnicVerified: Boolean(r.submissionChecklist?.cnicVerified),
+      readyToSubmit: Boolean(r.submissionChecklist?.readyToSubmit),
+      missingItems: (r.submissionChecklist?.missingItems ?? []).slice(0, 8).map(String),
     },
     executiveSummary: String(r.executiveSummary).slice(0, 2000),
     insurerRecommendation: pickEnum(

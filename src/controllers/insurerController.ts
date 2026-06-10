@@ -304,7 +304,7 @@ export async function updateInsurerClaimStatus(
   res: Response
 ): Promise<void> {
   const profile = await getInsurerProfileForUser(req.user!._id, req.user!);
-  const body = req.body as { status: ClaimStatus; revert?: boolean };
+  const body = req.body as { status: ClaimStatus; revert?: boolean; comment?: string };
   const { status } = body;
   const claim = await ClaimRequest.findOne({
     _id: req.params.id,
@@ -347,11 +347,23 @@ export async function updateInsurerClaimStatus(
 
   const allowed: ClaimStatus[] =
     claim.status === 'submitted'
-      ? ['in_review', 'approved', 'rejected']
-      : ['approved', 'rejected'];
+      ? ['in_review', 'needs_info', 'approved', 'rejected']
+      : claim.status === 'needs_info'
+        ? ['in_review', 'approved', 'rejected']
+        : ['approved', 'rejected', 'needs_info'];
 
   if (!allowed.includes(status)) {
     throw new AppError(400, `Cannot move claim from ${claim.status} to ${status}`);
+  }
+
+  if (status === 'needs_info') {
+    const comment = body.comment?.trim();
+    if (!comment) {
+      throw new AppError(400, 'Validation failed', [
+        'A comment is required when requesting additional information.',
+      ]);
+    }
+    claim.insurerComment = { text: comment, createdAt: new Date().toISOString() };
   }
 
   claim.status = status;
@@ -366,6 +378,12 @@ export async function updateInsurerClaimStatus(
     in_review: {
       title: 'Claim under insurer review',
       body: `${insurerName} is reviewing your claim.`,
+    },
+    needs_info: {
+      title: 'Insurer needs more information',
+      body: body.comment?.trim()
+        ? `${insurerName} requested additional details: ${body.comment.trim()}`
+        : `${insurerName} requested additional details for your claim.`,
     },
     approved: {
       title: 'Claim approved',

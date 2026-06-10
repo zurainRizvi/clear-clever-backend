@@ -76,7 +76,10 @@ Rules:
 - Flag suspicious indicators: low image quality, partially hidden damage, inconsistent angles, unreadable documents.
 - Write a concise executive summary (2-4 sentences) for an insurer reviewer.
 - Omit optional sections if not applicable; set analysisTypes accordingly.
-- Use PKR for all cost estimates.`;
+- Use PKR for all cost estimates.
+- ONLY populate policyDoc when a policy document image/PDF was actually uploaded — never copy policy details from the claim context text alone.
+- ONLY populate identity when a CNIC/ID document was uploaded.
+- If vehicle damage photos are uploaded but the linked policy category is not auto, still analyze vehicle damage but note the category mismatch in consistency.reason.`;
 
 export function buildClaimIntelligenceUserMessage(input: {
   claimType: ClaimType;

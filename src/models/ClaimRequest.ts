@@ -1,7 +1,13 @@
 import mongoose, { Schema, type Document, type Model, type Types } from 'mongoose';
 import type { ClaimIntelligenceReport } from '../types/claimIntelligence';
 
-export const CLAIM_STATUSES = ['submitted', 'in_review', 'approved', 'rejected'] as const;
+export const CLAIM_STATUSES = [
+  'submitted',
+  'in_review',
+  'needs_info',
+  'approved',
+  'rejected',
+] as const;
 export type ClaimStatus = (typeof CLAIM_STATUSES)[number];
 
 export const CLAIM_TYPES = [
@@ -18,6 +24,18 @@ export const CLAIM_TYPES = [
 ] as const;
 export type ClaimType = (typeof CLAIM_TYPES)[number];
 
+export interface ClaimStoredAttachment {
+  fileName: string;
+  mimeType: string;
+  dataBase64: string;
+  uploadedAt: string;
+}
+
+export interface ClaimInsurerComment {
+  text: string;
+  createdAt: string;
+}
+
 export interface IClaimRequest {
   userId: Types.ObjectId;
   purchaseId: Types.ObjectId;
@@ -29,6 +47,9 @@ export interface IClaimRequest {
   description: string;
   status: ClaimStatus;
   intelligenceReport?: ClaimIntelligenceReport;
+  attachments?: ClaimStoredAttachment[];
+  attachmentFingerprint?: string;
+  insurerComment?: ClaimInsurerComment;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -52,6 +73,9 @@ const claimRequestSchema = new Schema<IClaimRequestDocument>(
     description: { type: String, required: true, trim: true, maxlength: 4000 },
     status: { type: String, enum: CLAIM_STATUSES, default: 'submitted', index: true },
     intelligenceReport: { type: Schema.Types.Mixed },
+    attachments: { type: [Schema.Types.Mixed], default: undefined },
+    attachmentFingerprint: { type: String },
+    insurerComment: { type: Schema.Types.Mixed },
   },
   { timestamps: true }
 );

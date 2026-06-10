@@ -155,6 +155,8 @@ describe('AI Claims Intelligence Engine', () => {
         consistencyLevel: 'high',
         identityMatch: true,
         policyMatch: true,
+        policyCategoryAligned: true,
+        cnicDocumentUploaded: true,
       });
       expect(ready.score).toBe(100);
       expect(ready.documentsComplete).toBe(true);
@@ -202,12 +204,15 @@ describe('AI Claims Intelligence Engine', () => {
         raw: vehicleGeminiRaw(),
         user: seeker,
         purchaseId: '507f1f77bcf86cd799439011',
+        claimType: 'accident',
         policyName: 'TPL Home Essential',
         policyCategory: 'home',
         insurerName: 'TPL Insurance',
         attachments: [{ mimeType: 'image/png', fileName: 'x.png', dataBase64: 'abc' }],
         modelVersion: 'gemini-2.5-flash',
       });
+
+      expect(report.policyAlignment.matchesPolicyCategory).toBe(false);
 
       expect(report.vehicle?.severity).toBe('moderate');
       expect(report.vehicle?.damagedParts).toContain('Front Bumper');
@@ -229,6 +234,7 @@ describe('AI Claims Intelligence Engine', () => {
         }),
         user: seeker,
         purchaseId: '507f1f77bcf86cd799439011',
+        claimType: 'damage',
         attachments: [{ mimeType: 'image/png', fileName: 'cnic.png', dataBase64: 'abc' }],
         modelVersion: 'gemini-2.5-flash',
       });
@@ -252,6 +258,7 @@ describe('AI Claims Intelligence Engine', () => {
         }),
         user: seeker,
         purchaseId: '507f1f77bcf86cd799439011',
+        claimType: 'damage',
         attachments: [{ mimeType: 'image/png', fileName: 'cnic.png', dataBase64: 'abc' }],
         modelVersion: 'gemini-2.5-flash',
       });
@@ -278,6 +285,7 @@ describe('AI Claims Intelligence Engine', () => {
         }),
         user: seeker,
         purchaseId,
+        claimType: 'damage',
         policyName: 'TPL Home Essential',
         policyCategory: 'home',
         insurerName: 'TPL Insurance',
