@@ -25,8 +25,14 @@ describe('assistantContextCompact', () => {
 
     const compact = compactAssistantContext(context);
 
-    expect(compact.platformFaq).toHaveLength(4);
+    expect(compact.platformFaq).toHaveLength(3);
     expect(compact.topRecommendations).toHaveLength(4);
     expect(compact.topRecommendations?.[0]?.policies).toHaveLength(3);
+    expect(compact.topRecommendations?.[0]?.policies[0]?.matchReasons).toHaveLength(1);
+
+    const followUp = compactAssistantContext(context, { followUp: true });
+    expect(followUp.platformFaq).toHaveLength(0);
+    expect(followUp.categories).toHaveLength(0);
+    expect(followUp.topRecommendations).toHaveLength(2);
   });
 });

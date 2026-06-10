@@ -39,6 +39,7 @@ export interface AssistantHealthReport {
   supportedGenerationMethods: string[];
   limits: {
     configuredMaxOutputTokens: number;
+    configuredChatMaxOutputTokens: number;
     modelInputTokenLimit?: number;
     modelOutputTokenLimit?: number;
     assistantRateLimitPerMin: number;
@@ -158,6 +159,7 @@ export async function getAssistantHealthReport(env: Env = loadEnv()): Promise<As
 
   const limits = {
     configuredMaxOutputTokens: env.GEMINI_MAX_OUTPUT_TOKENS,
+    configuredChatMaxOutputTokens: env.GEMINI_CHAT_MAX_OUTPUT_TOKENS,
     assistantRateLimitPerMin: env.ASSISTANT_RATE_LIMIT_PER_MIN,
     anonymousRateLimitPerMin: Math.max(1, Math.floor(env.ASSISTANT_RATE_LIMIT_PER_MIN / 2)),
     geminiUpstreamRpm: env.GEMINI_UPSTREAM_RPM,

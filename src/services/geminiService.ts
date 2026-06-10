@@ -318,7 +318,7 @@ async function generateAssistantReplyInner(
       input.attachmentParts ?? []
     ),
     generationConfig: {
-      maxOutputTokens: env.GEMINI_MAX_OUTPUT_TOKENS,
+      maxOutputTokens: env.GEMINI_CHAT_MAX_OUTPUT_TOKENS,
       temperature: 0.35,
     },
   };

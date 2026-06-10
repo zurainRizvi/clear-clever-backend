@@ -10,10 +10,17 @@ import {
   buildAssistantContext,
   buildExplainPayload,
 } from '../services/assistantContextService';
+import { tryAssistantFaqBypass } from '../services/assistantFaqBypass';
+import { compactHistoryForGemini } from '../services/assistantHistoryTrim';
 import {
   buildExplainSystemInstruction,
   buildSystemInstruction,
 } from '../services/assistantPrompts';
+import {
+  buildExplainCacheKey,
+  getExplainCacheEntry,
+  setExplainCacheEntry,
+} from '../services/explainResponseCache';
 import {
   checkAssistantRateLimit,
   rateLimitKeyForRequest,
@@ -53,7 +60,7 @@ function parseHistory(raw: unknown): GeminiContentPart[] | undefined {
   }
 
   const history: GeminiContentPart[] = [];
-  for (const item of raw.slice(-10)) {
+  for (const item of raw) {
     if (
       item &&
       typeof item === 'object' &&
@@ -65,13 +72,13 @@ function parseHistory(raw: unknown): GeminiContentPart[] | undefined {
         continue;
       }
       const content = (item as { content: string }).content.trim();
-      if (content.length > 0 && content.length <= 4000) {
+      if (content.length > 0) {
         history.push({ role, content });
       }
     }
   }
 
-  return history.length > 0 ? history : undefined;
+  return compactHistoryForGemini(history);
 }
 
 function hasPriorAssistantReply(history: GeminiContentPart[] | undefined): boolean {
@@ -149,7 +156,28 @@ export async function postAssistantChat(req: AuthenticatedRequest, res: Response
   }
 
   const history = parseHistory(body.history);
-  const systemInstruction = buildSystemInstruction(context);
+  const followUp = hasPriorAssistantReply(history);
+
+  const faqReply = tryAssistantFaqBypass({
+    message,
+    audience: context.audience,
+    hasAttachments: attachments.length > 0,
+    hasPriorAssistantReply: followUp,
+    addressing: context.addressing,
+  });
+
+  if (faqReply) {
+    res.status(200).json(
+      successResponse('Assistant reply', {
+        reply: faqReply,
+        personalized: context.personalized,
+        audience: context.audience,
+      })
+    );
+    return;
+  }
+
+  const systemInstruction = buildSystemInstruction(context, { followUp });
 
   let userMessage = message + describeAttachmentsForPrompt(attachments);
 
@@ -198,7 +226,29 @@ export async function postAssistantExplain(req: AuthenticatedRequest, res: Respo
     policyId: typeof body.policyId === 'string' ? body.policyId : undefined,
   });
 
-  const systemInstruction = buildExplainSystemInstruction(explainPayload.context, {
+  const cacheKey = buildExplainCacheKey({
+    userId: String(req.user._id),
+    category,
+    policyId: explainPayload.target.policyId,
+    answers: explainPayload.answers,
+    score: explainPayload.target.score,
+  });
+
+  const cachedExplain = getExplainCacheEntry(cacheKey);
+  if (cachedExplain) {
+    res.status(200).json(
+      successResponse('Recommendation explained', {
+        reply: cachedExplain.reply,
+        policyId: cachedExplain.policyId,
+        policyName: cachedExplain.policyName,
+        score: cachedExplain.score,
+      })
+    );
+    return;
+  }
+
+  const systemInstruction = buildExplainSystemInstruction({
+    addressing: explainPayload.context.addressing,
     target: explainPayload.target,
     answers: explainPayload.answers,
     topThree: explainPayload.topThree,
@@ -215,6 +265,13 @@ export async function postAssistantExplain(req: AuthenticatedRequest, res: Respo
     userMessage,
     usageRoute: 'explain',
     env,
+  });
+
+  setExplainCacheEntry(cacheKey, {
+    reply: text,
+    policyId: explainPayload.target.policyId,
+    policyName: explainPayload.target.name,
+    score: explainPayload.target.score,
   });
 
   res.status(200).json(

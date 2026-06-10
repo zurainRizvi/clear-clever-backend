@@ -89,6 +89,8 @@ const envSchema = z.object({
     .optional()
     .transform((v) => stripEnvValue(v) ?? 'gemini-2.5-flash'),
   GEMINI_MAX_OUTPUT_TOKENS: z.coerce.number().int().positive().default(1024),
+  /** Chat replies — lower than structured JSON to save completion tokens. */
+  GEMINI_CHAT_MAX_OUTPUT_TOKENS: z.coerce.number().int().positive().default(768),
   /** Free tier ~5 RPM — keep below Google's cap. */
   GEMINI_UPSTREAM_RPM: z.coerce.number().int().positive().default(4),
   /** Free tier ~20 RPD — app-side guard to avoid burning the daily quota. */

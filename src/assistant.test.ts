@@ -12,6 +12,7 @@ import {
 } from './test/mongoSetup';
 import * as geminiService from './services/geminiService';
 import { resetAssistantRateLimits } from './services/assistantRateLimit';
+import { resetExplainResponseCache } from './services/explainResponseCache';
 
 jest.mock('./services/geminiService', () => {
   const actual = jest.requireActual<typeof import('./services/geminiService')>(
@@ -55,6 +56,7 @@ describe('Assistant — Gemini proxy', () => {
     applyTestEnv({ MONGODB_URI: testMongoUri });
     resetEnvCache();
     resetAssistantRateLimits();
+    resetExplainResponseCache();
     mockGenerate.mockReset();
     mockGenerate.mockImplementation((input) =>
       jest
@@ -169,6 +171,20 @@ describe('Assistant — Gemini proxy', () => {
       );
     });
 
+    it('answers common FAQ without calling Gemini', async () => {
+      applyTestEnv({ MONGODB_URI: testMongoUri, GEMINI_API_KEY: 'test-key' });
+      resetEnvCache();
+      app = createApp(loadEnv());
+
+      const res = await request(app)
+        .post('/api/assistant/chat')
+        .send({ message: 'What is ClearClever?' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.reply).toContain('ClearClever');
+      expect(mockGenerate).not.toHaveBeenCalled();
+    });
+
     it('rate limits anonymous chat', async () => {
       applyTestEnv({
         MONGODB_URI: testMongoUri,
@@ -218,6 +234,26 @@ describe('Assistant — Gemini proxy', () => {
       expect(res.body.data.reply).toBeTruthy();
       expect(res.body.data.policyName).toBeTruthy();
       expect(typeof res.body.data.score).toBe('number');
+      expect(mockGenerate).toHaveBeenCalledTimes(1);
+    });
+
+    it('serves cached explain on repeat request without calling Gemini again', async () => {
+      const first = await request(app)
+        .post('/api/assistant/explain')
+        .set('Authorization', `Bearer ${seekerToken}`)
+        .send({ category: 'home' });
+      expect(first.status).toBe(200);
+
+      mockGenerate.mockClear();
+
+      const second = await request(app)
+        .post('/api/assistant/explain')
+        .set('Authorization', `Bearer ${seekerToken}`)
+        .send({ category: 'home' });
+
+      expect(second.status).toBe(200);
+      expect(second.body.data.reply).toBe(first.body.data.reply);
+      expect(mockGenerate).not.toHaveBeenCalled();
     });
 
     it('rejects insurer role', async () => {
