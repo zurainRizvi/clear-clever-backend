@@ -1,7 +1,8 @@
-import { getDatabaseStatus } from '../config/db';
-import { isBrevoConfigured, isGeminiConfigured, loadEnv } from '../config/env';
-import { getSmtpProbeResult } from '../config/smtpStatus';
+import { getDatabaseStatus, pingDatabaseLatencyMs } from '../config/db';
+import { isGeminiConfigured, loadEnv } from '../config/env';
 import { getEmailProvider, isOutboundEmailConfigured } from './emailDelivery';
+import { probeBrevo } from './brevo';
+import { probeSmtp } from './mail';
 
 const PROBE_TIMEOUT_MS = 5000;
 
@@ -44,38 +45,63 @@ async function probeUrl(url: string, method: 'HEAD' | 'GET' = 'HEAD'): Promise<S
   }
 }
 
+async function probeEmailProvider(env: ReturnType<typeof loadEnv>): Promise<{
+  ok: boolean;
+  latencyMs: number;
+  detail: string;
+}> {
+  const provider = getEmailProvider(env);
+  if (!isOutboundEmailConfigured(env)) {
+    return { ok: false, latencyMs: 0, detail: 'Not configured' };
+  }
+
+  if (provider === 'brevo') {
+    const probe = await probeBrevo(env);
+    return {
+      ok: probe.ok,
+      latencyMs: probe.latencyMs ?? 0,
+      detail: probe.ok ? 'Ready' : probe.error,
+    };
+  }
+
+  const probe = await probeSmtp(env);
+  return {
+    ok: probe.ok,
+    latencyMs: probe.latencyMs ?? 0,
+    detail: probe.ok ? 'Ready' : probe.error,
+  };
+}
+
 export async function getInfrastructureHealth() {
+  const syncStart = Date.now();
   const env = loadEnv();
   const dbStatus = getDatabaseStatus();
-  const emailProbe = getSmtpProbeResult();
   const provider = getEmailProvider(env);
-  const renderStart = Date.now();
+  const renderLatencyMs = Math.max(1, Date.now() - syncStart);
 
-  const vercel = await probeUrl(env.CLIENT_URL);
+  const [mongoLatencyMs, emailProbe, vercel] = await Promise.all([
+    pingDatabaseLatencyMs(),
+    probeEmailProvider(env),
+    probeUrl(env.CLIENT_URL),
+  ]);
 
   const mongodb = {
     ok: dbStatus === 'connected',
-    latencyMs: 0,
+    latencyMs: mongoLatencyMs ?? 0,
     label: 'MongoDB Atlas',
     detail: dbStatus === 'connected' ? 'Connected' : `Status: ${dbStatus}`,
   };
 
   const brevo = {
-    ok: emailProbe?.ok === true,
-    latencyMs: 0,
+    ok: emailProbe.ok,
+    latencyMs: emailProbe.latencyMs,
     label: provider === 'brevo' ? 'Brevo email' : provider === 'smtp' ? 'SMTP email' : 'Email',
-    detail: emailProbe?.ok
-      ? 'Ready'
-      : isBrevoConfigured(env)
-        ? emailProbe?.error ?? 'Brevo configured but not ready'
-        : isOutboundEmailConfigured(env)
-          ? emailProbe?.error ?? 'Not ready'
-          : 'Not configured',
+    detail: emailProbe.detail,
   };
 
   const render = {
     ok: true,
-    latencyMs: Date.now() - renderStart,
+    latencyMs: renderLatencyMs,
     label: 'Render API',
     detail: 'API process responding',
   };

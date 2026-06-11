@@ -32,17 +32,23 @@ export async function probeBrevo(env: Env): Promise<SmtpProbeResult> {
     return { ok: false, error: 'BREVO_API_KEY is required' };
   }
 
+  const start = Date.now();
   try {
     const res = await fetch(`${BREVO_API}/account`, {
       headers: { 'api-key': env.BREVO_API_KEY! },
     });
+    const latencyMs = Date.now() - start;
     if (!res.ok) {
       const body = await res.text();
-      return { ok: false, error: `Brevo account check failed (${res.status}): ${body.slice(0, 200)}` };
+      return {
+        ok: false,
+        latencyMs,
+        error: `Brevo account check failed (${res.status}): ${body.slice(0, 200)}`,
+      };
     }
-    return { ok: true };
+    return { ok: true, latencyMs };
   } catch (error) {
-    return { ok: false, error: formatSmtpError(error) };
+    return { ok: false, latencyMs: Date.now() - start, error: formatSmtpError(error) };
   }
 }
 

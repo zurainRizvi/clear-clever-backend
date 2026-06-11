@@ -72,6 +72,7 @@ function toGeminiApiPart(part: GeminiPart): GeminiApiPart {
 }
 
 const MAX_503_ATTEMPTS = 3;
+const MAX_STRUCTURED_503_ATTEMPTS = 1;
 const RETRY_503_DELAY_MS = 2000;
 
 /** Try to salvage JSON from model output (markdown fences, trailing prose). */
@@ -167,8 +168,13 @@ function isTransientGeminiError(status: number, message: string): boolean {
   return /high demand|temporarily unavailable|overloaded/i.test(message);
 }
 
-function shouldRetryGemini(status: number, message: string, attempt: number): boolean {
-  return attempt < MAX_503_ATTEMPTS - 1 && isTransientGeminiError(status, message);
+function shouldRetryGemini(
+  status: number,
+  message: string,
+  attempt: number,
+  maxAttempts: number
+): boolean {
+  return attempt < maxAttempts - 1 && isTransientGeminiError(status, message);
 }
 
 export function assertGeminiConfigured(env: Env = loadEnv()): void {
@@ -210,11 +216,15 @@ async function callGeminiApi(
   usageRoute: AssistantUsageRoute
 ): Promise<{ text: string; usageMetadata?: GeminiApiResponse['usageMetadata'] }> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
-  const upstreamRpm = env.GEMINI_UPSTREAM_RPM;
+  const isStructuredRoute = usageRoute === 'claim_intelligence' || usageRoute === 'kyc';
+  const maxAttempts = isStructuredRoute ? MAX_STRUCTURED_503_ATTEMPTS : MAX_503_ATTEMPTS;
+  const upstreamRpm = isStructuredRoute
+    ? Math.max(env.GEMINI_UPSTREAM_RPM, 15)
+    : env.GEMINI_UPSTREAM_RPM;
   const upstreamRpd = env.GEMINI_UPSTREAM_RPD;
   let lastError: AppError | null = null;
 
-  for (let attempt = 0; attempt < MAX_503_ATTEMPTS; attempt += 1) {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
     if (attempt > 0) {
       await sleep(RETRY_503_DELAY_MS);
     }
@@ -258,7 +268,7 @@ async function callGeminiApi(
         statusCode: response.status,
         error: message,
       });
-      if (shouldRetryGemini(response.status, message, attempt)) {
+      if (shouldRetryGemini(response.status, message, attempt, maxAttempts)) {
         continue;
       }
       throw lastError;

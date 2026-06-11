@@ -15,7 +15,7 @@ import { toInsurerPolicySummary } from '../services/insurerContext';
 import { sanitizeUser } from '../services/auth';
 import { deleteInsurerAccountPermanently } from '../services/insurerDeletion';
 import { buildAdminMlOverview } from '../services/adminMlOverviewService';
-import { clearAuditEvents, listAuditEvents } from '../services/auditLogService';
+import { clearAuditEvents, listAuditEvents, recordAuditEvent } from '../services/auditLogService';
 import { getAssistantHealthReport } from '../services/assistantHealthService';
 import { getInfrastructureHealth } from '../services/infrastructureHealth';
 import { getDatabaseStatus } from '../config/db';
@@ -73,6 +73,12 @@ export async function approvePolicy(req: AuthenticatedRequest, res: Response): P
   policy.reviewedBy = req.user!._id;
   await policy.save();
 
+  void recordAuditEvent({
+    action: 'Policy approved',
+    subject: policy.name,
+    severity: 'medium',
+  });
+
   const [publicPolicy] = await enrichPolicies([policy]);
 
   res.status(200).json(
@@ -115,6 +121,12 @@ export async function rejectPolicy(req: AuthenticatedRequest, res: Response): Pr
     });
   }
 
+  void recordAuditEvent({
+    action: 'Policy rejected',
+    subject: policy.name,
+    severity: 'medium',
+  });
+
   res.status(200).json(
     successResponse('Policy rejected', {
       policy: toInsurerPolicySummary(policy),
@@ -155,6 +167,12 @@ export async function changeUserRole(req: AuthenticatedRequest, res: Response): 
   target.role = role;
   await target.save();
 
+  void recordAuditEvent({
+    action: 'User role changed',
+    subject: `${target.fullName} (${target.email}) → ${role}`,
+    severity: 'high',
+  });
+
   res.status(200).json(
     successResponse('User role updated', {
       user: sanitizeUser(target),
@@ -177,6 +195,12 @@ export async function deactivateUser(req: AuthenticatedRequest, res: Response): 
 
   target.status = 'inactive';
   await target.save();
+
+  void recordAuditEvent({
+    action: 'User deactivated',
+    subject: `${target.fullName} (${target.email})`,
+    severity: 'high',
+  });
 
   res.status(200).json(
     successResponse('User deactivated', {
@@ -293,6 +317,12 @@ export async function approveInsurer(req: AuthenticatedRequest, res: Response): 
   target.status = 'active';
   await target.save();
 
+  void recordAuditEvent({
+    action: 'Provider approved',
+    subject: profile?.companyName ?? target.email,
+    severity: 'medium',
+  });
+
   if (profile) {
     await Notification.create({
       userId: target._id,
@@ -341,6 +371,12 @@ export async function rejectInsurer(req: AuthenticatedRequest, res: Response): P
       },
     });
   }
+
+  void recordAuditEvent({
+    action: 'Provider rejected',
+    subject: profile?.companyName ?? target.email,
+    severity: 'medium',
+  });
 
   res.status(200).json(
     successResponse('Insurance provider rejected', {

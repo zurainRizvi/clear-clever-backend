@@ -9,8 +9,8 @@ import { otpTemplate } from './emailTemplates';
 export const SMTP_TIMEOUT_MS = 15_000;
 
 export type SmtpProbeResult =
-  | { ok: true }
-  | { ok: false; error: string };
+  | { ok: true; latencyMs?: number }
+  | { ok: false; error: string; latencyMs?: number };
 
 function isGmailHost(host: string | undefined): boolean {
   return (host ?? '').toLowerCase().includes('gmail.com');
@@ -76,12 +76,13 @@ export async function probeSmtp(env: Env): Promise<SmtpProbeResult> {
     return { ok: false, error: 'SMTP_HOST, SMTP_USER, and SMTP_PASS are required' };
   }
 
+  const start = Date.now();
   const transport = createSmtpTransport(env);
   try {
     await withTimeout(transport.verify(), 'SMTP verify');
-    return { ok: true };
+    return { ok: true, latencyMs: Date.now() - start };
   } catch (error) {
-    return { ok: false, error: formatSmtpError(error) };
+    return { ok: false, latencyMs: Date.now() - start, error: formatSmtpError(error) };
   } finally {
     transport.close();
   }

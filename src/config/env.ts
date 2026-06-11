@@ -91,10 +91,10 @@ const envSchema = z.object({
   GEMINI_MAX_OUTPUT_TOKENS: z.coerce.number().int().positive().default(1024),
   /** Chat replies — lower than structured JSON to save completion tokens. */
   GEMINI_CHAT_MAX_OUTPUT_TOKENS: z.coerce.number().int().positive().default(768),
-  /** Free tier ~5 RPM — keep below Google's cap. */
-  GEMINI_UPSTREAM_RPM: z.coerce.number().int().positive().default(4),
+  /** Free tier ~15 RPM — keep below Google's cap; raise for demo if billing enabled. */
+  GEMINI_UPSTREAM_RPM: z.coerce.number().int().positive().default(12),
   /** Free tier ~20 RPD — app-side guard to avoid burning the daily quota. */
-  GEMINI_UPSTREAM_RPD: z.coerce.number().int().positive().default(18),
+  GEMINI_UPSTREAM_RPD: z.coerce.number().int().positive().default(40),
   ASSISTANT_RATE_LIMIT_PER_MIN: z.coerce.number().int().positive().default(4),
 });
 

@@ -12,6 +12,20 @@ export async function connectDatabase(env: Env): Promise<void> {
   });
 }
 
+export async function pingDatabaseLatencyMs(): Promise<number | null> {
+  if (mongoose.connection.readyState !== 1 || !mongoose.connection.db) {
+    return null;
+  }
+
+  const start = Date.now();
+  try {
+    await mongoose.connection.db.admin().command({ ping: 1 });
+    return Date.now() - start;
+  } catch {
+    return null;
+  }
+}
+
 export function getDatabaseStatus(): 'connected' | 'disconnected' | 'connecting' | 'disconnecting' {
   const state = mongoose.connection.readyState;
   switch (state) {
