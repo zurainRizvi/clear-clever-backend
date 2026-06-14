@@ -1,14 +1,24 @@
 {
   "version": "claim_risk_v1",
-  "trainedAt": "2026-06-09T16:33:00.501845+00:00",
+  "trainedAt": "2026-06-11T00:42:05.616461+00:00",
   "metrics": {
-    "accuracy": 0.72625,
-    "roc_auc": 0.7872815266180193,
-    "precision": 0.7582697201017812,
-    "recall": 0.7061611374407583,
-    "f1": 0.7312883435582822,
-    "train_rows": 3200,
-    "test_rows": 800
+    "accuracy": 0.8245,
+    "roc_auc": 0.8459100729995042,
+    "precision": 0.6433333333333333,
+    "recall": 0.7380497131931166,
+    "f1": 0.6874443455031166,
+    "train_rows": 8000,
+    "test_rows": 2000,
+    "confusion_matrix": [
+      [
+        1263,
+        214
+      ],
+      [
+        137,
+        386
+      ]
+    ]
   },
   "sourceCsv": "data/synthetic/claims_train.csv",
   "reports": {

@@ -1,15 +1,25 @@
 {
   "version": "policy_ranker_life_v1",
   "category": "life",
-  "trainedAt": "2026-06-09T19:07:45.262895+00:00",
+  "trainedAt": "2026-06-11T00:42:12.322849+00:00",
   "metrics": {
-    "accuracy": 0.9156363636363636,
-    "roc_auc": 0.98448,
-    "precision": 0.5186721991701245,
+    "accuracy": 0.9223076923076923,
+    "roc_auc": 0.9860826666666667,
+    "precision": 0.4975124378109453,
     "recall": 1.0,
-    "f1": 0.6830601092896175,
-    "train_rows": 5500,
-    "test_rows": 1375
+    "f1": 0.6644518272425249,
+    "train_rows": 26000,
+    "test_rows": 6500,
+    "confusion_matrix": [
+      [
+        5495,
+        505
+      ],
+      [
+        0,
+        500
+      ]
+    ]
   },
   "sourceCsv": "data/synthetic/recommendations_train.csv",
   "reports": {

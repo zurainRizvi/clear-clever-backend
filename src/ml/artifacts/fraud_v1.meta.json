@@ -1,14 +1,24 @@
 {
   "version": "fraud_v1",
-  "trainedAt": "2026-06-09T17:38:53.114997+00:00",
+  "trainedAt": "2026-06-11T00:42:06.116538+00:00",
   "metrics": {
-    "accuracy": 0.71,
-    "roc_auc": 0.7709367996414165,
-    "precision": 0.9081364829396326,
-    "recall": 0.7134020618556701,
-    "f1": 0.7990762124711316,
-    "train_rows": 2400,
-    "test_rows": 600
+    "accuracy": 0.7945,
+    "roc_auc": 0.8369413076064558,
+    "precision": 0.9167893961708394,
+    "recall": 0.8068697342838627,
+    "f1": 0.8583247156153051,
+    "train_rows": 8000,
+    "test_rows": 2000,
+    "confusion_matrix": [
+      [
+        344,
+        113
+      ],
+      [
+        298,
+        1245
+      ]
+    ]
   },
   "sourceCsv": "data/synthetic/fraud_train.csv",
   "reports": {

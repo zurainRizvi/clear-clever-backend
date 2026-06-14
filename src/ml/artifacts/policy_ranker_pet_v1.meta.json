@@ -1,15 +1,25 @@
 {
   "version": "policy_ranker_pet_v1",
   "category": "pet",
-  "trainedAt": "2026-06-09T19:07:46.628046+00:00",
+  "trainedAt": "2026-06-11T00:42:13.994085+00:00",
   "metrics": {
-    "accuracy": 0.924923076923077,
-    "roc_auc": 0.9619253333333333,
-    "precision": 0.5061224489795918,
-    "recall": 0.992,
-    "f1": 0.6702702702702703,
-    "train_rows": 6500,
-    "test_rows": 1625
+    "accuracy": 0.9348571428571428,
+    "roc_auc": 0.9849786153846154,
+    "precision": 0.5239651416122004,
+    "recall": 0.962,
+    "f1": 0.6784203102961918,
+    "train_rows": 28000,
+    "test_rows": 7000,
+    "confusion_matrix": [
+      [
+        6063,
+        437
+      ],
+      [
+        19,
+        481
+      ]
+    ]
   },
   "sourceCsv": "data/synthetic/recommendations_train.csv",
   "reports": {

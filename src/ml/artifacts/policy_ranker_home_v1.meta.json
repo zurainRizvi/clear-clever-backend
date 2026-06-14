@@ -1,15 +1,25 @@
 {
   "version": "policy_ranker_home_v1",
   "category": "home",
-  "trainedAt": "2026-06-09T19:07:42.095997+00:00",
+  "trainedAt": "2026-06-11T00:42:08.677376+00:00",
   "metrics": {
-    "accuracy": 0.9206666666666666,
-    "roc_auc": 0.9855243636363636,
-    "precision": 0.5122950819672131,
+    "accuracy": 0.9292857142857143,
+    "roc_auc": 0.9888356923076922,
+    "precision": 0.5025125628140703,
     "recall": 1.0,
-    "f1": 0.6775067750677507,
-    "train_rows": 6000,
-    "test_rows": 1500
+    "f1": 0.6688963210702341,
+    "train_rows": 28000,
+    "test_rows": 7000,
+    "confusion_matrix": [
+      [
+        6005,
+        495
+      ],
+      [
+        0,
+        500
+      ]
+    ]
   },
   "sourceCsv": "data/synthetic/recommendations_train.csv",
   "reports": {
