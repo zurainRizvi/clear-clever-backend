@@ -185,8 +185,8 @@ export async function deriveFromCnic(user: IUserDocument, rawCnic?: string): Pro
 
   const local = deriveLocalFromCnic(cnic);
   if (!local) {
-    throw new AppError(400, 'Could not derive region from CNIC issuer code', [
-      'The first 5 digits do not match a known Pakistani issuer code.',
+    throw new AppError(400, 'Invalid CNIC format', [
+      'Enter a valid 13-digit Pakistani CNIC (e.g. 42101-1234567-1).',
     ]);
   }
 

@@ -46,8 +46,8 @@ export function computeIdentityMatchScore(input: IdentityMatchInput): IdentityMa
     : false;
 
   let score = 0;
-  if (nameMatch) score += 30;
-  if (cnicMatch) score += 30;
+  if (nameMatch) score += 35;
+  if (cnicMatch) score += 35;
   if (input.documentReadable) score += 20;
   if (input.cnicExpired === false) score += 10;
   if (input.suspiciousDocument) score -= 15;
@@ -55,10 +55,14 @@ export function computeIdentityMatchScore(input: IdentityMatchInput): IdentityMa
   if (input.blurScore === 'High') score -= 10;
   else if (input.blurScore === 'Medium') score -= 5;
 
-  const kycScore = Math.max(0, Math.min(100, score));
+  let kycScore = Math.max(0, Math.min(100, score));
   const profileMatchesDocument = nameMatch && cnicMatch && input.documentReadable;
   const identityVerified =
     kycScore >= 85 && nameMatch && cnicMatch && input.documentReadable && input.cnicExpired !== true;
+
+  if (identityVerified) {
+    kycScore = 100;
+  }
 
   return {
     nameMatch,

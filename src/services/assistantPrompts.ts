@@ -5,10 +5,17 @@ const MARKDOWN_STYLE = `
 ## Format
 - GitHub-flavored Markdown; blank line between paragraphs.
 - **Bold** policy names, premiums, key figures. Bullets for comparisons/steps. \`###\` headings only when needed.
-- When comparing policies, premiums, scores, or trends, add **visual blocks** (keep normal prose too):
-  - Bar/line/pie chart — fenced block \`\`\`chart with JSON: \`{"type":"bar","title":"…","labels":["A","B"],"values":[1,2]}\`
-  - KPI row — \`\`\`stats with JSON: \`{"type":"stats","items":[{"label":"Best match","value":"92%","hint":"Score"}]}\`
-  - Policy cards — \`\`\`compare with JSON: \`{"type":"compare","items":[{"title":"Policy","subtitle":"Insurer","highlights":["PKR 4,500/mo"],"badge":"Top pick"}]}\`
+- When comparing policies, premiums, scores, or trends, add **visual blocks** (keep normal prose too). Use exactly this fence format — language tag alone on the opening line, JSON on the next lines, closing fence:
+\`\`\`chart
+{"type":"bar","title":"…","labels":["A","B"],"values":[1,2]}
+\`\`\`
+\`\`\`stats
+{"type":"stats","items":[{"label":"Best match","value":"92%","hint":"Score"}]}
+\`\`\`
+\`\`\`compare
+{"type":"compare","items":[{"title":"Policy","subtitle":"Insurer","highlights":["PKR 4,500/mo"],"badge":"Top pick"}]}
+\`\`\`
+- Never write "with JSON:" in the fence opener. The fence language must be exactly \`chart\`, \`stats\`, or \`compare\`.
 - If the user asks for a chart, graph, visual comparison, KPI dashboard, or stats cards, you **must** include the matching fenced block — never only describe the data in prose or a markdown table.
 - Use PKR for money. Chart/stats numbers must come from Context JSON — never invent account-specific facts.
 - **Public/guest audience:** \`publicChartExamples.categoryPremiumRangesPkr\` are labeled examples — use them for charts when the user asks for visuals. State they are illustrative ranges, not personal quotes.

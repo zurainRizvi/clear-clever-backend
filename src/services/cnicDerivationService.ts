@@ -1,13 +1,14 @@
 import type { IUserDocument } from '../models/User';
+import type { PakistanRegionSlug } from './pakistanRegionStats';
 import {
   computeAgeFromDob,
   isCnicExpired,
   maskCnic,
   normalizeCnic,
+  predictGenderFromCnic,
   resolveCnicIssuer,
   type CnicGender,
 } from '../utils/cnic';
-import type { PakistanRegionSlug } from './pakistanRegionStats';
 
 export interface CnicDerivationResult {
   cnicMasked: string;
@@ -18,18 +19,44 @@ export interface CnicDerivationResult {
   issuerPrefix: string;
 }
 
+function guessRegionSlug(prefix: string): PakistanRegionSlug {
+  if (prefix.startsWith('17')) return 'kpk';
+  if (prefix.startsWith('61')) return 'islamabad';
+  const first = prefix[0];
+  if (first === '1') return 'ajk';
+  if (first === '3') return 'punjab';
+  if (first === '4') return 'sindh';
+  if (first === '5') return 'balochistan';
+  if (first === '7') return 'gb';
+  return 'punjab';
+}
+
 export function deriveLocalFromCnic(rawCnic: string): CnicDerivationResult | null {
   try {
     const normalized = normalizeCnic(rawCnic);
     const issuer = resolveCnicIssuer(normalized);
-    if (!issuer) return null;
+    const gender = predictGenderFromCnic(normalized);
+    if (!gender) return null;
+
+    if (issuer) {
+      return {
+        cnicMasked: maskCnic(normalized),
+        genderPredicted: issuer.gender,
+        province: issuer.province,
+        district: issuer.district,
+        regionSlug: issuer.regionSlug,
+        issuerPrefix: issuer.issuerPrefix,
+      };
+    }
+
+    const prefix = normalized.slice(0, 5);
     return {
       cnicMasked: maskCnic(normalized),
-      genderPredicted: issuer.gender,
-      province: issuer.province,
-      district: issuer.district,
-      regionSlug: issuer.regionSlug,
-      issuerPrefix: issuer.issuerPrefix,
+      genderPredicted: gender,
+      province: 'Pakistan',
+      district: 'Unknown district',
+      regionSlug: guessRegionSlug(prefix),
+      issuerPrefix: prefix,
     };
   } catch {
     return null;

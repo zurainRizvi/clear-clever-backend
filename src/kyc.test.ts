@@ -170,7 +170,7 @@ describe('identity match scoring', () => {
       croppedDocument: false,
       blurScore: 'Low',
     });
-    expect(result.kycScore).toBeGreaterThanOrEqual(85);
+    expect(result.kycScore).toBe(100);
     expect(result.identityVerified).toBe(true);
   });
 });

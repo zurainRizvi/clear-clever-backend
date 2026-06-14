@@ -30,6 +30,7 @@ import {
   checkAssistantRateLimit,
   rateLimitKeyForRequest,
 } from '../services/assistantRateLimit';
+import { sanitizeAssistantReply } from '../services/assistantReplySanitizer';
 import { generateAssistantReply, type GeminiContentPart } from '../services/geminiService';
 import { getGeminiUpstreamRateLimitStats } from '../services/geminiUpstreamRateLimit';
 import { AppError, successResponse } from '../utils/apiResponse';
@@ -221,7 +222,7 @@ export async function postAssistantChat(req: AuthenticatedRequest, res: Response
 
   res.status(200).json(
     successResponse('Assistant reply', {
-      reply: text,
+      reply: sanitizeAssistantReply(text),
       personalized: context.personalized,
       audience: context.audience,
     })
@@ -290,8 +291,10 @@ export async function postAssistantExplain(req: AuthenticatedRequest, res: Respo
     env,
   });
 
+  const reply = sanitizeAssistantReply(text);
+
   setExplainCacheEntry(cacheKey, {
-    reply: text,
+    reply,
     policyId: explainPayload.target.policyId,
     policyName: explainPayload.target.name,
     score: explainPayload.target.score,
@@ -299,7 +302,7 @@ export async function postAssistantExplain(req: AuthenticatedRequest, res: Respo
 
   res.status(200).json(
     successResponse('Recommendation explained', {
-      reply: text,
+      reply,
       policyId: explainPayload.target.policyId,
       policyName: explainPayload.target.name,
       score: explainPayload.target.score,
