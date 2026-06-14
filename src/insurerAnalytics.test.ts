@@ -4,6 +4,7 @@ import { loadEnv, resetEnvCache } from './config/env';
 import { Lead } from './models/Lead';
 import { InsurerProfile } from './models/InsurerProfile';
 import { Policy } from './models/Policy';
+import { Purchase } from './models/Purchase';
 import { QuestionnaireResponse } from './models/QuestionnaireResponse';
 import { User } from './models/User';
 import { SEED_DEFAULT_PASSWORD } from './seed/userSeedData';
@@ -176,6 +177,8 @@ describe('Insurer analytics intelligence', () => {
       status: 'approved',
     });
 
+    const now = new Date();
+
     await QuestionnaireResponse.findOneAndUpdate(
       { userId: seeker!._id, category: 'home' },
       {
@@ -188,10 +191,31 @@ describe('Insurer analytics intelligence', () => {
           city: 'Karachi',
         },
         completedQuestionIds: ['home_owner'],
+        updatedAt: now,
       },
-      { upsert: true, new: true }
+      { upsert: true, new: true, timestamps: false }
     );
 
+    await Lead.create({
+      insurerProfileId: tplProfile!._id,
+      userId: seeker!._id,
+      policyId: tplPolicy!._id,
+      type: 'inquiry',
+      status: 'new',
+      summary: 'Saw TPL home policy',
+      metadata: { source: 'recommend', category: 'home' },
+      createdAt: now,
+    });
+    await Lead.create({
+      insurerProfileId: tplProfile!._id,
+      userId: seeker!._id,
+      policyId: tplPolicy!._id,
+      type: 'favorite',
+      status: 'new',
+      summary: 'Saved TPL home policy',
+      metadata: { source: 'favorite', category: 'home' },
+      createdAt: now,
+    });
     await Lead.create({
       insurerProfileId: tplProfile!._id,
       userId: seeker!._id,
@@ -200,6 +224,20 @@ describe('Insurer analytics intelligence', () => {
       status: 'new',
       summary: 'Purchased with TPL',
       metadata: { source: 'purchase' },
+      createdAt: now,
+    });
+    await Purchase.create({
+      userId: seeker!._id,
+      policyId: tplPolicy!._id,
+      insurerProfileId: tplProfile!._id,
+      affiliateSlug: tplProfile!.slug,
+      answers: {},
+      status: 'completed',
+      paymentProcessedAt: now,
+      completedAt: now,
+      completionArtifactsCreated: true,
+      createdAt: now,
+      updatedAt: now,
     });
 
     const adamjeeRes = await request(app)
