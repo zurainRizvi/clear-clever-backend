@@ -5,6 +5,7 @@ import { loadEnv } from '../config/env';
 import { SEED_DEFAULT_PASSWORD } from '../seed/userSeedData';
 import { seedAll } from '../seed/seedCatalog';
 import { seedDemo } from '../seed/seedDemo';
+import { wipeNonSeedData } from '../seed/wipeDatabase';
 
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
@@ -13,6 +14,13 @@ async function main(): Promise<void> {
   await connectDatabase(env);
 
   const password = process.env.SEED_PASSWORD?.trim() || SEED_DEFAULT_PASSWORD;
+
+  const wiped = await wipeNonSeedData();
+  console.log('[ClearClever] Database wipe complete');
+  console.log(`  non-seed users removed: ${wiped.usersRemoved}`);
+  console.log(`  orphan policies removed: ${wiped.policiesRemoved}`);
+  console.log(`  orphan insurer profiles removed: ${wiped.insurerProfilesRemoved}`);
+
   const result = await seedAll(password);
 
   console.log('[ClearClever] User seed complete');

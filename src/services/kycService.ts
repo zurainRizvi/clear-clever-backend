@@ -58,6 +58,8 @@ export interface KycReportPayload {
   linkedPolicyCount?: number;
   linkedPolicyNames?: string[];
   policyLinkageNote?: string;
+  documentPreviewMimeType?: string;
+  documentPreviewDataUrl?: string;
 }
 
 function pickBlurScore(value: string | undefined): 'Low' | 'Medium' | 'High' {
@@ -102,6 +104,12 @@ function toKycReport(doc: IKycVerificationDocument | null): KycReportPayload {
     blurScore: doc.blurScore,
     tamperingRisk: doc.tamperingRisk,
     verifiedAt: doc.verifiedAt?.toISOString(),
+    ...(doc.documentPreviewMimeType && doc.documentPreviewBase64
+      ? {
+          documentPreviewMimeType: doc.documentPreviewMimeType,
+          documentPreviewDataUrl: `data:${doc.documentPreviewMimeType};base64,${doc.documentPreviewBase64}`,
+        }
+      : {}),
   };
 }
 

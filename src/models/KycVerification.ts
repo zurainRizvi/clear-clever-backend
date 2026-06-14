@@ -39,6 +39,9 @@ export interface IKycVerification {
   tamperingRisk?: TamperingRisk;
   verifiedAt?: Date;
   geminiModel?: string;
+  /** Demo-only stored CNIC preview for verified upload flows. */
+  documentPreviewMimeType?: string;
+  documentPreviewBase64?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -85,6 +88,8 @@ const kycVerificationSchema = new Schema<IKycVerificationDocument>(
     tamperingRisk: { type: String, enum: ['Low', 'Medium', 'High'] },
     verifiedAt: { type: Date },
     geminiModel: { type: String, trim: true, maxlength: 64 },
+    documentPreviewMimeType: { type: String, trim: true, maxlength: 120 },
+    documentPreviewBase64: { type: String, maxlength: 500_000 },
   },
   { timestamps: true }
 );

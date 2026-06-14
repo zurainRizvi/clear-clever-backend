@@ -162,6 +162,11 @@ export async function seedDemo(): Promise<SeedDemoResult> {
       estimatedAmountPkr: record.estimatedAmountPkr,
       description: record.description,
       status: record.status,
+      ...(record.intelligenceReport ? { intelligenceReport: record.intelligenceReport } : {}),
+      ...(record.attachments?.length ? { attachments: record.attachments } : {}),
+      ...(record.insurerComment
+        ? { insurerComment: { text: record.insurerComment, createdAt: createdAt.toISOString() } }
+        : {}),
       createdAt,
       updatedAt: createdAt,
     });
@@ -233,6 +238,7 @@ export async function seedDemo(): Promise<SeedDemoResult> {
         conversationId: conversation._id,
         senderUserId: senderId,
         body: msg.body,
+        ...(msg.attachments?.length ? { attachments: msg.attachments } : {}),
         createdAt: msgCreatedAt,
         updatedAt: msgCreatedAt,
       });

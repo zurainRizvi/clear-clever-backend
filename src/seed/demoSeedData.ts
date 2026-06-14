@@ -1,8 +1,17 @@
-import type { ClaimStatus, ClaimType } from '../models/ClaimRequest';
+import type { ClaimStatus, ClaimType, ClaimStoredAttachment } from '../models/ClaimRequest';
 import type { LeadStatus, LeadType } from '../models/Lead';
 import type { PolicyCategorySlug } from '../constants/categories';
 import type { NotificationType } from '../constants/purchase';
 import type { SupportInquiryReason } from '../models/SupportInquiry';
+import type { ClaimIntelligenceReport } from '../types/claimIntelligence';
+import {
+  demoAutoClaimReport,
+  demoHomeClaimReport,
+  demoImageAttachment,
+  demoMessageAttachment,
+  demoPetClaimReport,
+  demoTheftClaimReport,
+} from './demoSeedAssets';
 
 export const PRIMARY_SEEKER = 'seeker@clearclever.com';
 export const SECONDARY_SEEKER = 'syedzurainrizvi@gmail.com';
@@ -39,6 +48,9 @@ export interface DemoClaimRecord {
   estimatedAmountPkr: number;
   daysAgoIncident?: number;
   daysAgoCreated?: number;
+  intelligenceReport?: ClaimIntelligenceReport;
+  attachments?: ClaimStoredAttachment[];
+  insurerComment?: string;
 }
 
 export interface DemoLeadRecord {
@@ -65,7 +77,12 @@ export interface DemoConversationRecord {
   insurerEmail: string;
   policySlug?: string;
   subject: string;
-  messages: Array<{ senderEmail: string; body: string; daysAgo?: number }>;
+  messages: Array<{
+    senderEmail: string;
+    body: string;
+    daysAgo?: number;
+    attachments?: Array<{ fileName: string; mimeType: string; dataUrl: string }>;
+  }>;
 }
 
 export interface DemoSupportRecord {
@@ -328,6 +345,11 @@ export const DEMO_CLAIMS: DemoClaimRecord[] = [
     estimatedAmountPkr: 85000,
     daysAgoIncident: 4,
     daysAgoCreated: 3,
+    intelligenceReport: demoHomeClaimReport(),
+    attachments: [
+      demoImageAttachment('kitchen-water-damage.png'),
+      demoImageAttachment('burst-pipe-closeup.png'),
+    ],
   },
   {
     userEmail: PRIMARY_SEEKER,
@@ -338,6 +360,12 @@ export const DEMO_CLAIMS: DemoClaimRecord[] = [
     estimatedAmountPkr: 120000,
     daysAgoIncident: 10,
     daysAgoCreated: 9,
+    intelligenceReport: demoAutoClaimReport(),
+    attachments: [
+      demoImageAttachment('rear-bumper-damage.png'),
+      demoImageAttachment('emporium-parking-context.png'),
+    ],
+    insurerComment: 'Workshop inspection scheduled at Johar Town partner garage.',
   },
   {
     userEmail: PRIMARY_SEEKER,
@@ -348,6 +376,12 @@ export const DEMO_CLAIMS: DemoClaimRecord[] = [
     estimatedAmountPkr: 45000,
     daysAgoIncident: 18,
     daysAgoCreated: 17,
+    intelligenceReport: demoPetClaimReport(),
+    attachments: [
+      demoImageAttachment('vet-invoice-hbl-pet.png'),
+      demoImageAttachment('surgery-notes.pdf.png'),
+    ],
+    insurerComment: 'Approved — settlement processed to registered bank account.',
   },
   {
     userEmail: PRIMARY_SEEKER,
@@ -358,6 +392,9 @@ export const DEMO_CLAIMS: DemoClaimRecord[] = [
     estimatedAmountPkr: 35000,
     daysAgoIncident: 25,
     daysAgoCreated: 24,
+    intelligenceReport: demoHomeClaimReport(),
+    attachments: [demoImageAttachment('garden-storm-damage.png')],
+    insurerComment: 'Outdoor furniture not listed under contents schedule — rejection upheld pending rider.',
   },
   {
     userEmail: PRIMARY_SEEKER,
@@ -368,6 +405,11 @@ export const DEMO_CLAIMS: DemoClaimRecord[] = [
     estimatedAmountPkr: 95000,
     daysAgoIncident: 2,
     daysAgoCreated: 1,
+    intelligenceReport: demoTheftClaimReport(),
+    attachments: [
+      demoImageAttachment('police-report-gulberg.png'),
+      demoImageAttachment('home-office-theft-scene.png'),
+    ],
   },
   {
     userEmail: PRIMARY_SEEKER,
@@ -378,6 +420,11 @@ export const DEMO_CLAIMS: DemoClaimRecord[] = [
     estimatedAmountPkr: 65000,
     daysAgoIncident: 1,
     daysAgoCreated: 1,
+    intelligenceReport: demoAutoClaimReport(),
+    attachments: [
+      demoImageAttachment('canal-road-fender.png'),
+      demoImageAttachment('third-party-vehicle.png'),
+    ],
   },
   {
     userEmail: SECONDARY_SEEKER,
@@ -605,6 +652,7 @@ export const DEMO_CONVERSATIONS: DemoConversationRecord[] = [
         senderEmail: PRIMARY_SEEKER,
         body: 'I have uploaded photos from the partner workshop in Johar Town.',
         daysAgo: 7,
+        attachments: [demoMessageAttachment('workshop-inspection-photos.png')],
       },
     ],
   },
@@ -618,11 +666,55 @@ export const DEMO_CONVERSATIONS: DemoConversationRecord[] = [
         senderEmail: PRIMARY_SEEKER,
         body: 'Sharing the vet invoice for my dog\'s surgery as discussed on the call.',
         daysAgo: 16,
+        attachments: [demoMessageAttachment('vet-invoice-surgery.pdf.png')],
       },
       {
         senderEmail: 'insurer.hbl@clearclever.com',
         body: 'Thank you — your pet claim has been approved. Settlement within 3 business days.',
         daysAgo: 15,
+      },
+    ],
+  },
+  {
+    userEmail: PRIMARY_SEEKER,
+    insurerEmail: 'insurer.allianz@clearclever.com',
+    policySlug: 'allianz-home-shield',
+    subject: 'Allianz Home Shield — coverage confirmation',
+    messages: [
+      {
+        senderEmail: PRIMARY_SEEKER,
+        body: 'Please confirm my DHA Lahore villa is covered under the natural disaster rider.',
+        daysAgo: 12,
+      },
+      {
+        senderEmail: 'insurer.allianz@clearclever.com',
+        body: 'Your policy schedule includes flood and earthquake rider for Lahore. Schedule attached.',
+        daysAgo: 11,
+        attachments: [demoMessageAttachment('allianz-policy-schedule.png')],
+      },
+      {
+        senderEmail: PRIMARY_SEEKER,
+        body: 'Perfect — saved for my records. Thank you!',
+        daysAgo: 10,
+      },
+    ],
+  },
+  {
+    userEmail: PRIMARY_SEEKER,
+    insurerEmail: 'insurer.adamjee@clearclever.com',
+    policySlug: 'adamjee-life-secure',
+    subject: 'Life policy beneficiary update',
+    messages: [
+      {
+        senderEmail: PRIMARY_SEEKER,
+        body: 'I need to add my spouse as nominee on the Adamjee Life Secure plan.',
+        daysAgo: 15,
+      },
+      {
+        senderEmail: 'insurer.adamjee@clearclever.com',
+        body: 'Nomination form attached. Return a signed CNIC copy of the new nominee.',
+        daysAgo: 14,
+        attachments: [demoMessageAttachment('nomination-form-adamjee.png')],
       },
     ],
   },

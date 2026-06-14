@@ -3,6 +3,7 @@ import { User } from '../models/User';
 import { deriveLocalFromCnic } from '../services/cnicDerivationService';
 import { maskCnic } from '../utils/cnic';
 import { DEMO_KYC } from './kycSeedData';
+import { DEMO_CNIC_PREVIEW_BASE64 } from './demoSeedAssets';
 import { daysAgo, resolveUserId } from './seedDemoHelpers';
 
 export interface SeedKycResult {
@@ -55,6 +56,12 @@ export async function seedKyc(): Promise<SeedKycResult> {
       blurScore: record.blurScore,
       tamperingRisk: record.tamperingRisk,
       verifiedAt,
+      ...(record.includeDocumentPreview
+        ? {
+            documentPreviewMimeType: 'image/png',
+            documentPreviewBase64: DEMO_CNIC_PREVIEW_BASE64,
+          }
+        : {}),
     };
 
     const existing = await KycVerification.findOne({ userId });

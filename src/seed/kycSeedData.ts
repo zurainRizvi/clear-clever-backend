@@ -6,6 +6,7 @@ export interface DemoKycRecord {
   source: KycSource;
   /** ISO date string for verifiedAt backdating */
   daysAgoVerified?: number;
+  includeDocumentPreview?: boolean;
   extractedFullName?: string;
   extractedFatherName?: string;
   extractedDob?: string;
@@ -34,6 +35,7 @@ export const DEMO_KYC: DemoKycRecord[] = [
     status: 'verified',
     source: 'upload',
     daysAgoVerified: 27,
+    includeDocumentPreview: true,
     extractedFullName: 'Ayesha Khan',
     extractedFatherName: 'Muhammad Khan',
     extractedDob: '15-03-1995',

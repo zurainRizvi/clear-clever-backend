@@ -18,7 +18,7 @@ export const SEED_INSURERS: SeedInsurerRecord[] = [
     contactEmail: 'support@tplinsurance.com.pk',
     contactPhone: '+923111234567',
     description:
-      'Leading general insurer in Pakistan offering motor, home, and commercial coverage since 2005.',
+      'TPL Insurance (est. 2005) is among Pakistan\'s largest general insurers, headquartered in Karachi with branches in Lahore, Islamabad, and Faisalabad. Known for motor Takaful, home contents cover, and SME commercial packages regulated by SECP.',
     websiteUrl: 'https://tplinsurance.com/',
   },
   {
@@ -29,7 +29,7 @@ export const SEED_INSURERS: SeedInsurerRecord[] = [
     contactEmail: 'help@jubileeinsurance.com.pk',
     contactPhone: '+923211345678',
     description:
-      'Trusted nationwide insurer with strong life and health products for Pakistani families.',
+      'Jubilee General Insurance serves families nationwide with motor, home, health, and travel products. Lahore and Karachi service centres offer cashless motor workshops and 24/7 claims support for Punjab and Sindh policyholders.',
     websiteUrl: 'https://www.jubileeinsurance.com.pk/',
   },
   {
@@ -40,7 +40,7 @@ export const SEED_INSURERS: SeedInsurerRecord[] = [
     contactEmail: 'info@adamjeeinsurance.com.pk',
     contactPhone: '+923311456789',
     description:
-      'Established insurer serving Karachi, Lahore, and Islamabad with flexible home and auto plans.',
+      'Adamjee Insurance Company Limited is a SECP-regulated insurer with 60+ years in Pakistan. Offers flexible home, motor, and marine cover with strong presence in Karachi, Lahore, and Islamabad broker networks.',
     websiteUrl: 'https://www.adamjeeinsurance.com.pk/',
   },
   {
@@ -51,7 +51,7 @@ export const SEED_INSURERS: SeedInsurerRecord[] = [
     contactEmail: 'support@hblinsurance.com.pk',
     contactPhone: '+923221567890',
     description:
-      'HBL Insurance offers motor, home, and life products backed by one of Pakistan\'s largest banking groups.',
+      'HBL Insurance Limited leverages Habib Bank\'s branch network for motor, home, and health products across Pakistan. Popular with salaried customers in Lahore, Rawalpindi, and Karachi seeking bundled banking + insurance.',
     websiteUrl: 'https://www.hblinsurance.com.pk/',
   },
   {
@@ -62,7 +62,7 @@ export const SEED_INSURERS: SeedInsurerRecord[] = [
     contactEmail: 'info@allianz.com.pk',
     contactPhone: '+923331678901',
     description:
-      'Global insurer with tailored home, auto, and commercial packages for Pakistani professionals.',
+      'Allianz EFU (Allianz in Pakistan) provides premium home, motor, and life solutions for professionals and expatriates. DHA Lahore and Bahria Town partnerships support high-value property and imported vehicle cover.',
     websiteUrl: 'https://www.allianz.com.pk/',
   },
   {
@@ -73,7 +73,7 @@ export const SEED_INSURERS: SeedInsurerRecord[] = [
     contactEmail: 'help@efulife.com',
     contactPhone: '+923441789012',
     description:
-      'Pakistan\'s pioneer life insurer with education, retirement, and family protection plans.',
+      'EFU Life Assurance Ltd. is Pakistan\'s first private sector life insurer (est. 1992). Education, retirement, and family Takaful plans with offices in Karachi, Lahore, Islamabad, and Multan.',
     websiteUrl: 'https://efulife.com/',
   },
   {
@@ -84,7 +84,7 @@ export const SEED_INSURERS: SeedInsurerRecord[] = [
     contactEmail: 'service@igilife.com.pk',
     contactPhone: '+923551890123',
     description:
-      'Established general insurer serving Karachi, Lahore, and Islamabad with flexible motor and property cover.',
+      'IGI General Insurance (IGI Life group) offers motor, property, and health cover with nationwide surveyor network. Strong in Karachi commercial lines and Lahore residential property packages.',
     websiteUrl: 'https://www.igilife.com.pk/',
   },
 ];

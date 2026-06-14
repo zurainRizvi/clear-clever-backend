@@ -5,6 +5,7 @@ import { User } from '../models/User';
 import { seedDerivedAuditEvents } from '../services/auditLogService';
 import { SEED_INSURERS } from './insurerSeedData';
 import { SEED_POLICIES } from './policySeedData';
+import { enrichPolicyFeatures } from './policyFeatureEnrichment';
 import { seedUsers, type SeedUsersResult } from './seedUsers';
 import { seedKyc, type SeedKycResult } from './seedKyc';
 
@@ -82,7 +83,7 @@ export async function seedCatalog(): Promise<SeedCatalogResult> {
       premiumMonthlyPkr: record.premiumMonthlyPkr,
       premiumYearlyPkr: record.premiumYearlyPkr,
       coverageSummary: record.coverageSummary,
-      features: record.features,
+      features: enrichPolicyFeatures(record.category, record.features),
       deductiblePkr: record.deductiblePkr,
       questions: record.questions,
       status: record.status,
