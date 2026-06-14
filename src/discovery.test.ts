@@ -135,8 +135,8 @@ describe('Module 5 — Questionnaire, recommend, compare, favorites', () => {
         .send({ category: 'home', answers: homeAnswers });
 
       const top = res.body.data.recommendations[0];
-      expect(top.policy.slug).toBe('tpl-home-essential');
-      expect(top.policy.premiumMonthlyPkr).toBe(3500);
+      expect(top.policy.slug).toBe('igi-home-basic');
+      expect(top.policy.premiumMonthlyPkr).toBe(3200);
     });
 
     it('reuses purchase answers after checkout when questionnaire row is missing', async () => {

@@ -86,14 +86,14 @@ describe('Hybrid policy recommender (Module 4)', () => {
     expect(scores).toEqual([...scores].sort((a, b) => b - a));
   });
 
-  it('keeps tpl-home-essential as top home match for standard seeker answers', async () => {
+  it('ranks the lowest premium home policy first for standard seeker answers', async () => {
     const res = await request(app)
       .post('/api/recommend')
       .send({ category: 'home', answers: homeAnswers });
 
     const top = res.body.data.recommendations[0];
-    expect(top.policy.slug).toBe('tpl-home-essential');
-    expect(top.policy.premiumMonthlyPkr).toBe(3500);
+    expect(top.policy.slug).toBe('igi-home-basic');
+    expect(top.policy.premiumMonthlyPkr).toBe(3200);
   });
 
   it('produces stable hybrid ordering for seeded policies', async () => {
