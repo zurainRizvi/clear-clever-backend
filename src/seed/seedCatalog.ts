@@ -13,6 +13,7 @@ export interface SeedCatalogResult {
   insurersUpdated: number;
   policiesCreated: number;
   policiesUpdated: number;
+  policiesPruned: number;
   insurerSlugs: string[];
   policySlugs: string[];
 }
@@ -99,14 +100,23 @@ export async function seedCatalog(): Promise<SeedCatalogResult> {
     }
   }
 
+  const policiesPruned = await pruneOrphanPolicies();
+
   return {
     insurersCreated,
     insurersUpdated,
     policiesCreated,
     policiesUpdated,
+    policiesPruned,
     insurerSlugs: SEED_INSURERS.map((i) => i.slug),
     policySlugs: SEED_POLICIES.map((p) => p.slug),
   };
+}
+
+async function pruneOrphanPolicies(): Promise<number> {
+  const validSlugs = SEED_POLICIES.map((p) => p.slug);
+  const result = await Policy.deleteMany({ slug: { $nin: validSlugs } });
+  return result.deletedCount ?? 0;
 }
 
 export async function seedAll(password?: string): Promise<{

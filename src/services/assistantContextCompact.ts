@@ -46,6 +46,8 @@ export function compactAssistantContext(
       activeUsers: compact.staffSummary.activeUsers,
       pendingPolicyApprovals: compact.staffSummary.pendingPolicyApprovals,
       openSupportInquiries: compact.staffSummary.openSupportInquiries,
+      usersByRole: compact.staffSummary.usersByRole,
+      approvedPoliciesByCategory: compact.staffSummary.approvedPoliciesByCategory,
     };
   }
 

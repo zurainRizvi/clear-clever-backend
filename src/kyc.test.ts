@@ -137,6 +137,24 @@ describe('KYC API', () => {
 
     expect(res.status).toBe(409);
   });
+
+  it('resets KYC when CNIC is changed after verification', async () => {
+    const before = await request(app)
+      .get('/api/kyc/status')
+      .set('Authorization', `Bearer ${token}`);
+    expect(before.body.data.kyc.status).toBe('verified');
+
+    await request(app)
+      .patch('/api/auth/me')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ cnic: '35202-2222222-1' });
+
+    const after = await request(app)
+      .get('/api/kyc/status')
+      .set('Authorization', `Bearer ${token}`);
+    expect(after.body.data.kyc.status).toBe('none');
+    expect(after.body.data.kyc.identityVerified).toBeFalsy();
+  });
 });
 
 describe('identity match scoring', () => {

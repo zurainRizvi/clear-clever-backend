@@ -27,6 +27,7 @@ async function main(): Promise<void> {
   console.log(`  insurers updated: ${result.catalog.insurersUpdated}`);
   console.log(`  policies created: ${result.catalog.policiesCreated}`);
   console.log(`  policies updated: ${result.catalog.policiesUpdated}`);
+  console.log(`  policies pruned: ${result.catalog.policiesPruned}`);
   console.log(`  insurer slugs: ${result.catalog.insurerSlugs.join(', ')}`);
   console.log(`  policies: ${result.catalog.policySlugs.length}`);
 

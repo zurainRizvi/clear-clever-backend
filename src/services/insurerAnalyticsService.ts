@@ -913,8 +913,13 @@ function buildOperationsSnapshot(input: {
 }): InsurerAnalyticsPayload['operations'] {
   const categoryGapText =
     input.missingCategories.length > 0
-      ? `Demand in ${input.missingCategories.map((c) => CATEGORY_LABELS[c]).join(', ')} without approved policies`
-      : 'All active demand categories have approved policies';
+      ? `${input.missingCategories.length} gap${input.missingCategories.length === 1 ? "" : "s"}`
+      : 'Full coverage';
+
+  const categoryGapDefinition =
+    input.missingCategories.length > 0
+      ? `Demand in ${input.missingCategories.map((c) => CATEGORY_LABELS[c]).join(', ')} without approved policies.`
+      : 'All active demand categories have approved policies.';
 
   return [
     {
@@ -950,7 +955,7 @@ function buildOperationsSnapshot(input: {
       metric: 'Category coverage',
       value: categoryGapText,
       status: input.missingCategories.length === 0 ? 'Strong' : 'Needs attention',
-      definition: 'Whether you have approved policies in categories where seekers are generating leads.',
+      definition: categoryGapDefinition,
       whyItMatters: 'Gaps mean demand you cannot convert — consider adding products in those categories.',
     },
   ];

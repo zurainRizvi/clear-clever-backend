@@ -9,7 +9,12 @@ import {
 import {
   buildAssistantContext,
   buildExplainPayload,
+  type AssistantContext,
 } from '../services/assistantContextService';
+import {
+  getCachedAssistantContext,
+  setCachedAssistantContext,
+} from '../services/assistantContextCache';
 import { tryAssistantFaqBypass } from '../services/assistantFaqBypass';
 import { compactHistoryForGemini } from '../services/assistantHistoryTrim';
 import {
@@ -115,6 +120,7 @@ export async function postAssistantChat(req: AuthenticatedRequest, res: Response
     history?: unknown;
     category?: string;
     attachments?: unknown;
+    sessionKey?: string;
   };
 
   const attachments = parseAttachments(body.attachments);
@@ -135,7 +141,27 @@ export async function postAssistantChat(req: AuthenticatedRequest, res: Response
   const anonymous = !req.user;
   applyRateLimit(req, 'chat', anonymous);
 
-  const context = await buildAssistantContext(req.user);
+  const history = parseHistory(body.history);
+  const followUp = hasPriorAssistantReply(history);
+
+  const sessionKey =
+    typeof body.sessionKey === 'string' && body.sessionKey.trim().length > 0
+      ? body.sessionKey.trim()
+      : undefined;
+
+  let context: AssistantContext;
+  if (followUp && req.user) {
+    const cached = getCachedAssistantContext(String(req.user._id), sessionKey);
+    context = cached
+      ? { ...cached }
+      : await buildAssistantContext(req.user);
+  } else {
+    context = await buildAssistantContext(req.user);
+  }
+
+  if (req.user) {
+    setCachedAssistantContext(String(req.user._id), context, sessionKey);
+  }
   if (attachments.length > 0) {
     context.currentMessageAttachments = attachments.map((a) => ({
       fileName: a.fileName,
@@ -154,9 +180,6 @@ export async function postAssistantChat(req: AuthenticatedRequest, res: Response
       }
     }
   }
-
-  const history = parseHistory(body.history);
-  const followUp = hasPriorAssistantReply(history);
 
   const faqReply = tryAssistantFaqBypass({
     message,

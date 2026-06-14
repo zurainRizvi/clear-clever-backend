@@ -71,9 +71,29 @@ export interface AssistantContext {
     pendingPolicyApprovals: number;
     openSupportInquiries: number;
     usersByRole?: Record<string, number>;
+    approvedPoliciesByCategory?: Record<string, number>;
+  };
+  /** Illustrative chart data for guest/public assistant replies (not personal quotes). */
+  publicChartExamples?: {
+    categoryPremiumRangesPkr: Array<{
+      category: string;
+      label: string;
+      minMonthly: number;
+      maxMonthly: number;
+    }>;
   };
   currentMessageAttachments?: Array<{ fileName: string; mimeType: string }>;
 }
+
+const PUBLIC_CHART_EXAMPLES: AssistantContext['publicChartExamples'] = {
+  categoryPremiumRangesPkr: [
+    { category: 'home', label: 'Home Insurance', minMonthly: 800, maxMonthly: 4500 },
+    { category: 'auto', label: 'Auto Insurance', minMonthly: 1200, maxMonthly: 6500 },
+    { category: 'life', label: 'Life Insurance', minMonthly: 500, maxMonthly: 3500 },
+    { category: 'pet', label: 'Pet Insurance', minMonthly: 400, maxMonthly: 2200 },
+    { category: 'others', label: 'Other Insurance', minMonthly: 600, maxMonthly: 3000 },
+  ],
+};
 
 export async function buildAssistantContext(user?: IUserDocument): Promise<AssistantContext> {
   const base: AssistantContext = {
@@ -88,6 +108,7 @@ export async function buildAssistantContext(user?: IUserDocument): Promise<Assis
   };
 
   if (!user) {
+    base.publicChartExamples = PUBLIC_CHART_EXAMPLES;
     return base;
   }
 
@@ -246,14 +267,18 @@ async function attachInsurerContext(context: AssistantContext, user: IUserDocume
   };
 }
 
-async function attachStaffContext(context: AssistantContext, isSuperadmin: boolean): Promise<void> {
-  const [activeUsers, pendingPolicyApprovals, openSupportInquiries, roleCounts] =
+async function attachStaffContext(context: AssistantContext, _isSuperadmin: boolean): Promise<void> {
+  const [activeUsers, pendingPolicyApprovals, openSupportInquiries, roleCounts, categoryCounts] =
     await Promise.all([
       User.countDocuments({ status: 'active' }),
       Policy.countDocuments({ status: 'pending' }),
       SupportInquiry.countDocuments({}),
       User.aggregate<{ _id: string; count: number }>([
         { $group: { _id: '$role', count: { $sum: 1 } } },
+      ]),
+      Policy.aggregate<{ _id: string; count: number }>([
+        { $match: { status: 'approved' } },
+        { $group: { _id: '$category', count: { $sum: 1 } } },
       ]),
     ]);
 
@@ -262,11 +287,17 @@ async function attachStaffContext(context: AssistantContext, isSuperadmin: boole
     usersByRole[row._id] = row.count;
   }
 
+  const approvedPoliciesByCategory: Record<string, number> = {};
+  for (const row of categoryCounts) {
+    approvedPoliciesByCategory[row._id] = row.count;
+  }
+
   context.staffSummary = {
     activeUsers,
     pendingPolicyApprovals,
     openSupportInquiries,
-    ...(isSuperadmin ? { usersByRole } : {}),
+    usersByRole,
+    approvedPoliciesByCategory,
   };
 }
 

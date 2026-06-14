@@ -9,7 +9,11 @@ const MARKDOWN_STYLE = `
   - Bar/line/pie chart — fenced block \`\`\`chart with JSON: \`{"type":"bar","title":"…","labels":["A","B"],"values":[1,2]}\`
   - KPI row — \`\`\`stats with JSON: \`{"type":"stats","items":[{"label":"Best match","value":"92%","hint":"Score"}]}\`
   - Policy cards — \`\`\`compare with JSON: \`{"type":"compare","items":[{"title":"Policy","subtitle":"Insurer","highlights":["PKR 4,500/mo"],"badge":"Top pick"}]}\`
-- Use PKR for money. Charts/stats must use real numbers from Context JSON only.
+- If the user asks for a chart, graph, visual comparison, KPI dashboard, or stats cards, you **must** include the matching fenced block — never only describe the data in prose or a markdown table.
+- Use PKR for money. Chart/stats numbers must come from Context JSON — never invent account-specific facts.
+- **Public/guest audience:** \`publicChartExamples.categoryPremiumRangesPkr\` are labeled examples — use them for charts when the user asks for visuals. State they are illustrative ranges, not personal quotes.
+- **Staff audience (admin/superadmin):** chart \`staffSummary\`, \`usersByRole\`, and \`approvedPoliciesByCategory\` only.
+- **Seeker/insurer:** chart only numbers present in their Context JSON (recommendations, purchases, insurer metrics).
 `.trim();
 
 const ADDRESSING_RULES = `

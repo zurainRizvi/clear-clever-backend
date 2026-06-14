@@ -173,6 +173,24 @@ function policyAlignmentForAnswer(
   return 'Factored into your personalized ranking';
 }
 
+function isQuestionRelevantToCategory(questionId: string, category: IPolicyDocument['category']): boolean {
+  if (questionId.includes('pet') && category !== 'pet') return false;
+  if (
+    (questionId.includes('vehicle') || questionId.includes('motor') || questionId === 'owns_vehicle') &&
+    category !== 'auto'
+  ) {
+    return false;
+  }
+  if (
+    (questionId.includes('property') || questionId.includes('contents') || questionId.includes('security')) &&
+    category !== 'home'
+  ) {
+    return false;
+  }
+  if (questionId.includes('life') && category !== 'life') return false;
+  return true;
+}
+
 export function buildAnswerHighlights(
   questions: IPolicyQuestion[],
   answers: Record<string, unknown>,
@@ -181,6 +199,8 @@ export function buildAnswerHighlights(
   const highlights: AnswerHighlight[] = [];
 
   for (const question of questions) {
+    if (!isQuestionRelevantToCategory(question.id, policy.category)) continue;
+
     const value = answers[question.id];
     const otherDetail = answers[`${question.id}_other`];
     const answerText = formatAnswerValue(value, otherDetail);
@@ -199,7 +219,8 @@ export function buildAnswerHighlights(
 
 function buildMatchReasons(
   scores: { affordability: number; coverageFit: number; featureRichness: number },
-  answers: Record<string, unknown>
+  answers: Record<string, unknown>,
+  category: IPolicyDocument['category']
 ): string[] {
   const reasons: string[] = [];
   const vehicleTokens = [
@@ -221,58 +242,64 @@ function buildMatchReasons(
     reasons.push(`Coverage options suited to your location in ${city.trim()}`);
   }
 
-  const riskAnswers = answerTokens(answers.risk_area);
-  if (riskAnswers.some((t) => t.includes('flood'))) {
-    reasons.push('Flood and rainwater risks you mentioned were prioritized');
-  }
-  if (riskAnswers.some((t) => t.includes('theft') || t.includes('burglary'))) {
-    reasons.push('Theft protection aligned with your security concerns');
-  }
+  if (category === 'home') {
+    const riskAnswers = answerTokens(answers.risk_area);
+    if (riskAnswers.some((t) => t.includes('flood'))) {
+      reasons.push('Flood and rainwater risks you mentioned were prioritized');
+    }
+    if (riskAnswers.some((t) => t.includes('theft') || t.includes('burglary'))) {
+      reasons.push('Theft protection aligned with your security concerns');
+    }
 
-  const securityFeatures = answerTokens(answers.security_features);
-  if (securityFeatures.length > 0 && !securityFeatures.some((t) => t.includes('no special'))) {
-    reasons.push('Your home security setup was considered in matching');
-  }
+    const securityFeatures = answerTokens(answers.security_features);
+    if (securityFeatures.length > 0 && !securityFeatures.some((t) => t.includes('no special'))) {
+      reasons.push('Your home security setup was considered in matching');
+    }
 
-  const hasMotorcycle =
-    vehicleTokens.some((token) => token.includes('motorcycle') || token.includes('bike')) ||
-    vehicleModel.toLowerCase().includes('motorcycle');
-  const hasCar = vehicleTokens.some(
-    (token) =>
-      token.includes('car') ||
-      token.includes('suv') ||
-      token.includes('4x4') ||
-      token.includes('commercial')
-  );
+    const propertyType = typeof answers.property_type === 'string' ? answers.property_type : '';
+    if (propertyType) {
+      reasons.push(`Suitable for ${propertyType.toLowerCase()} properties like yours`);
+    }
 
-  if (hasMotorcycle) {
-    reasons.push('Built for motorcycle owners based on your answers');
-  }
-  if (hasCar) {
-    reasons.push('Designed around your car or commercial vehicle needs');
-  }
-
-  for (const pet of ['dog', 'cat', 'bird'] as const) {
-    if (petTokens.some((token) => token.includes(pet))) {
-      reasons.push(`${pet.charAt(0).toUpperCase() + pet.slice(1)} care needs reflected in this match`);
+    const contentsCover = typeof answers.contents_cover === 'string' ? answers.contents_cover : '';
+    if (contentsCover && !contentsCover.toLowerCase().includes('structure only')) {
+      reasons.push('Contents coverage matches what you requested');
     }
   }
-  if (
-    petTokens.some((token) => token.includes('other pet')) &&
-    !reasons.some((reason) => reason.includes('care'))
-  ) {
-    const otherPet = typeof answers.pet_type_other === 'string' ? answers.pet_type_other.trim() : '';
-    reasons.push(otherPet ? `Pet care for ${otherPet} considered` : 'Your pet care preferences included');
+
+  if (category === 'auto') {
+    const hasMotorcycle =
+      vehicleTokens.some((token) => token.includes('motorcycle') || token.includes('bike')) ||
+      vehicleModel.toLowerCase().includes('motorcycle');
+    const hasCar = vehicleTokens.some(
+      (token) =>
+        token.includes('car') ||
+        token.includes('suv') ||
+        token.includes('4x4') ||
+        token.includes('commercial')
+    );
+
+    if (hasMotorcycle) {
+      reasons.push('Built for motorcycle owners based on your answers');
+    }
+    if (hasCar) {
+      reasons.push('Designed around your car or commercial vehicle needs');
+    }
   }
 
-  const propertyType = typeof answers.property_type === 'string' ? answers.property_type : '';
-  if (propertyType) {
-    reasons.push(`Suitable for ${propertyType.toLowerCase()} properties like yours`);
-  }
-
-  const contentsCover = typeof answers.contents_cover === 'string' ? answers.contents_cover : '';
-  if (contentsCover && !contentsCover.toLowerCase().includes('structure only')) {
-    reasons.push('Contents coverage matches what you requested');
+  if (category === 'pet') {
+    for (const pet of ['dog', 'cat', 'bird'] as const) {
+      if (petTokens.some((token) => token.includes(pet))) {
+        reasons.push(`${pet.charAt(0).toUpperCase() + pet.slice(1)} care needs reflected in this match`);
+      }
+    }
+    if (
+      petTokens.some((token) => token.includes('other pet')) &&
+      !reasons.some((reason) => reason.includes('care'))
+    ) {
+      const otherPet = typeof answers.pet_type_other === 'string' ? answers.pet_type_other.trim() : '';
+      reasons.push(otherPet ? `Pet care for ${otherPet} considered` : 'Your pet care preferences included');
+    }
   }
 
   if (scores.affordability >= WEIGHTS.affordability * 0.7) {
@@ -322,7 +349,8 @@ export function scorePolicies(
           coverageFit,
           featureRichness,
         },
-        answers
+        answers,
+        policy.category
       ),
       answerHighlights: buildAnswerHighlights(questions, answers, policy),
     };

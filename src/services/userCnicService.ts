@@ -4,8 +4,13 @@ import { AppError } from '../utils/apiResponse';
 import { normalizeCnic } from '../utils/cnic';
 import { deriveFromCnic } from './kycService';
 
-export async function assignUserCnic(user: IUserDocument, rawCnic: string): Promise<void> {
+export async function assignUserCnic(user: IUserDocument, rawCnic: string): Promise<boolean> {
   const normalized = normalizeCnic(rawCnic);
+  const previous = user.cnic ? normalizeCnic(user.cnic) : null;
+  if (previous === normalized) {
+    return false;
+  }
+
   const duplicate = await User.findOne({
     cnic: normalized,
     _id: { $ne: user._id },
@@ -20,4 +25,5 @@ export async function assignUserCnic(user: IUserDocument, rawCnic: string): Prom
   } catch {
     // Local derivation is best-effort; CNIC assignment still succeeds.
   }
+  return true;
 }

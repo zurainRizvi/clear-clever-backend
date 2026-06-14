@@ -137,11 +137,15 @@ function greetPrefix(input: FaqBypassInput): string {
   return '';
 }
 
+const VISUAL_REQUEST_PATTERN =
+  /\b(chart|graph|visual|visuali[sz]e|stats|compare|dashboard|kpi|diagram|illustration)\b/;
+
 /** Return a static Markdown reply for common FAQ-style questions (no Gemini call). */
 export function tryAssistantFaqBypass(input: FaqBypassInput): string | undefined {
   if (input.hasAttachments) return undefined;
 
   const normalized = normalizeMessage(input.message);
+  if (VISUAL_REQUEST_PATTERN.test(normalized)) return undefined;
   if (normalized.length < 4 || normalized.length > 200) return undefined;
 
   for (const entry of FAQ_ENTRIES) {

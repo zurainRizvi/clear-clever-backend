@@ -133,6 +133,37 @@ async function upsertKycRecord(
   return KycVerification.create({ userId, ...data });
 }
 
+const VERIFICATION_FIELDS_TO_CLEAR = [
+  'kycScore',
+  'identityMatchScore',
+  'documentReadable',
+  'extractedFullName',
+  'extractedFatherName',
+  'extractedDob',
+  'extractedExpiryDate',
+  'extractedIssueDate',
+  'extractedGender',
+  'age',
+  'isAdult',
+  'cnicExpired',
+  'suspiciousDocument',
+  'croppedDocument',
+  'blurScore',
+  'tamperingRisk',
+  'geminiModel',
+] as const;
+
+function clearVerificationFields(doc: IKycVerificationDocument): void {
+  doc.identityVerified = false;
+  doc.nameMatch = false;
+  doc.cnicMatch = false;
+  doc.profileMatchesDocument = false;
+  doc.missingFields = [];
+  for (const field of VERIFICATION_FIELDS_TO_CLEAR) {
+    doc.set(field, undefined);
+  }
+}
+
 async function applyExtractedAddress(
   userId: IUserDocument['_id'],
   raw: GeminiKycRaw,
@@ -169,6 +200,8 @@ export async function deriveFromCnic(user: IUserDocument, rawCnic?: string): Pro
     regionSlug: local.regionSlug,
     verifiedAt: new Date(),
   });
+  clearVerificationFields(doc);
+  await doc.save();
 
   return toKycReport(doc);
 }
