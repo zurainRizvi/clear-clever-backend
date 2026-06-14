@@ -113,12 +113,20 @@ export async function getInfrastructureHealth() {
     detail: isGeminiConfigured(env) ? 'API key configured (see superadmin health for live probe)' : 'Not configured',
   };
 
+  const speechToText = {
+    ok: true,
+    latencyMs: 0,
+    label: 'Browser speech-to-text',
+    detail: 'Web Speech API · Assistant & Messages · English (PK), Urdu, English (US)',
+  };
+
   return {
     render,
     vercel,
     mongodb,
     brevo,
     gemini,
+    speechToText,
     checkedAt: new Date().toISOString(),
     environment: env.NODE_ENV,
   };

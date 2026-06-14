@@ -37,6 +37,23 @@ export interface AssistantHealthReport {
   displayName?: string;
   modelAvailable: boolean;
   supportedGenerationMethods: string[];
+  speechToText: {
+    provider: string;
+    surfaces: string[];
+    languages: string[];
+    note: string;
+  };
+  vision: {
+    supportedMimeTypes: string[];
+    maxAttachmentsPerMessage: number;
+    maxBytesPerAttachment: number;
+    useCases: Array<{ route: string; label: string; description: string }>;
+    apiCallsSinceDeploy: {
+      chat: number;
+      kyc: number;
+      claimIntelligence: number;
+    };
+  };
   limits: {
     configuredMaxOutputTokens: number;
     configuredChatMaxOutputTokens: number;
@@ -177,6 +194,42 @@ export async function getAssistantHealthReport(env: Env = loadEnv()): Promise<As
     modelOutputTokenLimit: undefined as number | undefined,
   };
 
+  const speechToText = {
+    provider: 'Web Speech API (browser)',
+    surfaces: ['AI Assistant', 'Messages chat'],
+    languages: ['English (Pakistan)', 'Urdu', 'English (US)'],
+    note: 'Runs entirely in the user browser — no Gemini quota or server latency.',
+  };
+
+  const vision = {
+    supportedMimeTypes: limits.allowedAttachmentMimeTypes,
+    maxAttachmentsPerMessage: limits.maxAttachmentsPerMessage,
+    maxBytesPerAttachment: limits.maxBytesPerAttachment,
+    useCases: [
+      {
+        route: 'chat',
+        label: 'Assistant image & PDF attachments',
+        description:
+          'Multimodal chat — policy photos, CNIC scans, and PDFs sent inline with user messages.',
+      },
+      {
+        route: 'kyc',
+        label: 'CNIC photo verification',
+        description: 'Structured JSON extraction from CNIC front images for identity scoring.',
+      },
+      {
+        route: 'claim_intelligence',
+        label: 'Claim evidence analysis',
+        description: 'Vision-assisted damage photos and documents for insurer claim intelligence.',
+      },
+    ],
+    apiCallsSinceDeploy: {
+      chat: usage.chatApiCalls,
+      kyc: usage.kycApiCalls,
+      claimIntelligence: usage.claimIntelligenceApiCalls,
+    },
+  };
+
   if (!configured) {
     diagnostics.push('GEMINI_API_KEY is not set — the assistant widget stays hidden.');
     return {
@@ -189,6 +242,8 @@ export async function getAssistantHealthReport(env: Env = loadEnv()): Promise<As
       model,
       modelAvailable: false,
       supportedGenerationMethods: [],
+      speechToText,
+      vision,
       limits,
       usage,
       internalRateLimits,
@@ -232,6 +287,8 @@ export async function getAssistantHealthReport(env: Env = loadEnv()): Promise<As
     displayName: probe.model?.displayName,
     modelAvailable: probe.ok,
     supportedGenerationMethods: probe.model?.supportedGenerationMethods ?? [],
+    speechToText,
+    vision,
     limits,
     usage,
     internalRateLimits,
