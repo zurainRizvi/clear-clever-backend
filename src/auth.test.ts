@@ -39,7 +39,7 @@ describe('Module 2 — Authentication & OTP', () => {
     fullName: 'Zurain Rizvi',
     email: 'zurain@example.com',
     phone: '03001234567',
-    password: 'password12',
+    password: 'Password12',
   };
 
   async function signupAndGetCode() {
@@ -235,7 +235,7 @@ describe('Module 2 — Authentication & OTP', () => {
       fullName: 'Insurer User',
       email: 'insurer@example.com',
       phone: '03009876543',
-      password: 'password12',
+      password: 'Password12',
     });
     const code = signupRes.body.data.debugCode;
 
@@ -307,8 +307,8 @@ describe('Module 2 — Authentication & OTP', () => {
 
     const resetRes = await request(app).post('/api/auth/reset-password').send({
       token,
-      password: 'newpassword1',
-      confirmPassword: 'newpassword1',
+      password: 'Newpassword1',
+      confirmPassword: 'Newpassword1',
     });
 
     expect(resetRes.status).toBe(200);
@@ -322,7 +322,7 @@ describe('Module 2 — Authentication & OTP', () => {
 
     const newLogin = await request(app)
       .post('/api/auth/login')
-      .send({ email: signupBody.email, password: 'newpassword1' });
+      .send({ email: signupBody.email, password: 'Newpassword1' });
     expect(newLogin.status).toBe(200);
     expect(newLogin.body.data.token).toBeDefined();
   });
@@ -347,8 +347,8 @@ describe('Module 2 — Authentication & OTP', () => {
 
     const res = await request(app).post('/api/auth/reset-password').send({
       token: 'not-a-valid-token',
-      password: 'newpassword1',
-      confirmPassword: 'newpassword1',
+      password: 'Newpassword1',
+      confirmPassword: 'Newpassword1',
     });
 
     expect(res.status).toBe(400);
@@ -374,8 +374,8 @@ describe('Module 2 — Authentication & OTP', () => {
 
     const res = await request(app).post('/api/auth/reset-password').send({
       token,
-      password: 'newpassword1',
-      confirmPassword: 'newpassword1',
+      password: 'Newpassword1',
+      confirmPassword: 'Newpassword1',
     });
 
     expect(res.status).toBe(400);
@@ -396,15 +396,15 @@ describe('Module 2 — Authentication & OTP', () => {
 
     const first = await request(app).post('/api/auth/reset-password').send({
       token,
-      password: 'newpassword1',
-      confirmPassword: 'newpassword1',
+      password: 'Newpassword1',
+      confirmPassword: 'Newpassword1',
     });
     expect(first.status).toBe(200);
 
     const second = await request(app).post('/api/auth/reset-password').send({
       token,
-      password: 'anotherpass1',
-      confirmPassword: 'anotherpass1',
+      password: 'Anotherpass1',
+      confirmPassword: 'Anotherpass1',
     });
     expect(second.status).toBe(400);
   });
@@ -422,8 +422,8 @@ describe('Module 2 — Authentication & OTP', () => {
 
     const res = await request(app).post('/api/auth/reset-password').send({
       token,
-      password: 'newpassword1',
-      confirmPassword: 'differentpass',
+      password: 'Newpassword1',
+      confirmPassword: 'Differentpass1',
     });
 
     expect(res.status).toBe(400);
