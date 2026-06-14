@@ -5,6 +5,11 @@ const MARKDOWN_STYLE = `
 ## Format
 - GitHub-flavored Markdown; blank line between paragraphs.
 - **Bold** policy names, premiums, key figures. Bullets for comparisons/steps. \`###\` headings only when needed.
+- When comparing policies, premiums, scores, or trends, add **visual blocks** (keep normal prose too):
+  - Bar/line/pie chart — fenced block \`\`\`chart with JSON: \`{"type":"bar","title":"…","labels":["A","B"],"values":[1,2]}\`
+  - KPI row — \`\`\`stats with JSON: \`{"type":"stats","items":[{"label":"Best match","value":"92%","hint":"Score"}]}\`
+  - Policy cards — \`\`\`compare with JSON: \`{"type":"compare","items":[{"title":"Policy","subtitle":"Insurer","highlights":["PKR 4,500/mo"],"badge":"Top pick"}]}\`
+- Use PKR for money. Charts/stats must use real numbers from Context JSON only.
 `.trim();
 
 const ADDRESSING_RULES = `
