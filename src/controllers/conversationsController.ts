@@ -6,6 +6,7 @@ import { InsurerProfile } from '../models/InsurerProfile';
 import { getInsurerProfileForUser } from '../services/insurerContext';
 import { Message } from '../models/Message';
 import { User } from '../models/User';
+import { UserProfile } from '../models/UserProfile';
 import {
   createConversationMessage,
   findOrCreateConversation,
@@ -57,17 +58,21 @@ async function getConversationForUser(req: AuthenticatedRequest): Promise<IConve
   return conversation;
 }
 
-function userSummary(user: {
-  _id: Types.ObjectId;
-  fullName: string;
-  email: string;
-  role: string;
-}) {
+function userSummary(
+  user: {
+    _id: Types.ObjectId;
+    fullName: string;
+    email: string;
+    role: string;
+  },
+  profilePhotoByUserId: Map<string, string | undefined>
+) {
   return {
     id: String(user._id),
     fullName: user.fullName,
     email: user.email,
     role: user.role,
+    profilePhotoDataUrl: profilePhotoByUserId.get(String(user._id)),
   };
 }
 
@@ -85,6 +90,10 @@ async function presentConversation(
   requestingUserId?: Types.ObjectId
 ) {
   const participants = await User.find({ _id: { $in: conversation.participantUserIds } });
+  const profiles = await UserProfile.find({ userId: { $in: conversation.participantUserIds } });
+  const profilePhotoByUserId = new Map(
+    profiles.map((profile) => [String(profile.userId), profile.profilePhotoDataUrl])
+  );
   const insurer = conversation.insurerProfileId
     ? await InsurerProfile.findById(conversation.insurerProfileId)
     : null;
@@ -96,7 +105,9 @@ async function presentConversation(
     displayTitle: conversation.displayTitle,
     displayTitleOverride: displayTitleOverrideForUser(conversation, requestingUserId),
     participantUserIds: conversation.participantUserIds.map(String),
-    participants: participants.map(userSummary),
+    participants: participants.map((participant) =>
+      userSummary(participant, profilePhotoByUserId)
+    ),
     insurer: insurer
       ? {
           id: String(insurer._id),
