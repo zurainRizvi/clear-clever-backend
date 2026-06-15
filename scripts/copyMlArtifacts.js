@@ -9,7 +9,7 @@ if (!fs.existsSync(srcDir)) {
   process.exit(0);
 }
 
-function copyArtifactsRecursive(sourceDir: string, destDir: string): void {
+function copyArtifactsRecursive(sourceDir, destDir) {
   fs.mkdirSync(destDir, { recursive: true });
   for (const entry of fs.readdirSync(sourceDir, { withFileTypes: true })) {
     const sourcePath = path.join(sourceDir, entry.name);
