@@ -36,3 +36,33 @@ export const rejectInsurerValidators = [
   adminUserIdValidator,
   body('reason').optional().trim().isLength({ max: 1000 }).withMessage('Reason must be at most 1000 characters'),
 ];
+
+export const fraudCategoryValidator = param('category')
+  .trim()
+  .isIn(['account', 'claims', 'commerce', 'catalog'])
+  .withMessage('Category must be account, claims, commerce, or catalog');
+
+export const resolveFraudSignalValidators = [
+  fraudCategoryValidator,
+  body('signalId').trim().notEmpty().withMessage('signalId is required'),
+  body('resolution')
+    .trim()
+    .isIn(['confirmed_fraud', 'false_positive', 'dismissed'])
+    .withMessage('resolution must be confirmed_fraud, false_positive, or dismissed'),
+];
+
+export const mlRetrainModelValidators = [
+  body('modelId')
+    .trim()
+    .notEmpty()
+    .withMessage('modelId is required')
+    .isIn([
+      'claim_risk',
+      'fraud',
+      'policy_ranker_home',
+      'policy_ranker_auto',
+      'policy_ranker_life',
+      'policy_ranker_pet',
+    ])
+    .withMessage('Invalid modelId'),
+];

@@ -1,0 +1,19 @@
+{
+  "version": "policy_ranker_life_v1",
+  "category": "life",
+  "trainedAt": "2026-06-09T19:07:45.262895+00:00",
+  "metrics": {
+    "accuracy": 0.9156363636363636,
+    "roc_auc": 0.98448,
+    "precision": 0.5186721991701245,
+    "recall": 1.0,
+    "f1": 0.6830601092896175,
+    "train_rows": 5500,
+    "test_rows": 1375
+  },
+  "sourceCsv": "data/synthetic/recommendations_train.csv",
+  "reports": {
+    "metricsJson": "reports/policy_ranker_life_metrics.json",
+    "confusionMatrixPng": "reports/policy_ranker_life_confusion_matrix.png"
+  }
+}

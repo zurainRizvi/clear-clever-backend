@@ -1,9 +1,7 @@
 import fs from 'fs';
-import path from 'path';
 import { encodeArtifactFeatures, logisticProbability, standardizeFeatures } from './featureEncoding';
+import { resolveArtifactPath } from './artifactPaths';
 import type { PolicyRankerArtifact, PolicyRankerCategory, PolicyRankerRawFeatures } from './types';
-
-const ARTIFACT_DIR = path.join(__dirname, 'artifacts');
 
 const cache = new Map<PolicyRankerCategory, PolicyRankerArtifact | null | undefined>();
 
@@ -11,7 +9,8 @@ function loadArtifact(category: PolicyRankerCategory): PolicyRankerArtifact | nu
   if (cache.has(category)) {
     return cache.get(category) ?? null;
   }
-  const filePath = path.join(ARTIFACT_DIR, `policy_ranker_${category}_v1.json`);
+  const modelId = `policy_ranker_${category}` as const;
+  const filePath = resolveArtifactPath(modelId);
   try {
     const raw = fs.readFileSync(filePath, 'utf8');
     const parsed = JSON.parse(raw) as PolicyRankerArtifact;

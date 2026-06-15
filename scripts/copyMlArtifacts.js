@@ -9,13 +9,21 @@ if (!fs.existsSync(srcDir)) {
   process.exit(0);
 }
 
-fs.mkdirSync(destDir, { recursive: true });
-
-for (const file of fs.readdirSync(srcDir)) {
-  if (!file.endsWith('.json')) {
-    continue;
+function copyArtifactsRecursive(sourceDir: string, destDir: string): void {
+  fs.mkdirSync(destDir, { recursive: true });
+  for (const entry of fs.readdirSync(sourceDir, { withFileTypes: true })) {
+    const sourcePath = path.join(sourceDir, entry.name);
+    const destPath = path.join(destDir, entry.name);
+    if (entry.isDirectory()) {
+      copyArtifactsRecursive(sourcePath, destPath);
+      continue;
+    }
+    if (entry.name.endsWith('.json')) {
+      fs.copyFileSync(sourcePath, destPath);
+    }
   }
-  fs.copyFileSync(path.join(srcDir, file), path.join(destDir, file));
 }
+
+copyArtifactsRecursive(srcDir, destDir);
 
 console.log('[copyMlArtifacts] Copied ML JSON artifacts to dist/ml/artifacts');

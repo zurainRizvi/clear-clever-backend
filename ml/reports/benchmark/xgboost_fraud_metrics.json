@@ -1,0 +1,20 @@
+{
+  "accuracy": 0.9155,
+  "roc_auc": 0.8456685163886885,
+  "precision": 0.9173754556500607,
+  "recall": 0.9786130913804277,
+  "f1": 0.94700533082471,
+  "train_rows": 8000,
+  "test_rows": 2000,
+  "confusion_matrix": [
+    [
+      321,
+      136
+    ],
+    [
+      33,
+      1510
+    ]
+  ],
+  "backend": "sklearn_gradient_boosting_fallback"
+}

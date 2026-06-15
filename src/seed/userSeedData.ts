@@ -117,6 +117,36 @@ export const SEED_USERS: SeedUserRecord[] = [
     role: 'insurer',
   },
   {
+    fullName: 'Rashid Takaful',
+    email: 'insurer.pakqatar@clearclever.com',
+    phone: '+923661234567',
+    role: 'insurer',
+  },
+  {
+    fullName: 'Col. Imran Askari',
+    email: 'insurer.askari@clearclever.com',
+    phone: '+923771234567',
+    role: 'insurer',
+  },
+  {
+    fullName: 'Sana EFU',
+    email: 'insurer.efu-general@clearclever.com',
+    phone: '+923881234567',
+    role: 'insurer',
+  },
+  {
+    fullName: 'Farhan UIC',
+    email: 'insurer.uic@clearclever.com',
+    phone: '+923991234567',
+    role: 'insurer',
+  },
+  {
+    fullName: 'Ayesha Premier',
+    email: 'insurer.premier@clearclever.com',
+    phone: '+923221234568',
+    role: 'insurer',
+  },
+  {
     fullName: 'Pending Provider Demo',
     email: 'insurer.pending@clearclever.com',
     phone: '+923124001122',

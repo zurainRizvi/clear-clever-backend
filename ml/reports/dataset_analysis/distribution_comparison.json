@@ -1,0 +1,720 @@
+{
+  "claims": {
+    "old": {
+      "name": "claims",
+      "rows": 4000,
+      "numeric": {
+        "estimated_amount_pkr": {
+          "mean": 56140.55475,
+          "std": 65458.34720574779,
+          "min": 5000.0,
+          "max": 1495846.0,
+          "median": 37581.0
+        },
+        "description_length": {
+          "mean": 55.76425,
+          "std": 7.262427807001799,
+          "min": 44.0,
+          "max": 64.0,
+          "median": 58.0
+        },
+        "days_incident_to_submit": {
+          "mean": 22.65675,
+          "std": 13.266609595900624,
+          "min": 0.0,
+          "max": 45.0,
+          "median": 23.0
+        },
+        "amount_to_premium_ratio": {
+          "mean": 6.4886096,
+          "std": 10.732831464950273,
+          "min": 0.2002,
+          "max": 189.324,
+          "median": 3.2857000000000003
+        },
+        "user_claims_7d": {
+          "mean": 0.7475,
+          "std": 1.0334460569803205,
+          "min": 0.0,
+          "max": 4.0,
+          "median": 0.0
+        },
+        "user_claims_30d": {
+          "mean": 3.771,
+          "std": 2.2399360098744077,
+          "min": 0.0,
+          "max": 10.0,
+          "median": 4.0
+        },
+        "user_rejected_claims": {
+          "mean": 0.4375,
+          "std": 0.7897782520567754,
+          "min": 0.0,
+          "max": 3.0,
+          "median": 0.0
+        }
+      },
+      "categorical": {
+        "claim_type": {
+          "auto": 451,
+          "other": 422,
+          "damage": 404,
+          "pet_care": 402,
+          "medical": 401,
+          "theft": 395,
+          "life": 390,
+          "home": 384,
+          "pet": 383,
+          "accident": 368
+        },
+        "policy_category": {
+          "auto": 813,
+          "home": 806,
+          "pet": 804,
+          "life": 795,
+          "others": 782
+        },
+        "city": {
+          "faisalabad": 314,
+          "hyderabad": 313,
+          "abbottabad": 305,
+          "karachi": 297,
+          "lahore": 285,
+          "quetta": 283,
+          "multan": 282,
+          "islamabad": 281,
+          "gujranwala": 279,
+          "mardan": 277,
+          "peshawar": 277,
+          "sialkot": 272,
+          "sukkur": 271,
+          "rawalpindi": 264
+        },
+        "city_region": {
+          "punjab": 1696,
+          "sindh": 881,
+          "kpk": 859,
+          "balochistan": 283,
+          "islamabad": 281
+        },
+        "status": {
+          "approved": 1015,
+          "rejected": 1004,
+          "submitted": 991,
+          "in_review": 990
+        }
+      }
+    },
+    "new": {
+      "name": "claims",
+      "rows": 10000,
+      "numeric": {
+        "estimated_amount_pkr": {
+          "mean": 42542.572,
+          "std": 59746.07103315335,
+          "min": 5000.0,
+          "max": 1845001.0,
+          "median": 24870.0
+        },
+        "description_length": {
+          "mean": 55.5774,
+          "std": 7.350470201369306,
+          "min": 44.0,
+          "max": 64.0,
+          "median": 58.0
+        },
+        "days_incident_to_submit": {
+          "mean": 15.0338,
+          "std": 9.015885213256537,
+          "min": 0.0,
+          "max": 35.0,
+          "median": 15.0
+        },
+        "amount_to_premium_ratio": {
+          "mean": 5.101278509999999,
+          "std": 11.282891550901397,
+          "min": 0.2004,
+          "max": 342.6233,
+          "median": 2.1958
+        },
+        "user_claims_7d": {
+          "mean": 0.756,
+          "std": 1.0448795037312828,
+          "min": 0.0,
+          "max": 4.0,
+          "median": 0.0
+        },
+        "user_claims_30d": {
+          "mean": 3.7369,
+          "std": 2.2771905826467336,
+          "min": 0.0,
+          "max": 10.0,
+          "median": 4.0
+        },
+        "user_rejected_claims": {
+          "mean": 0.6173,
+          "std": 0.9201768213437316,
+          "min": 0.0,
+          "max": 3.0,
+          "median": 0.0
+        }
+      },
+      "categorical": {
+        "claim_type": {
+          "damage": 1046,
+          "theft": 1032,
+          "auto": 1024,
+          "pet": 1006,
+          "other": 995,
+          "life": 989,
+          "pet_care": 984,
+          "home": 980,
+          "accident": 977,
+          "medical": 967
+        },
+        "policy_category": {
+          "auto": 3210,
+          "home": 2229,
+          "pet": 2198,
+          "life": 2159,
+          "others": 204
+        },
+        "city": {
+          "rawalpindi": 752,
+          "karachi": 737,
+          "hyderabad": 735,
+          "islamabad": 734,
+          "lahore": 728,
+          "multan": 727,
+          "sukkur": 720,
+          "mardan": 715,
+          "faisalabad": 713,
+          "quetta": 710,
+          "peshawar": 686,
+          "sialkot": 684,
+          "gujranwala": 682,
+          "abbottabad": 677
+        },
+        "city_region": {
+          "punjab": 4286,
+          "sindh": 2192,
+          "kpk": 2078,
+          "islamabad": 734,
+          "balochistan": 710
+        },
+        "status": {
+          "approved": 5178,
+          "submitted": 1852,
+          "in_review": 1524,
+          "rejected": 1446
+        }
+      }
+    },
+    "comparison": {
+      "old_rows": 4000,
+      "new_rows": 10000,
+      "row_growth_pct": 150.0,
+      "numeric_deltas": {
+        "days_incident_to_submit": {
+          "mean_delta": -7.6229,
+          "std_delta": -4.2507
+        },
+        "user_rejected_claims": {
+          "mean_delta": 0.1798,
+          "std_delta": 0.1304
+        },
+        "amount_to_premium_ratio": {
+          "mean_delta": -1.3873,
+          "std_delta": 0.5501
+        },
+        "estimated_amount_pkr": {
+          "mean_delta": -13597.9828,
+          "std_delta": -5712.2762
+        },
+        "user_claims_7d": {
+          "mean_delta": 0.0085,
+          "std_delta": 0.0114
+        },
+        "description_length": {
+          "mean_delta": -0.1868,
+          "std_delta": 0.088
+        },
+        "user_claims_30d": {
+          "mean_delta": -0.0341,
+          "std_delta": 0.0373
+        }
+      }
+    }
+  },
+  "fraud": {
+    "old": {
+      "name": "fraud",
+      "rows": 3000,
+      "numeric": {
+        "severity_encoded": {
+          "mean": 2.513333333333333,
+          "std": 1.1148556812216575,
+          "min": 1.0,
+          "max": 4.0,
+          "median": 2.0
+        },
+        "account_age_days": {
+          "mean": 445.6546666666667,
+          "std": 256.7520969560314,
+          "min": 1.0,
+          "max": 900.0,
+          "median": 445.0
+        },
+        "related_entity_count": {
+          "mean": 15.473666666666666,
+          "std": 8.825414203736354,
+          "min": 1.0,
+          "max": 30.0,
+          "median": 15.0
+        }
+      },
+      "categorical": {
+        "signal_type": {
+          "unverified_provider": 347,
+          "pending_purchases": 341,
+          "claim_burst": 338,
+          "rejected_claims_volume": 331,
+          "lead_spike": 297,
+          "stale_pending_policies": 296,
+          "reject_rate": 294,
+          "inactive_spike": 288,
+          "duplicate_email": 260,
+          "other": 208
+        },
+        "fraud_category": {
+          "claims": 772,
+          "catalog": 748,
+          "account": 743,
+          "commerce": 737
+        },
+        "severity": {
+          "medium": 786,
+          "critical": 768,
+          "high": 725,
+          "low": 721
+        }
+      }
+    },
+    "new": {
+      "name": "fraud",
+      "rows": 10000,
+      "numeric": {
+        "severity_encoded": {
+          "mean": 2.6586,
+          "std": 1.0259392258460114,
+          "min": 1.0,
+          "max": 4.0,
+          "median": 3.0
+        },
+        "account_age_days": {
+          "mean": 383.9538,
+          "std": 281.63042526545945,
+          "min": 1.0,
+          "max": 900.0,
+          "median": 355.0
+        },
+        "related_entity_count": {
+          "mean": 16.727,
+          "std": 7.4779584771713346,
+          "min": 1.0,
+          "max": 30.0,
+          "median": 16.0
+        }
+      },
+      "categorical": {
+        "signal_type": {
+          "lead_spike": 1071,
+          "reject_rate": 1057,
+          "pending_purchases": 1056,
+          "unverified_provider": 1052,
+          "claim_burst": 1052,
+          "rejected_claims_volume": 1046,
+          "stale_pending_policies": 1000,
+          "duplicate_email": 994,
+          "inactive_spike": 983,
+          "other": 689
+        },
+        "fraud_category": {
+          "account": 2539,
+          "claims": 2509,
+          "commerce": 2490,
+          "catalog": 2462
+        },
+        "severity": {
+          "high": 3332,
+          "medium": 2530,
+          "critical": 2464,
+          "low": 1674
+        }
+      }
+    },
+    "comparison": {
+      "old_rows": 3000,
+      "new_rows": 10000,
+      "row_growth_pct": 233.3,
+      "numeric_deltas": {
+        "related_entity_count": {
+          "mean_delta": 1.2533,
+          "std_delta": -1.3475
+        },
+        "account_age_days": {
+          "mean_delta": -61.7009,
+          "std_delta": 24.8783
+        },
+        "severity_encoded": {
+          "mean_delta": 0.1453,
+          "std_delta": -0.0889
+        }
+      }
+    }
+  },
+  "recommendations": {
+    "old": {
+      "name": "recommendations",
+      "rows": 31875,
+      "numeric": {
+        "user_value_pkr": {
+          "mean": 6074962.995105882,
+          "std": 5934585.133853373,
+          "min": 100000.0,
+          "max": 24965892.0,
+          "median": 4115100.0
+        },
+        "policy_premium_monthly_pkr": {
+          "mean": 4437.254901960784,
+          "std": 2534.9304708036957,
+          "min": 1600.0,
+          "max": 11800.0,
+          "median": 3800.0
+        },
+        "policy_feature_count": {
+          "mean": 3.3333333333333335,
+          "std": 0.758407175335812,
+          "min": 3.0,
+          "max": 6.0,
+          "median": 3.0
+        },
+        "policy_deductible_pkr": {
+          "mean": 14476.470588235294,
+          "std": 13849.767231277989,
+          "min": 0.0,
+          "max": 48000.0,
+          "median": 8000.0
+        },
+        "premium_to_value_ratio": {
+          "mean": 0.02120112862745098,
+          "std": 0.030830042301089405,
+          "min": 0.001461,
+          "max": 0.3306,
+          "median": 0.012075
+        }
+      },
+      "categorical": {
+        "category": {
+          "auto": 9375,
+          "pet": 8125,
+          "home": 7500,
+          "life": 6875
+        },
+        "policy_slug": {
+          "tpl-home-essential": 625,
+          "jubilee-home-shield": 625,
+          "adamjee-home-plus": 625,
+          "jubilee-home-elite": 625,
+          "hbl-home-essential": 625,
+          "hbl-home-guard": 625,
+          "allianz-home-shield": 625,
+          "allianz-home-elite": 625,
+          "efu-home-plus": 625,
+          "efu-home-premium": 625,
+          "igi-home-basic": 625,
+          "igi-home-comprehensive": 625,
+          "tpl-auto-comprehensive": 625,
+          "jubilee-auto-guard": 625,
+          "adamjee-auto-smart": 625,
+          "tpl-motorcycle-ride": 625,
+          "jubilee-bike-pro": 625,
+          "adamjee-bike-cover": 625,
+          "tpl-auto-third-party": 625,
+          "hbl-auto-comprehensive": 625,
+          "hbl-auto-city": 625,
+          "allianz-auto-guard": 625,
+          "allianz-auto-premium": 625,
+          "efu-auto-smart": 625,
+          "efu-auto-suv": 625,
+          "igi-auto-drive": 625,
+          "igi-auto-fleet-lite": 625,
+          "jubilee-life-family": 625,
+          "adamjee-life-secure": 625,
+          "tpl-life-term": 625,
+          "hbl-life-family": 625,
+          "hbl-life-term": 625,
+          "allianz-life-secure": 625,
+          "allianz-life-wealth": 625,
+          "efu-life-education": 625,
+          "efu-life-retirement": 625,
+          "igi-life-term": 625,
+          "igi-life-whole": 625,
+          "tpl-pet-care": 625,
+          "jubilee-pet-shield": 625,
+          "adamjee-pet-plus": 625,
+          "tpl-dog-guard": 625,
+          "jubilee-cat-care": 625,
+          "hbl-pet-care": 625,
+          "hbl-pet-plus": 625,
+          "allianz-pet-shield": 625,
+          "allianz-pet-care": 625,
+          "efu-pet-wellness": 625,
+          "efu-pet-guard": 625,
+          "igi-pet-basic": 625,
+          "igi-pet-premium": 625
+        },
+        "city_region": {
+          "punjab": 15340,
+          "islamabad": 7863,
+          "sindh": 7304,
+          "kpk": 1368
+        },
+        "property_type": {
+          "Apartment": 2004,
+          "Villa": 1932,
+          "Independent house": 1908,
+          "Commercial unit": 1656
+        },
+        "occupancy": {
+          "Owner occupied": 2724,
+          "Rented out": 2508,
+          "Vacant / under construction": 2268
+        },
+        "vehicle_type": {
+          "Motorcycle": 2490,
+          "Private car": 2430,
+          "Commercial vehicle": 2370,
+          "SUV / 4x4": 2085
+        },
+        "coverage_type": {
+          "Comprehensive": 5235,
+          "Third-party liability": 2295,
+          "Accidental damage": 1845
+        },
+        "coverage_goal": {
+          "Retirement planning": 1848,
+          "Mortgage / loan protection": 1837,
+          "Children education fund": 1683,
+          "Family income protection": 1507
+        },
+        "age_band": {
+          "31\u201340": 1518,
+          "41\u201350": 1441,
+          "60+": 1342,
+          "51\u201360": 1342,
+          "18\u201330": 1232
+        },
+        "pet_type": {
+          "Cat": 2223,
+          "Dog": 2002,
+          "Other pet": 1963,
+          "Bird": 1937
+        },
+        "vaccination_status": {
+          "Not vaccinated yet": 2847,
+          "Partially vaccinated": 2704,
+          "Fully vaccinated": 2574
+        }
+      }
+    },
+    "new": {
+      "name": "recommendations",
+      "rows": 145000,
+      "numeric": {
+        "user_value_pkr": {
+          "mean": 6229575.493213793,
+          "std": 6007899.703940589,
+          "min": 100000.0,
+          "max": 24995249.0,
+          "median": 4407122.5
+        },
+        "policy_premium_monthly_pkr": {
+          "mean": 5118.9655172413795,
+          "std": 3207.327958436279,
+          "min": 1600.0,
+          "max": 15000.0,
+          "median": 4200.0
+        },
+        "policy_feature_count": {
+          "mean": 3.2413793103448274,
+          "std": 0.7726011642295761,
+          "min": 2.0,
+          "max": 6.0,
+          "median": 3.0
+        },
+        "policy_deductible_pkr": {
+          "mean": 17039.655172413793,
+          "std": 18722.16969123938,
+          "min": 0.0,
+          "max": 100000.0,
+          "median": 9000.0
+        },
+        "premium_to_value_ratio": {
+          "mean": 0.02361063304827586,
+          "std": 0.034743576415907584,
+          "min": 0.001459,
+          "max": 0.4788,
+          "median": 0.013029
+        }
+      },
+      "categorical": {
+        "category": {
+          "auto": 42500,
+          "home": 35000,
+          "pet": 35000,
+          "life": 32500
+        },
+        "policy_slug": {
+          "tpl-home-essential": 2500,
+          "jubilee-home-shield": 2500,
+          "adamjee-home-plus": 2500,
+          "jubilee-home-elite": 2500,
+          "hbl-home-essential": 2500,
+          "hbl-home-guard": 2500,
+          "allianz-home-shield": 2500,
+          "allianz-home-elite": 2500,
+          "efu-home-plus": 2500,
+          "efu-home-premium": 2500,
+          "igi-home-basic": 2500,
+          "igi-home-comprehensive": 2500,
+          "hbl-commercial-heavy": 2500,
+          "tpl-home-premium": 2500,
+          "tpl-auto-comprehensive": 2500,
+          "jubilee-auto-guard": 2500,
+          "adamjee-auto-smart": 2500,
+          "tpl-motorcycle-ride": 2500,
+          "jubilee-bike-pro": 2500,
+          "adamjee-bike-cover": 2500,
+          "tpl-auto-third-party": 2500,
+          "hbl-auto-comprehensive": 2500,
+          "hbl-auto-city": 2500,
+          "allianz-auto-guard": 2500,
+          "allianz-auto-premium": 2500,
+          "efu-auto-smart": 2500,
+          "efu-auto-suv": 2500,
+          "igi-auto-drive": 2500,
+          "igi-auto-fleet-lite": 2500,
+          "igi-marine-freight": 2500,
+          "jubilee-auto-fleet": 2500,
+          "jubilee-life-family": 2500,
+          "adamjee-life-secure": 2500,
+          "tpl-life-term": 2500,
+          "hbl-life-family": 2500,
+          "hbl-life-term": 2500,
+          "allianz-life-secure": 2500,
+          "allianz-life-wealth": 2500,
+          "efu-life-education": 2500,
+          "efu-life-retirement": 2500,
+          "igi-life-term": 2500,
+          "igi-life-whole": 2500,
+          "adamjee-life-wealth": 2500,
+          "allianz-expat-cover": 2500,
+          "tpl-pet-care": 2500,
+          "jubilee-pet-shield": 2500,
+          "adamjee-pet-plus": 2500,
+          "tpl-dog-guard": 2500,
+          "jubilee-cat-care": 2500,
+          "hbl-pet-care": 2500,
+          "hbl-pet-plus": 2500,
+          "allianz-pet-shield": 2500,
+          "allianz-pet-care": 2500,
+          "efu-pet-wellness": 2500,
+          "efu-pet-guard": 2500,
+          "igi-pet-basic": 2500,
+          "igi-pet-premium": 2500,
+          "tpl-pet-premium": 2500
+        },
+        "city_region": {
+          "punjab": 69149,
+          "sindh": 34801,
+          "islamabad": 34176,
+          "kpk": 6874
+        },
+        "property_type": {
+          "Villa": 9058,
+          "Independent house": 8974,
+          "Apartment": 8680,
+          "Commercial unit": 8288
+        },
+        "occupancy": {
+          "Owner occupied": 12152,
+          "Vacant / under construction": 11452,
+          "Rented out": 11396
+        },
+        "vehicle_type": {
+          "SUV / 4x4": 10965,
+          "Motorcycle": 10948,
+          "Commercial vehicle": 10659,
+          "Private car": 9928
+        },
+        "coverage_type": {
+          "Comprehensive": 21675,
+          "Accidental damage": 10829,
+          "Third-party liability": 9996
+        },
+        "coverage_goal": {
+          "Family income protection": 8580,
+          "Retirement planning": 8125,
+          "Children education fund": 8073,
+          "Mortgage / loan protection": 7722
+        },
+        "age_band": {
+          "18\u201330": 6825,
+          "31\u201340": 6630,
+          "51\u201360": 6578,
+          "41\u201350": 6370,
+          "60+": 6097
+        },
+        "pet_type": {
+          "Bird": 9086,
+          "Other pet": 8834,
+          "Dog": 8624,
+          "Cat": 8456
+        },
+        "vaccination_status": {
+          "Not vaccinated yet": 11928,
+          "Partially vaccinated": 11886,
+          "Fully vaccinated": 11186
+        }
+      }
+    },
+    "comparison": {
+      "old_rows": 31875,
+      "new_rows": 145000,
+      "row_growth_pct": 354.9,
+      "numeric_deltas": {
+        "policy_feature_count": {
+          "mean_delta": -0.092,
+          "std_delta": 0.0142
+        },
+        "policy_premium_monthly_pkr": {
+          "mean_delta": 681.7106,
+          "std_delta": 672.3975
+        },
+        "user_value_pkr": {
+          "mean_delta": 154612.4981,
+          "std_delta": 73314.5701
+        },
+        "policy_deductible_pkr": {
+          "mean_delta": 2563.1846,
+          "std_delta": 4872.4025
+        },
+        "premium_to_value_ratio": {
+          "mean_delta": 0.0024,
+          "std_delta": 0.0039
+        }
+      }
+    }
+  }
+}

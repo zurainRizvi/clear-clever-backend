@@ -1,11 +1,35 @@
 import type { PolicyCategorySlug } from '../constants/categories';
-import type { IPolicyDocument } from '../models/Policy';
+import type { InsurerPolicyType } from '../models/InsurerProfile';
+import type { IPolicyDocument, IPolicyFeatureSection } from '../models/Policy';
 import type { IInsurerProfileDocument } from '../models/InsurerProfile';
+import {
+  buildCompanyProfileSection,
+  flattenFeatureSections,
+  mergeFeatureSectionsWithCompanyProfile,
+  type InsurerProfileForFeatures,
+} from '../constants/policyFeatureTemplates';
 
 export interface PublicInsurerSummary {
   id: string;
   slug: string;
   companyName: string;
+  pacraRating?: string;
+  jcrVisRating?: string;
+  operationalSince?: number;
+  policyType?: InsurerPolicyType;
+}
+
+export interface PublicPolicyFeatureRow {
+  key: string;
+  label: string;
+  value?: string;
+  included?: boolean;
+}
+
+export interface PublicPolicyFeatureSection {
+  id: string;
+  title: string;
+  rows: PublicPolicyFeatureRow[];
 }
 
 export interface PublicPolicy {
@@ -18,9 +42,30 @@ export interface PublicPolicy {
   premiumYearlyPkr: number;
   coverageSummary: string;
   features: string[];
+  featureSections: PublicPolicyFeatureSection[];
   deductiblePkr: number;
   status: IPolicyDocument['status'];
   insurer: PublicInsurerSummary;
+}
+
+function insurerForFeatures(insurer: IInsurerProfileDocument): InsurerProfileForFeatures {
+  return {
+    companyName: insurer.companyName,
+    pacraRating: insurer.pacraRating,
+    jcrVisRating: insurer.jcrVisRating,
+    operationalSince: insurer.operationalSince,
+    policyType: insurer.policyType,
+  };
+}
+
+export function resolvePolicyFeatureSections(
+  policy: IPolicyDocument,
+  insurer: IInsurerProfileDocument
+): IPolicyFeatureSection[] {
+  if (policy.featureSections && policy.featureSections.length > 0) {
+    return mergeFeatureSectionsWithCompanyProfile(policy.featureSections, insurerForFeatures(insurer));
+  }
+  return [buildCompanyProfileSection(insurerForFeatures(insurer))];
 }
 
 export function toPublicInsurerSummary(profile: IInsurerProfileDocument): PublicInsurerSummary {
@@ -28,6 +73,10 @@ export function toPublicInsurerSummary(profile: IInsurerProfileDocument): Public
     id: String(profile._id),
     slug: profile.slug,
     companyName: profile.companyName,
+    pacraRating: profile.pacraRating,
+    jcrVisRating: profile.jcrVisRating,
+    operationalSince: profile.operationalSince,
+    policyType: profile.policyType,
   };
 }
 
@@ -35,6 +84,10 @@ export function toPublicPolicy(
   policy: IPolicyDocument,
   insurer: IInsurerProfileDocument
 ): PublicPolicy {
+  const featureSections = resolvePolicyFeatureSections(policy, insurer);
+  const features =
+    policy.features.length > 0 ? policy.features : flattenFeatureSections(featureSections);
+
   return {
     id: String(policy._id),
     slug: policy.slug,
@@ -44,7 +97,8 @@ export function toPublicPolicy(
     premiumMonthlyPkr: policy.premiumMonthlyPkr,
     premiumYearlyPkr: policy.premiumYearlyPkr,
     coverageSummary: policy.coverageSummary,
-    features: policy.features,
+    features,
+    featureSections,
     deductiblePkr: policy.deductiblePkr,
     status: policy.status,
     insurer: toPublicInsurerSummary(insurer),
@@ -71,4 +125,19 @@ export async function enrichPolicies(
     }
     return toPublicPolicy(policy, insurer);
   });
+}
+
+export function syncPolicyFeaturesFromSections(
+  featureSections: IPolicyFeatureSection[] | undefined,
+  existingFeatures: string[]
+): { featureSections?: IPolicyFeatureSection[]; features: string[] } {
+  if (!featureSections || featureSections.length === 0) {
+    return { features: existingFeatures };
+  }
+  const withoutCompany = featureSections.filter((s) => s.id !== 'company_profile');
+  const flattened = flattenFeatureSections(withoutCompany);
+  return {
+    featureSections: withoutCompany,
+    features: flattened.length > 0 ? flattened : existingFeatures,
+  };
 }

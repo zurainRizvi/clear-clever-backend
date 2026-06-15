@@ -16,6 +16,7 @@ import { favoritesRouter } from './routes/favorites';
 import { healthRouter } from './routes/health';
 import { renderAffiliateWizard } from './controllers/affiliateController';
 import { asyncPublicHandler } from './controllers/authController';
+import { uploadAdminMlRetrainCandidate } from './controllers/mlRetrainController';
 import { insurerRouter } from './routes/insurer';
 import { adminRouter } from './routes/admin';
 import { claimsRouter } from './routes/claims';
@@ -71,6 +72,7 @@ export function createApp(env: Env) {
   app.use('/api/policies', policiesRouter);
   app.use('/api/favorites', favoritesRouter);
   app.use('/api/insurer', insurerRouter);
+  app.post('/api/internal/ml-retrain/candidate', asyncPublicHandler(uploadAdminMlRetrainCandidate));
   app.use('/api/admin', adminRouter);
   app.use('/api/purchase', purchaseRouter);
   app.use('/api/purchases', purchasesRouter);

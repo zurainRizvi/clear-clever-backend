@@ -9,7 +9,12 @@ import type { IPurchaseDocument } from '../models/Purchase';
 import { Purchase } from '../models/Purchase';
 import { User } from '../models/User';
 import { AppError } from '../utils/apiResponse';
-import { nextBusinessDayAtTenPkt } from './purchaseScheduling';
+import type { ScheduleType } from '../constants/purchase';
+import {
+  nextBusinessDayAtTenPkt,
+  resolveScheduledAtFromAnswers,
+  resolveSurveyScheduledAtFromAnswers,
+} from './purchaseScheduling';
 import { loadEnv } from '../config/env';
 import { isOutboundEmailConfigured } from './emailDelivery';
 import { sendTransactionalEmail } from './mail';
@@ -19,12 +24,14 @@ import {
   findOrCreateConversation,
 } from './conversationService';
 import { renderBrandedEmail } from './emailTemplates';
+import { capturePolicyRankerTrainingSnapshot } from './mlTrainingSnapshotService';
 
 export interface CompletionArtifacts {
   purchase: IPurchaseDocument;
   notifications: Awaited<ReturnType<typeof Notification.find>>;
   emailLog: Awaited<ReturnType<typeof EmailLog.findOne>>;
   callSchedule: Awaited<ReturnType<typeof CallSchedule.findOne>>;
+  callSchedules: Awaited<ReturnType<typeof CallSchedule.find>>;
   lead: Awaited<ReturnType<typeof Lead.findOne>>;
   alreadyCompleted: boolean;
 }
@@ -45,10 +52,10 @@ export async function completePurchase(
   }
 
   if (purchase.completionArtifactsCreated) {
-    const [notifications, emailLog, callSchedule, lead] = await Promise.all([
+    const [notifications, emailLog, callSchedules, lead] = await Promise.all([
       Notification.find({ 'metadata.purchaseId': String(purchase._id) }).sort({ createdAt: 1 }),
       EmailLog.findOne({ purchaseId: purchase._id }),
-      CallSchedule.findOne({ purchaseId: purchase._id }),
+      CallSchedule.find({ purchaseId: purchase._id }).sort({ scheduleType: 1 }),
       Lead.findOne({
         insurerProfileId: purchase.insurerProfileId,
         userId: purchase.userId,
@@ -61,7 +68,8 @@ export async function completePurchase(
       purchase,
       notifications,
       emailLog,
-      callSchedule,
+      callSchedule: callSchedules.find((s) => s.scheduleType === 'agent_call') ?? callSchedules[0] ?? null,
+      callSchedules,
       lead,
       alreadyCompleted: true,
     };
@@ -82,38 +90,42 @@ export async function completePurchase(
     throw new AppError(500, 'Insurer account is missing for this purchase');
   }
 
-  const scheduledAt = nextBusinessDayAtTenPkt();
+  const answers = purchase.answers as Record<string, unknown> | undefined;
+  const callScheduledAt = resolveScheduledAtFromAnswers(answers, nextBusinessDayAtTenPkt());
+  const surveyScheduledAt =
+    policy.category === 'auto' ? resolveSurveyScheduledAtFromAnswers(answers) : null;
   const purchaseIdStr = String(purchase._id);
 
-  const notifications = await Notification.insertMany([
+  const notificationPayload = [
     {
       userId: purchase.userId,
-      type: 'purchase_success',
+      type: 'purchase_success' as const,
       title: 'Payment processed',
       body: `Your insurance payment for ${policy.name} was processed successfully.`,
       metadata: { purchaseId: purchaseIdStr, policyId: String(policy._id) },
     },
     {
       userId: purchase.userId,
-      type: 'insurer_email',
+      type: 'insurer_email' as const,
       title: `Email from ${insurer.companyName}`,
       body: `${insurer.companyName} sent confirmation details for your ${policy.name} policy.`,
       metadata: { purchaseId: purchaseIdStr, insurerSlug: insurer.slug },
     },
     {
       userId: purchase.userId,
-      type: 'call_scheduled',
+      type: 'call_scheduled' as const,
       title: 'Call scheduled with insurer',
-      body: `A follow-up call with ${insurer.companyName} is scheduled on ${scheduledAt.toISOString()}.`,
+      body: `A follow-up call with ${insurer.companyName} is scheduled on ${callScheduledAt.toISOString()}.`,
       metadata: {
         purchaseId: purchaseIdStr,
         insurerPhone: insurer.contactPhone,
-        scheduledAt: scheduledAt.toISOString(),
+        scheduledAt: callScheduledAt.toISOString(),
+        scheduleType: 'agent_call',
       },
     },
     {
       userId: insurerUser._id,
-      type: 'new_lead',
+      type: 'new_lead' as const,
       title: 'New policy sold',
       body: `${user.fullName} completed purchase of ${policy.name}.`,
       metadata: {
@@ -122,7 +134,24 @@ export async function completePurchase(
         leadType: 'purchase',
       },
     },
-  ]);
+  ];
+
+  if (surveyScheduledAt) {
+    notificationPayload.splice(3, 0, {
+      userId: purchase.userId,
+      type: 'call_scheduled' as const,
+      title: 'Vehicle survey scheduled',
+      body: `A pre-coverage vehicle survey with ${insurer.companyName} is scheduled on ${surveyScheduledAt.toISOString()}.`,
+      metadata: {
+        purchaseId: purchaseIdStr,
+        insurerPhone: insurer.contactPhone,
+        scheduledAt: surveyScheduledAt.toISOString(),
+        scheduleType: 'survey_visit',
+      },
+    });
+  }
+
+  const notifications = await Notification.insertMany(notificationPayload);
 
   const emailLog = await EmailLog.create({
     userId: purchase.userId,
@@ -184,13 +213,41 @@ export async function completePurchase(
 
   await createConversationMessage(conversation, insurerUser._id, welcomeMessage);
 
-  const callSchedule = await CallSchedule.create({
-    userId: purchase.userId,
-    insurerId: insurer._id,
-    purchaseId: purchase._id,
-    scheduledAt,
-    status: 'scheduled',
-    notes: `Follow-up for ${policy.name}`,
+  const scheduleDocs: Array<{
+    userId: typeof purchase.userId;
+    insurerId: typeof insurer._id;
+    purchaseId: typeof purchase._id;
+    scheduleType: ScheduleType;
+    scheduledAt: Date;
+    status: 'scheduled';
+    notes: string;
+  }> = [
+    {
+      userId: purchase.userId,
+      insurerId: insurer._id,
+      purchaseId: purchase._id,
+      scheduleType: 'agent_call',
+      scheduledAt: callScheduledAt,
+      status: 'scheduled',
+      notes: `Follow-up call for ${policy.name}`,
+    },
+  ];
+
+  if (surveyScheduledAt) {
+    scheduleDocs.push({
+      userId: purchase.userId,
+      insurerId: insurer._id,
+      purchaseId: purchase._id,
+      scheduleType: 'survey_visit',
+      scheduledAt: surveyScheduledAt,
+      status: 'scheduled',
+      notes: `Vehicle survey for ${policy.name}`,
+    });
+  }
+
+  await CallSchedule.insertMany(scheduleDocs);
+  const callSchedules = await CallSchedule.find({ purchaseId: purchase._id }).sort({
+    scheduleType: 1,
   });
 
   const lead = await Lead.findOneAndUpdate(
@@ -216,12 +273,14 @@ export async function completePurchase(
   purchase.completedAt = new Date();
   purchase.completionArtifactsCreated = true;
   await purchase.save();
+  await capturePolicyRankerTrainingSnapshot(purchase, policy);
 
   return {
     purchase,
     notifications,
     emailLog,
-    callSchedule,
+    callSchedule: callSchedules.find((s) => s.scheduleType === 'agent_call') ?? callSchedules[0] ?? null,
+    callSchedules,
     lead,
     alreadyCompleted: false,
   };

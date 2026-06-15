@@ -1,0 +1,770 @@
+[
+  {
+    "slug": "tpl-home-essential",
+    "category": "home",
+    "premiumMonthlyPkr": 3500,
+    "premiumYearlyPkr": 39900,
+    "featureCount": 5,
+    "deductiblePkr": 25000,
+    "features": [
+      "Fire & lightning cover",
+      "Theft & burglary protection",
+      "24/7 Karachi/Lahore helpline",
+      "Fast cashless claims desk",
+      "Optional electronics bundle"
+    ]
+  },
+  {
+    "slug": "jubilee-home-shield",
+    "category": "home",
+    "premiumMonthlyPkr": 5200,
+    "premiumYearlyPkr": 59280,
+    "featureCount": 3,
+    "deductiblePkr": 35000,
+    "features": [
+      "Flood rider",
+      "Contents cover",
+      "Temporary accommodation"
+    ]
+  },
+  {
+    "slug": "adamjee-home-plus",
+    "category": "home",
+    "premiumMonthlyPkr": 4800,
+    "premiumYearlyPkr": 54720,
+    "featureCount": 3,
+    "deductiblePkr": 30000,
+    "features": [
+      "Electronics add-on",
+      "Burglary cover",
+      "Fast claims desk"
+    ]
+  },
+  {
+    "slug": "tpl-auto-comprehensive",
+    "category": "auto",
+    "premiumMonthlyPkr": 6200,
+    "premiumYearlyPkr": 70680,
+    "featureCount": 5,
+    "deductiblePkr": 20000,
+    "features": [
+      "Own damage & total loss",
+      "Third-party liability up to PKR 2M",
+      "Windscreen & glass cover",
+      "Nationwide workshop network",
+      "Courtesy car for 5 days"
+    ]
+  },
+  {
+    "slug": "jubilee-auto-guard",
+    "category": "auto",
+    "premiumMonthlyPkr": 7800,
+    "premiumYearlyPkr": 88920,
+    "featureCount": 3,
+    "deductiblePkr": 25000,
+    "features": [
+      "Roadside assistance",
+      "Replacement car",
+      "Theft cover"
+    ]
+  },
+  {
+    "slug": "adamjee-auto-smart",
+    "category": "auto",
+    "premiumMonthlyPkr": 4100,
+    "premiumYearlyPkr": 46740,
+    "featureCount": 3,
+    "deductiblePkr": 15000,
+    "features": [
+      "Affordable premium",
+      "Quick renewal",
+      "Digital policy card"
+    ]
+  },
+  {
+    "slug": "jubilee-life-family",
+    "category": "life",
+    "premiumMonthlyPkr": 2800,
+    "premiumYearlyPkr": 31920,
+    "featureCount": 3,
+    "deductiblePkr": 0,
+    "features": [
+      "Critical illness rider",
+      "Monthly payout option",
+      "Sharia-compliant option"
+    ]
+  },
+  {
+    "slug": "adamjee-life-secure",
+    "category": "life",
+    "premiumMonthlyPkr": 4500,
+    "premiumYearlyPkr": 51300,
+    "featureCount": 3,
+    "deductiblePkr": 0,
+    "features": [
+      "Education bonus",
+      "Maturity benefit",
+      "Premium waiver"
+    ]
+  },
+  {
+    "slug": "tpl-life-term",
+    "category": "life",
+    "premiumMonthlyPkr": 2200,
+    "premiumYearlyPkr": 25080,
+    "featureCount": 3,
+    "deductiblePkr": 0,
+    "features": [
+      "Simple underwriting",
+      "Online nomination",
+      "Tax documentation support"
+    ]
+  },
+  {
+    "slug": "tpl-pet-care",
+    "category": "pet",
+    "premiumMonthlyPkr": 1800,
+    "premiumYearlyPkr": 20520,
+    "featureCount": 3,
+    "deductiblePkr": 5000,
+    "features": [
+      "Accident cover",
+      "Vaccination allowance",
+      "Partner clinic network"
+    ]
+  },
+  {
+    "slug": "jubilee-pet-shield",
+    "category": "pet",
+    "premiumMonthlyPkr": 2600,
+    "premiumYearlyPkr": 29640,
+    "featureCount": 3,
+    "deductiblePkr": 7500,
+    "features": [
+      "Surgery cover",
+      "Hospitalization",
+      "Lost pet poster support"
+    ]
+  },
+  {
+    "slug": "adamjee-pet-plus",
+    "category": "pet",
+    "premiumMonthlyPkr": 2100,
+    "premiumYearlyPkr": 23940,
+    "featureCount": 3,
+    "deductiblePkr": 6000,
+    "features": [
+      "Wellness visits",
+      "Dental cleaning",
+      "Tele-vet consults"
+    ]
+  },
+  {
+    "slug": "tpl-motorcycle-ride",
+    "category": "auto",
+    "premiumMonthlyPkr": 1850,
+    "premiumYearlyPkr": 21090,
+    "featureCount": 5,
+    "deductiblePkr": 8000,
+    "features": [
+      "Helmet & riding gear allowance",
+      "Roadside towing in major cities",
+      "Theft cover with GPS discount",
+      "Accident medical expenses",
+      "Digital policy card"
+    ]
+  },
+  {
+    "slug": "jubilee-bike-pro",
+    "category": "auto",
+    "premiumMonthlyPkr": 2200,
+    "premiumYearlyPkr": 25080,
+    "featureCount": 5,
+    "deductiblePkr": 10000,
+    "features": [
+      "Passenger liability included",
+      "Partner workshop repairs",
+      "New-for-old parts under 2 years",
+      "Hit-and-run protection",
+      "WhatsApp claims support"
+    ]
+  },
+  {
+    "slug": "adamjee-bike-cover",
+    "category": "auto",
+    "premiumMonthlyPkr": 1600,
+    "premiumYearlyPkr": 18240,
+    "featureCount": 4,
+    "deductiblePkr": 7000,
+    "features": [
+      "Low premium for 125\u2013150cc bikes",
+      "CNIC-only onboarding",
+      "Theft cover in gated parking",
+      "Accident hospital cash benefit"
+    ]
+  },
+  {
+    "slug": "tpl-dog-guard",
+    "category": "pet",
+    "premiumMonthlyPkr": 2400,
+    "premiumYearlyPkr": 27360,
+    "featureCount": 5,
+    "deductiblePkr": 6000,
+    "features": [
+      "Annual wellness exam",
+      "Surgery & hospitalization",
+      "Vaccination allowance",
+      "Third-party liability for dogs",
+      "Tele-vet consults"
+    ]
+  },
+  {
+    "slug": "jubilee-cat-care",
+    "category": "pet",
+    "premiumMonthlyPkr": 1950,
+    "premiumYearlyPkr": 22230,
+    "featureCount": 5,
+    "deductiblePkr": 5500,
+    "features": [
+      "Chronic illness cover",
+      "Dental cleaning allowance",
+      "Lost cat poster support",
+      "Emergency boarding",
+      "Multi-cat household discount"
+    ]
+  },
+  {
+    "slug": "jubilee-home-elite",
+    "category": "home",
+    "premiumMonthlyPkr": 9800,
+    "premiumYearlyPkr": 111720,
+    "featureCount": 6,
+    "deductiblePkr": 45000,
+    "features": [
+      "Flood & rainwater rider",
+      "Earthquake structural cover",
+      "Domestic staff liability",
+      "Temporary relocation expenses",
+      "Smart home device cover",
+      "Dedicated claims manager"
+    ]
+  },
+  {
+    "slug": "tpl-auto-third-party",
+    "category": "auto",
+    "premiumMonthlyPkr": 2900,
+    "premiumYearlyPkr": 33060,
+    "featureCount": 4,
+    "deductiblePkr": 0,
+    "features": [
+      "Legal liability cover",
+      "Court bail bond assistance",
+      "Instant policy issuance",
+      "Renewal reminders"
+    ]
+  },
+  {
+    "slug": "hbl-home-essential",
+    "category": "home",
+    "premiumMonthlyPkr": 3800,
+    "premiumYearlyPkr": 43320,
+    "featureCount": 3,
+    "deductiblePkr": 22000,
+    "features": [
+      "Fire cover",
+      "Theft protection",
+      "Bank-backed claims desk"
+    ]
+  },
+  {
+    "slug": "hbl-home-guard",
+    "category": "home",
+    "premiumMonthlyPkr": 5600,
+    "premiumYearlyPkr": 63840,
+    "featureCount": 3,
+    "deductiblePkr": 32000,
+    "features": [
+      "Flood rider",
+      "Earthquake add-on",
+      "Temporary accommodation"
+    ]
+  },
+  {
+    "slug": "hbl-auto-comprehensive",
+    "category": "auto",
+    "premiumMonthlyPkr": 6500,
+    "premiumYearlyPkr": 74100,
+    "featureCount": 3,
+    "deductiblePkr": 18000,
+    "features": [
+      "Own damage",
+      "Third-party liability",
+      "Windscreen cover"
+    ]
+  },
+  {
+    "slug": "hbl-auto-city",
+    "category": "auto",
+    "premiumMonthlyPkr": 4300,
+    "premiumYearlyPkr": 49020,
+    "featureCount": 3,
+    "deductiblePkr": 12000,
+    "features": [
+      "Roadside assistance",
+      "Quick renewal",
+      "Digital policy card"
+    ]
+  },
+  {
+    "slug": "hbl-life-family",
+    "category": "life",
+    "premiumMonthlyPkr": 3100,
+    "premiumYearlyPkr": 35340,
+    "featureCount": 3,
+    "deductiblePkr": 0,
+    "features": [
+      "Education rider",
+      "Monthly payout option",
+      "Online nomination"
+    ]
+  },
+  {
+    "slug": "hbl-life-term",
+    "category": "life",
+    "premiumMonthlyPkr": 2400,
+    "premiumYearlyPkr": 27360,
+    "featureCount": 3,
+    "deductiblePkr": 0,
+    "features": [
+      "Simple underwriting",
+      "Tax documentation",
+      "Premium waiver option"
+    ]
+  },
+  {
+    "slug": "hbl-pet-care",
+    "category": "pet",
+    "premiumMonthlyPkr": 1900,
+    "premiumYearlyPkr": 21660,
+    "featureCount": 3,
+    "deductiblePkr": 5500,
+    "features": [
+      "Accident cover",
+      "Vaccination allowance",
+      "Partner clinics"
+    ]
+  },
+  {
+    "slug": "hbl-pet-plus",
+    "category": "pet",
+    "premiumMonthlyPkr": 2700,
+    "premiumYearlyPkr": 30780,
+    "featureCount": 3,
+    "deductiblePkr": 7000,
+    "features": [
+      "Surgery cover",
+      "Hospitalization",
+      "Tele-vet consults"
+    ]
+  },
+  {
+    "slug": "allianz-home-shield",
+    "category": "home",
+    "premiumMonthlyPkr": 5400,
+    "premiumYearlyPkr": 61560,
+    "featureCount": 3,
+    "deductiblePkr": 34000,
+    "features": [
+      "Natural disaster rider",
+      "Contents cover",
+      "Smart home devices"
+    ]
+  },
+  {
+    "slug": "allianz-home-elite",
+    "category": "home",
+    "premiumMonthlyPkr": 9200,
+    "premiumYearlyPkr": 104880,
+    "featureCount": 3,
+    "deductiblePkr": 48000,
+    "features": [
+      "Concierge claims",
+      "Garden structures",
+      "Guest house cover"
+    ]
+  },
+  {
+    "slug": "allianz-auto-guard",
+    "category": "auto",
+    "premiumMonthlyPkr": 7200,
+    "premiumYearlyPkr": 82080,
+    "featureCount": 3,
+    "deductiblePkr": 22000,
+    "features": [
+      "Replacement car",
+      "Roadside assistance",
+      "Theft cover"
+    ]
+  },
+  {
+    "slug": "allianz-auto-premium",
+    "category": "auto",
+    "premiumMonthlyPkr": 11800,
+    "premiumYearlyPkr": 134520,
+    "featureCount": 3,
+    "deductiblePkr": 35000,
+    "features": [
+      "International assistance",
+      "Agency repairs",
+      "Zero depreciation option"
+    ]
+  },
+  {
+    "slug": "allianz-life-secure",
+    "category": "life",
+    "premiumMonthlyPkr": 4800,
+    "premiumYearlyPkr": 54720,
+    "featureCount": 3,
+    "deductiblePkr": 0,
+    "features": [
+      "Critical illness rider",
+      "Maturity benefit",
+      "Premium waiver"
+    ]
+  },
+  {
+    "slug": "allianz-life-wealth",
+    "category": "life",
+    "premiumMonthlyPkr": 8800,
+    "premiumYearlyPkr": 100320,
+    "featureCount": 3,
+    "deductiblePkr": 0,
+    "features": [
+      "Fund switching",
+      "Partial withdrawal",
+      "Wealth advisor access"
+    ]
+  },
+  {
+    "slug": "allianz-pet-shield",
+    "category": "pet",
+    "premiumMonthlyPkr": 2500,
+    "premiumYearlyPkr": 28500,
+    "featureCount": 3,
+    "deductiblePkr": 6500,
+    "features": [
+      "Chronic illness cover",
+      "Dental cleaning",
+      "Emergency boarding"
+    ]
+  },
+  {
+    "slug": "allianz-pet-care",
+    "category": "pet",
+    "premiumMonthlyPkr": 2000,
+    "premiumYearlyPkr": 22800,
+    "featureCount": 3,
+    "deductiblePkr": 5000,
+    "features": [
+      "Wellness visits",
+      "Vaccination allowance",
+      "Multi-pet discount"
+    ]
+  },
+  {
+    "slug": "efu-home-plus",
+    "category": "home",
+    "premiumMonthlyPkr": 4600,
+    "premiumYearlyPkr": 52440,
+    "featureCount": 3,
+    "deductiblePkr": 28000,
+    "features": [
+      "Electronics bundle",
+      "Burglary cover",
+      "Fast claims desk"
+    ]
+  },
+  {
+    "slug": "efu-home-premium",
+    "category": "home",
+    "premiumMonthlyPkr": 8500,
+    "premiumYearlyPkr": 96900,
+    "featureCount": 3,
+    "deductiblePkr": 42000,
+    "features": [
+      "Flood cover",
+      "Domestic staff liability",
+      "Temporary relocation"
+    ]
+  },
+  {
+    "slug": "efu-auto-smart",
+    "category": "auto",
+    "premiumMonthlyPkr": 3900,
+    "premiumYearlyPkr": 44460,
+    "featureCount": 3,
+    "deductiblePkr": 14000,
+    "features": [
+      "Affordable premium",
+      "Digital policy card",
+      "Quick renewal"
+    ]
+  },
+  {
+    "slug": "efu-auto-suv",
+    "category": "auto",
+    "premiumMonthlyPkr": 8100,
+    "premiumYearlyPkr": 92340,
+    "featureCount": 3,
+    "deductiblePkr": 24000,
+    "features": [
+      "Passenger liability",
+      "Courtesy car",
+      "Nationwide workshops"
+    ]
+  },
+  {
+    "slug": "efu-life-education",
+    "category": "life",
+    "premiumMonthlyPkr": 3600,
+    "premiumYearlyPkr": 41040,
+    "featureCount": 3,
+    "deductiblePkr": 0,
+    "features": [
+      "Education milestones",
+      "Premium waiver",
+      "Tax benefits"
+    ]
+  },
+  {
+    "slug": "efu-life-retirement",
+    "category": "life",
+    "premiumMonthlyPkr": 5200,
+    "premiumYearlyPkr": 59280,
+    "featureCount": 3,
+    "deductiblePkr": 0,
+    "features": [
+      "Annuity option",
+      "Maturity benefit",
+      "Fund switching"
+    ]
+  },
+  {
+    "slug": "efu-pet-wellness",
+    "category": "pet",
+    "premiumMonthlyPkr": 1750,
+    "premiumYearlyPkr": 19950,
+    "featureCount": 3,
+    "deductiblePkr": 4500,
+    "features": [
+      "Wellness visits",
+      "Vaccination allowance",
+      "Tele-vet consults"
+    ]
+  },
+  {
+    "slug": "efu-pet-guard",
+    "category": "pet",
+    "premiumMonthlyPkr": 2300,
+    "premiumYearlyPkr": 26220,
+    "featureCount": 3,
+    "deductiblePkr": 6000,
+    "features": [
+      "Surgery cover",
+      "Accident cover",
+      "Partner clinic network"
+    ]
+  },
+  {
+    "slug": "igi-home-basic",
+    "category": "home",
+    "premiumMonthlyPkr": 3200,
+    "premiumYearlyPkr": 36480,
+    "featureCount": 3,
+    "deductiblePkr": 20000,
+    "features": [
+      "Fire cover",
+      "Theft protection",
+      "24/7 helpline"
+    ]
+  },
+  {
+    "slug": "igi-home-comprehensive",
+    "category": "home",
+    "premiumMonthlyPkr": 5900,
+    "premiumYearlyPkr": 67260,
+    "featureCount": 3,
+    "deductiblePkr": 33000,
+    "features": [
+      "Contents cover",
+      "Flood rider",
+      "Temporary accommodation"
+    ]
+  },
+  {
+    "slug": "igi-auto-drive",
+    "category": "auto",
+    "premiumMonthlyPkr": 5800,
+    "premiumYearlyPkr": 66120,
+    "featureCount": 3,
+    "deductiblePkr": 19000,
+    "features": [
+      "Own damage",
+      "Third-party liability",
+      "Windscreen cover"
+    ]
+  },
+  {
+    "slug": "igi-auto-fleet-lite",
+    "category": "auto",
+    "premiumMonthlyPkr": 9800,
+    "premiumYearlyPkr": 111720,
+    "featureCount": 3,
+    "deductiblePkr": 38000,
+    "features": [
+      "Fleet dashboard",
+      "Bulk renewal",
+      "Driver training discount"
+    ]
+  },
+  {
+    "slug": "igi-life-term",
+    "category": "life",
+    "premiumMonthlyPkr": 2600,
+    "premiumYearlyPkr": 29640,
+    "featureCount": 3,
+    "deductiblePkr": 0,
+    "features": [
+      "Simple underwriting",
+      "Online nomination",
+      "Sharia-compliant option"
+    ]
+  },
+  {
+    "slug": "igi-life-whole",
+    "category": "life",
+    "premiumMonthlyPkr": 4200,
+    "premiumYearlyPkr": 47880,
+    "featureCount": 3,
+    "deductiblePkr": 0,
+    "features": [
+      "Education bonus",
+      "Maturity benefit",
+      "Premium waiver"
+    ]
+  },
+  {
+    "slug": "igi-pet-basic",
+    "category": "pet",
+    "premiumMonthlyPkr": 1650,
+    "premiumYearlyPkr": 18810,
+    "featureCount": 3,
+    "deductiblePkr": 4800,
+    "features": [
+      "Accident cover",
+      "Vaccination allowance",
+      "Partner clinics"
+    ]
+  },
+  {
+    "slug": "igi-pet-premium",
+    "category": "pet",
+    "premiumMonthlyPkr": 2900,
+    "premiumYearlyPkr": 33060,
+    "featureCount": 3,
+    "deductiblePkr": 8000,
+    "features": [
+      "Surgery cover",
+      "Chronic illness",
+      "Emergency transport"
+    ]
+  },
+  {
+    "slug": "adamjee-life-wealth",
+    "category": "life",
+    "premiumMonthlyPkr": 9500,
+    "premiumYearlyPkr": 108300,
+    "featureCount": 3,
+    "deductiblePkr": 0,
+    "features": [
+      "Fund switching",
+      "Partial withdrawal",
+      "Wealth advisor access"
+    ]
+  },
+  {
+    "slug": "allianz-expat-cover",
+    "category": "life",
+    "premiumMonthlyPkr": 12000,
+    "premiumYearlyPkr": 136800,
+    "featureCount": 2,
+    "deductiblePkr": 0,
+    "features": [
+      "International coverage",
+      "Currency hedging"
+    ]
+  },
+  {
+    "slug": "hbl-commercial-heavy",
+    "category": "home",
+    "premiumMonthlyPkr": 15000,
+    "premiumYearlyPkr": 171000,
+    "featureCount": 2,
+    "deductiblePkr": 100000,
+    "features": [
+      "Warehouse cover",
+      "Business interruption"
+    ]
+  },
+  {
+    "slug": "igi-marine-freight",
+    "category": "auto",
+    "premiumMonthlyPkr": 8500,
+    "premiumYearlyPkr": 96900,
+    "featureCount": 2,
+    "deductiblePkr": 50000,
+    "features": [
+      "Cargo cover",
+      "Port liability"
+    ]
+  },
+  {
+    "slug": "jubilee-auto-fleet",
+    "category": "auto",
+    "premiumMonthlyPkr": 12500,
+    "premiumYearlyPkr": 142500,
+    "featureCount": 3,
+    "deductiblePkr": 40000,
+    "features": [
+      "Fleet dashboard",
+      "Driver training discount",
+      "Bulk renewal"
+    ]
+  },
+  {
+    "slug": "tpl-home-premium",
+    "category": "home",
+    "premiumMonthlyPkr": 8900,
+    "premiumYearlyPkr": 101460,
+    "featureCount": 3,
+    "deductiblePkr": 50000,
+    "features": [
+      "Concierge claims",
+      "Garden structures",
+      "Guest house cover"
+    ]
+  },
+  {
+    "slug": "tpl-pet-premium",
+    "category": "pet",
+    "premiumMonthlyPkr": 4200,
+    "premiumYearlyPkr": 47880,
+    "featureCount": 3,
+    "deductiblePkr": 10000,
+    "features": [
+      "Exotic breed cover",
+      "Specialist vet network",
+      "Emergency transport"
+    ]
+  }
+]

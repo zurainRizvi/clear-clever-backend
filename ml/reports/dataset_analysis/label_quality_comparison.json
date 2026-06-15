@@ -1,0 +1,41 @@
+{
+  "claims": {
+    "label_column": "high_risk",
+    "before": {
+      "rows": 4000,
+      "positives": 2111,
+      "positive_rate": 0.5278
+    },
+    "after": {
+      "rows": 10000,
+      "positives": 2614,
+      "positive_rate": 0.2614
+    }
+  },
+  "fraud": {
+    "label_column": "fraudulent",
+    "before": {
+      "rows": 3000,
+      "positives": 2427,
+      "positive_rate": 0.809
+    },
+    "after": {
+      "rows": 10000,
+      "positives": 7717,
+      "positive_rate": 0.7717
+    }
+  },
+  "recommendations": {
+    "label_column": "label",
+    "before": {
+      "rows": 31875,
+      "positives": 2500,
+      "positive_rate": 0.0784
+    },
+    "after": {
+      "rows": 145000,
+      "positives": 10000,
+      "positive_rate": 0.069
+    }
+  }
+}

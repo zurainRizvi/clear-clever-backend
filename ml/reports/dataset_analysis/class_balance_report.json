@@ -1,0 +1,42 @@
+{
+  "claims": {
+    "label": "high_risk",
+    "total_rows": 10000,
+    "positives": 2614,
+    "positive_rate": 0.2614
+  },
+  "fraud": {
+    "label": "fraudulent",
+    "total_rows": 10000,
+    "positives": 7717,
+    "positive_rate": 0.7717
+  },
+  "recommendations": {
+    "label": "label",
+    "total_rows": 145000,
+    "positives": 10000,
+    "positive_rate": 0.069,
+    "by_group": {
+      "auto": {
+        "rows": 42500,
+        "positives": 2500,
+        "positive_rate": 0.0588
+      },
+      "home": {
+        "rows": 35000,
+        "positives": 2500,
+        "positive_rate": 0.0714
+      },
+      "life": {
+        "rows": 32500,
+        "positives": 2500,
+        "positive_rate": 0.0769
+      },
+      "pet": {
+        "rows": 35000,
+        "positives": 2500,
+        "positive_rate": 0.0714
+      }
+    }
+  }
+}

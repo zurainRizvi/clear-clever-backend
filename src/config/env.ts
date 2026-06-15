@@ -96,6 +96,14 @@ const envSchema = z.object({
   /** Free tier ~20 RPD — app-side guard to avoid burning the daily quota. */
   GEMINI_UPSTREAM_RPD: z.coerce.number().int().positive().default(40),
   ASSISTANT_RATE_LIMIT_PER_MIN: z.coerce.number().int().positive().default(4),
+  ML_RETRAIN_API_KEY: z
+    .string()
+    .optional()
+    .transform((v) => stripEnvValue(v)),
+  ML_RETRAIN_WORKFLOW: z
+    .string()
+    .optional()
+    .transform((v) => stripEnvValue(v) ?? 'ml-retrain-monthly.yml'),
 });
 
 export type Env = z.infer<typeof envSchema> & {

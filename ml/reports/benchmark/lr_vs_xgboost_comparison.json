@@ -1,0 +1,262 @@
+{
+  "generatedAt": "2026-06-11T01:06:35.876351+00:00",
+  "xgboost_native": false,
+  "tasks": {
+    "claim_risk": {
+      "task": "claim_risk",
+      "csv": "data/synthetic/claims_train.csv",
+      "split": {
+        "test_size": 0.2,
+        "random_state": 42
+      },
+      "tree_backend": "sklearn_gradient_boosting_fallback",
+      "logistic_regression": {
+        "accuracy": 0.8245,
+        "roc_auc": 0.8459100729995042,
+        "precision": 0.6433333333333333,
+        "recall": 0.7380497131931166,
+        "f1": 0.6874443455031166,
+        "train_rows": 8000,
+        "test_rows": 2000,
+        "confusion_matrix": [
+          [
+            1263,
+            214
+          ],
+          [
+            137,
+            386
+          ]
+        ]
+      },
+      "xgboost": {
+        "accuracy": 0.9115,
+        "roc_auc": 0.8538029259350837,
+        "precision": 0.909952606635071,
+        "recall": 0.734225621414914,
+        "f1": 0.8126984126984127,
+        "train_rows": 8000,
+        "test_rows": 2000,
+        "confusion_matrix": [
+          [
+            1439,
+            38
+          ],
+          [
+            139,
+            384
+          ]
+        ],
+        "backend": "sklearn_gradient_boosting_fallback"
+      },
+      "feature_importance": {
+        "user_rejected_claims": 0.690193,
+        "user_claims_7d": 0.161897,
+        "amount_to_premium_ratio": 0.057391,
+        "estimated_amount_pkr": 0.040716,
+        "days_incident_to_submit": 0.023794,
+        "user_claims_30d": 0.006469,
+        "description_length": 0.003843,
+        "city_region__punjab": 0.002519,
+        "claim_type__medical": 0.001633,
+        "city_region__kpk": 0.001134,
+        "city_region__balochistan": 0.001062,
+        "city_region__sindh": 0.000865,
+        "claim_type__pet": 0.000851,
+        "claim_type__pet_care": 0.00071,
+        "policy_category__others": 0.000667,
+        "policy_category__pet": 0.000661,
+        "claim_type__home": 0.000651,
+        "claim_type__accident": 0.000646,
+        "policy_category__auto": 0.000597,
+        "claim_type__life": 0.000553,
+        "claim_type__auto": 0.000511,
+        "city_region__islamabad": 0.000508,
+        "claim_type__damage": 0.000505,
+        "claim_type__theft": 0.000457,
+        "policy_category__life": 0.000446,
+        "policy_category__home": 0.000436,
+        "claim_type__other": 0.000285
+      },
+      "delta": {
+        "accuracy": 0.087,
+        "roc_auc": 0.0079,
+        "precision": 0.2666,
+        "recall": -0.0038,
+        "f1": 0.1253
+      }
+    },
+    "fraud": {
+      "task": "fraud",
+      "csv": "data/synthetic/fraud_train.csv",
+      "split": {
+        "test_size": 0.2,
+        "random_state": 42
+      },
+      "tree_backend": "sklearn_gradient_boosting_fallback",
+      "logistic_regression": {
+        "accuracy": 0.7945,
+        "roc_auc": 0.8369413076064558,
+        "precision": 0.9167893961708394,
+        "recall": 0.8068697342838627,
+        "f1": 0.8583247156153051,
+        "train_rows": 8000,
+        "test_rows": 2000,
+        "confusion_matrix": [
+          [
+            344,
+            113
+          ],
+          [
+            298,
+            1245
+          ]
+        ]
+      },
+      "xgboost": {
+        "accuracy": 0.9155,
+        "roc_auc": 0.8456685163886885,
+        "precision": 0.9173754556500607,
+        "recall": 0.9786130913804277,
+        "f1": 0.94700533082471,
+        "train_rows": 8000,
+        "test_rows": 2000,
+        "confusion_matrix": [
+          [
+            321,
+            136
+          ],
+          [
+            33,
+            1510
+          ]
+        ],
+        "backend": "sklearn_gradient_boosting_fallback"
+      },
+      "feature_importance": {
+        "related_entity_count": 0.480298,
+        "severity_encoded": 0.319492,
+        "account_age_days": 0.054072,
+        "signal_type__claim_burst": 0.040276,
+        "signal_type__lead_spike": 0.038984,
+        "signal_type__duplicate_email": 0.038488,
+        "signal_type__inactive_spike": 0.003524,
+        "fraud_category__claims": 0.003282,
+        "fraud_category__catalog": 0.003091,
+        "signal_type__other": 0.003002,
+        "signal_type__rejected_claims_volume": 0.002955,
+        "fraud_category__commerce": 0.0029,
+        "fraud_category__account": 0.002723,
+        "signal_type__stale_pending_policies": 0.002229,
+        "signal_type__unverified_provider": 0.001629,
+        "signal_type__pending_purchases": 0.001605,
+        "signal_type__reject_rate": 0.00145
+      },
+      "delta": {
+        "accuracy": 0.121,
+        "roc_auc": 0.0087,
+        "precision": 0.0006,
+        "recall": 0.1717,
+        "f1": 0.0887
+      }
+    }
+  },
+  "summary_table": {
+    "claim_risk": {
+      "lr": {
+        "accuracy": 0.8245,
+        "roc_auc": 0.8459100729995042,
+        "precision": 0.6433333333333333,
+        "recall": 0.7380497131931166,
+        "f1": 0.6874443455031166,
+        "train_rows": 8000,
+        "test_rows": 2000,
+        "confusion_matrix": [
+          [
+            1263,
+            214
+          ],
+          [
+            137,
+            386
+          ]
+        ]
+      },
+      "xgboost": {
+        "accuracy": 0.9115,
+        "roc_auc": 0.8538029259350837,
+        "precision": 0.909952606635071,
+        "recall": 0.734225621414914,
+        "f1": 0.8126984126984127,
+        "train_rows": 8000,
+        "test_rows": 2000,
+        "confusion_matrix": [
+          [
+            1439,
+            38
+          ],
+          [
+            139,
+            384
+          ]
+        ],
+        "backend": "sklearn_gradient_boosting_fallback"
+      },
+      "delta": {
+        "accuracy": 0.087,
+        "roc_auc": 0.0079,
+        "precision": 0.2666,
+        "recall": -0.0038,
+        "f1": 0.1253
+      }
+    },
+    "fraud": {
+      "lr": {
+        "accuracy": 0.7945,
+        "roc_auc": 0.8369413076064558,
+        "precision": 0.9167893961708394,
+        "recall": 0.8068697342838627,
+        "f1": 0.8583247156153051,
+        "train_rows": 8000,
+        "test_rows": 2000,
+        "confusion_matrix": [
+          [
+            344,
+            113
+          ],
+          [
+            298,
+            1245
+          ]
+        ]
+      },
+      "xgboost": {
+        "accuracy": 0.9155,
+        "roc_auc": 0.8456685163886885,
+        "precision": 0.9173754556500607,
+        "recall": 0.9786130913804277,
+        "f1": 0.94700533082471,
+        "train_rows": 8000,
+        "test_rows": 2000,
+        "confusion_matrix": [
+          [
+            321,
+            136
+          ],
+          [
+            33,
+            1510
+          ]
+        ],
+        "backend": "sklearn_gradient_boosting_fallback"
+      },
+      "delta": {
+        "accuracy": 0.121,
+        "roc_auc": 0.0087,
+        "precision": 0.0006,
+        "recall": 0.1717,
+        "f1": 0.0887
+      }
+    }
+  }
+}

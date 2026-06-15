@@ -13,6 +13,19 @@ export interface IPolicyQuestion {
   required?: boolean;
 }
 
+export interface IPolicyFeatureRow {
+  key: string;
+  label: string;
+  value?: string;
+  included?: boolean;
+}
+
+export interface IPolicyFeatureSection {
+  id: string;
+  title: string;
+  rows: IPolicyFeatureRow[];
+}
+
 export interface IPolicy {
   insurerProfileId: Types.ObjectId;
   slug: string;
@@ -23,6 +36,7 @@ export interface IPolicy {
   premiumYearlyPkr: number;
   coverageSummary: string;
   features: string[];
+  featureSections?: IPolicyFeatureSection[];
   deductiblePkr: number;
   questions: IPolicyQuestion[];
   status: PolicyStatus;
@@ -34,6 +48,25 @@ export interface IPolicy {
 }
 
 export interface IPolicyDocument extends IPolicy, Document {}
+
+const policyFeatureRowSchema = new Schema<IPolicyFeatureRow>(
+  {
+    key: { type: String, required: true, trim: true, maxlength: 80 },
+    label: { type: String, required: true, trim: true, maxlength: 200 },
+    value: { type: String, trim: true, maxlength: 500 },
+    included: { type: Boolean },
+  },
+  { _id: false }
+);
+
+const policyFeatureSectionSchema = new Schema<IPolicyFeatureSection>(
+  {
+    id: { type: String, required: true, trim: true, maxlength: 80 },
+    title: { type: String, required: true, trim: true, maxlength: 120 },
+    rows: { type: [policyFeatureRowSchema], default: [] },
+  },
+  { _id: false }
+);
 
 const policyQuestionSchema = new Schema<IPolicyQuestion>(
   {
@@ -62,6 +95,7 @@ const policySchema = new Schema<IPolicyDocument>(
     premiumYearlyPkr: { type: Number, required: true, min: 0 },
     coverageSummary: { type: String, required: true, trim: true, maxlength: 1000 },
     features: [{ type: String, trim: true, maxlength: 200 }],
+    featureSections: { type: [policyFeatureSectionSchema], default: [] },
     deductiblePkr: { type: Number, required: true, min: 0 },
     questions: { type: [policyQuestionSchema], default: [] },
     status: { type: String, enum: POLICY_STATUSES, default: 'pending', index: true },

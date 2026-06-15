@@ -1,0 +1,19 @@
+{
+  "version": "policy_ranker_auto_v1",
+  "category": "auto",
+  "trainedAt": "2026-06-09T19:07:43.792423+00:00",
+  "metrics": {
+    "accuracy": 0.9354666666666667,
+    "roc_auc": 0.9878034285714286,
+    "precision": 0.5081967213114754,
+    "recall": 0.992,
+    "f1": 0.6720867208672087,
+    "train_rows": 7500,
+    "test_rows": 1875
+  },
+  "sourceCsv": "data/synthetic/recommendations_train.csv",
+  "reports": {
+    "metricsJson": "reports/policy_ranker_auto_metrics.json",
+    "confusionMatrixPng": "reports/policy_ranker_auto_confusion_matrix.png"
+  }
+}

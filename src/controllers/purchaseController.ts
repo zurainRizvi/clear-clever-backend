@@ -230,11 +230,12 @@ export async function rescheduleCall(req: AuthenticatedRequest, res: Response): 
   }
 
   const callSchedule = await CallSchedule.findOneAndUpdate(
-    { purchaseId: purchase._id },
+    { purchaseId: purchase._id, scheduleType: 'agent_call' },
     {
       userId: purchase.userId,
       insurerId: purchase.insurerProfileId,
       purchaseId: purchase._id,
+      scheduleType: 'agent_call',
       scheduledAt,
       status: 'scheduled',
       notes: 'Rescheduled by policy seeker',

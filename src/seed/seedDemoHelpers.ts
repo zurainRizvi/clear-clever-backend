@@ -177,7 +177,7 @@ export async function createDemoPurchase(
       metadata: { purchaseId: String(purchase._id) },
     });
     await CallSchedule.findOneAndUpdate(
-      { purchaseId: purchase._id },
+      { purchaseId: purchase._id, scheduleType: 'agent_call' },
       { status: 'cancelled' }
     );
   }

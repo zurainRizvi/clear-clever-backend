@@ -5,9 +5,23 @@ import { InsurerProfile } from '../models/InsurerProfile';
 import { Notification } from '../models/Notification';
 import { Policy } from '../models/Policy';
 import type { IPurchaseDocument } from '../models/Purchase';
+import type { ICallScheduleDocument } from '../models/CallSchedule';
+import { resolvePolicyFeatureSections } from './policyPresentation';
+
+function toScheduleSummary(schedule: ICallScheduleDocument | null | undefined) {
+  if (!schedule) return undefined;
+  return {
+    id: String(schedule._id),
+    scheduleType: schedule.scheduleType,
+    scheduledAt: schedule.scheduledAt.toISOString(),
+    status: schedule.status,
+    notes: schedule.notes,
+    agentLabel: schedule.scheduleType === 'survey_visit' ? 'Survey visit' : 'ClearClever agent',
+  };
+}
 
 export async function toPurchaseSummary(purchase: IPurchaseDocument) {
-  const [policy, insurer, notifications, emailLog, callSchedule, claims] = await Promise.all([
+  const [policy, insurer, notifications, emailLog, callSchedules, claims] = await Promise.all([
     Policy.findById(purchase.policyId),
     InsurerProfile.findById(purchase.insurerProfileId),
     Notification.find({
@@ -15,9 +29,16 @@ export async function toPurchaseSummary(purchase: IPurchaseDocument) {
       'metadata.purchaseId': String(purchase._id),
     }).sort({ createdAt: 1 }),
     EmailLog.findOne({ purchaseId: purchase._id }),
-    CallSchedule.findOne({ purchaseId: purchase._id }),
+    CallSchedule.find({ purchaseId: purchase._id }).sort({ scheduleType: 1 }),
     ClaimRequest.find({ purchaseId: purchase._id }).sort({ createdAt: -1 }),
   ]);
+
+  const agentCall =
+    callSchedules.find((schedule) => schedule.scheduleType === 'agent_call') ?? callSchedules[0];
+  const surveyVisit = callSchedules.find((schedule) => schedule.scheduleType === 'survey_visit');
+
+  const featureSections =
+    policy && insurer ? resolvePolicyFeatureSections(policy, insurer) : [];
 
   return {
     id: String(purchase._id),
@@ -38,6 +59,7 @@ export async function toPurchaseSummary(purchase: IPurchaseDocument) {
           premiumYearlyPkr: policy.premiumYearlyPkr,
           coverageSummary: policy.coverageSummary,
           features: policy.features,
+          featureSections,
           deductiblePkr: policy.deductiblePkr,
           documentSummary: {
             policyNumber: `CC-${String(purchase._id).slice(-8).toUpperCase()}`,
@@ -53,6 +75,10 @@ export async function toPurchaseSummary(purchase: IPurchaseDocument) {
           companyName: insurer.companyName,
           contactEmail: insurer.contactEmail,
           contactPhone: insurer.contactPhone,
+          pacraRating: insurer.pacraRating,
+          jcrVisRating: insurer.jcrVisRating,
+          operationalSince: insurer.operationalSince,
+          policyType: insurer.policyType,
         }
       : undefined,
     claims: claims.map((claim) => ({
@@ -84,15 +110,9 @@ export async function toPurchaseSummary(purchase: IPurchaseDocument) {
             fromInsurer: insurer?.companyName,
           }
         : undefined,
-      callScheduled: callSchedule
-        ? {
-            id: String(callSchedule._id),
-            scheduledAt: callSchedule.scheduledAt.toISOString(),
-            status: callSchedule.status,
-            notes: callSchedule.notes,
-            agentLabel: 'ClearClever agent',
-          }
-        : undefined,
+      callScheduled: toScheduleSummary(agentCall),
+      surveyScheduled: toScheduleSummary(surveyVisit),
+      schedules: callSchedules.map((schedule) => toScheduleSummary(schedule)!),
     },
   };
 }

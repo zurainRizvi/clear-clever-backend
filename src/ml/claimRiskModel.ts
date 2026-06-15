@@ -1,14 +1,12 @@
 import fs from 'fs';
-import path from 'path';
 import {
   encodeClaimRiskFeatures,
   humanizeFactor,
   logisticProbability,
   standardizeFeatures,
 } from './featureEncoding';
+import { resolveArtifactPath } from './artifactPaths';
 import type { ClaimRiskRawFeatures, LogisticRegressionArtifact, MlRiskLevel, MlRiskResult } from './types';
-
-const ARTIFACT_PATH = path.join(__dirname, 'artifacts', 'claim_risk_v1.json');
 
 let cachedArtifact: LogisticRegressionArtifact | null | undefined;
 
@@ -17,7 +15,7 @@ function loadArtifact(): LogisticRegressionArtifact | null {
     return cachedArtifact;
   }
   try {
-    const raw = fs.readFileSync(ARTIFACT_PATH, 'utf8');
+    const raw = fs.readFileSync(resolveArtifactPath('claim_risk'), 'utf8');
     cachedArtifact = JSON.parse(raw) as LogisticRegressionArtifact;
   } catch {
     cachedArtifact = null;

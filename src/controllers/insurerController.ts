@@ -2,7 +2,8 @@ import type { Response } from 'express';
 import type { ClaimStatus } from '../models/ClaimRequest';
 import { ClaimRequest } from '../models/ClaimRequest';
 import { InsurerProfile } from '../models/InsurerProfile';
-import type { IPolicyQuestion } from '../models/Policy';
+import type { IPolicyFeatureSection, IPolicyQuestion } from '../models/Policy';
+import { syncPolicyFeaturesFromSections } from '../services/policyPresentation';
 import { Favorite } from '../models/Favorite';
 import { Lead } from '../models/Lead';
 import { Notification } from '../models/Notification';
@@ -10,6 +11,9 @@ import { Policy } from '../models/Policy';
 import { Purchase } from '../models/Purchase';
 import { User } from '../models/User';
 import { toInsurerClaimSummary } from '../services/claimPresentation';
+import { scoreClaimRisk } from '../services/claimRiskService';
+import { logClaimRiskPrediction } from '../services/mlPredictionLogService';
+import { captureClaimRiskTrainingSnapshot } from '../services/mlTrainingSnapshotService';
 import type { AuthenticatedRequest } from '../middleware/authenticate';
 import {
   getInsurerProfileForUser,
@@ -205,6 +209,7 @@ export async function createInsurerPolicy(
     premiumYearlyPkr: number;
     coverageSummary: string;
     features: string[];
+    featureSections?: IPolicyFeatureSection[];
     deductiblePkr: number;
     questions?: IPolicyQuestion[];
   };
@@ -215,6 +220,8 @@ export async function createInsurerPolicy(
     throw new AppError(409, 'A policy with this slug already exists');
   }
 
+  const synced = syncPolicyFeaturesFromSections(body.featureSections, body.features.map((f) => f.trim()));
+
   const policy = await Policy.create({
     insurerProfileId: profile._id,
     slug,
@@ -224,7 +231,8 @@ export async function createInsurerPolicy(
     premiumMonthlyPkr: body.premiumMonthlyPkr,
     premiumYearlyPkr: body.premiumYearlyPkr,
     coverageSummary: body.coverageSummary.trim(),
-    features: body.features.map((feature) => feature.trim()),
+    features: synced.features,
+    featureSections: synced.featureSections,
     deductiblePkr: body.deductiblePkr,
     questions: body.questions ?? [],
     status: 'pending',
@@ -257,6 +265,7 @@ export async function updateInsurerPolicy(
     premiumYearlyPkr: number;
     coverageSummary: string;
     features: string[];
+    featureSections: IPolicyFeatureSection[];
     deductiblePkr: number;
     questions: IPolicyQuestion[];
   }>;
@@ -275,8 +284,15 @@ export async function updateInsurerPolicy(
   if (body.premiumMonthlyPkr !== undefined) policy.premiumMonthlyPkr = body.premiumMonthlyPkr;
   if (body.premiumYearlyPkr !== undefined) policy.premiumYearlyPkr = body.premiumYearlyPkr;
   if (body.coverageSummary !== undefined) policy.coverageSummary = body.coverageSummary.trim();
-  if (body.features !== undefined) {
-    policy.features = body.features.map((feature) => feature.trim());
+  if (body.features !== undefined || body.featureSections !== undefined) {
+    const synced = syncPolicyFeaturesFromSections(
+      body.featureSections ?? policy.featureSections,
+      body.features?.map((feature) => feature.trim()) ?? policy.features
+    );
+    policy.features = synced.features;
+    if (synced.featureSections) {
+      policy.featureSections = synced.featureSections;
+    }
   }
   if (body.deductiblePkr !== undefined) policy.deductiblePkr = body.deductiblePkr;
   if (body.questions !== undefined) policy.questions = body.questions;
@@ -378,6 +394,14 @@ export async function updateInsurerClaimStatus(
 
   claim.status = status;
   await claim.save();
+
+  if (status === 'approved' || status === 'rejected') {
+    const mlRisk = await scoreClaimRisk(claim);
+    if (mlRisk) {
+      await logClaimRiskPrediction(String(claim._id), mlRisk, status);
+    }
+    await captureClaimRiskTrainingSnapshot(claim, status);
+  }
 
   const insurerName = profile.companyName;
   const statusCopy: Record<ClaimStatus, { title: string; body: string }> = {

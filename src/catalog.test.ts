@@ -127,11 +127,16 @@ describe('Module 4 — Catalog, insurers & seed policies', () => {
       expect(slugs.map((s) => s.slug)).toEqual([
         'adamjee-insurance',
         'allianz-insurance',
+        'askari-insurance',
+        'efu-general-insurance',
         'efu-life-insurance',
         'hbl-insurance',
         'igi-general-insurance',
         'jubilee-insurance',
+        'pak-qatar-takaful',
+        'premier-insurance',
         'tpl-insurance',
+        'uic-insurance',
       ]);
     });
   });

@@ -6,6 +6,12 @@ import { Purchase } from '../models/Purchase';
 import { QuestionnaireResponse } from '../models/QuestionnaireResponse';
 import type { PolicyRankerCategory } from '../ml/types';
 import { getAssistantUsageSummary } from './assistantUsageTracker';
+import { ML_DEFAULT_VERSIONS, type MlModelId } from '../constants/mlModels';
+import { ensureMlRegistryDefaults, getRegistryEntry } from './mlRegistryService';
+import {
+  getClaimRiskCalibrationSummary,
+  getClaimRiskCalibrationTrend,
+} from './mlPredictionLogService';
 
 const ARTIFACT_DIR = path.join(__dirname, '../ml/artifacts');
 
@@ -80,6 +86,22 @@ export interface AdminMlOverview {
     badge: string;
     theme: 'blue' | 'green' | 'purple' | 'amber';
   }>;
+  retrain?: {
+    lastRetrainAt: string | null;
+    pendingCandidates: number;
+  };
+  calibration?: {
+    windowDays: number;
+    sampleSize: number;
+    predictedHighRiskRatePct: number;
+    actualRejectionRatePct: number;
+    calibrationGapPct: number;
+    trend: Array<{
+      date: string;
+      predictedHighRiskRatePct: number;
+      actualRejectionRatePct: number;
+    }>;
+  };
 }
 
 function readMeta(fileName: string): ArtifactMeta | null {
@@ -110,13 +132,28 @@ function formatMetricPct(value?: number): string {
   return `${Math.round(value * 1000) / 10}%`;
 }
 
-function buildClaimRiskInsight(): AdminMlModelInsight {
-  const loaded = artifactLoaded('claim_risk_v1.json');
-  const meta = readMeta('claim_risk_v1.meta.json');
+async function resolveRegistryMeta(modelId: MlModelId): Promise<{
+  version: string;
+  metrics?: NonNullable<ArtifactMeta['metrics']>;
+  lastRetrainAt?: Date;
+}> {
+  const entry = await getRegistryEntry(modelId);
+  const version = entry?.activeVersion ?? ML_DEFAULT_VERSIONS[modelId];
+  const meta = readMeta(`${version}.meta.json`);
+  return {
+    version,
+    metrics: entry?.activeMetrics ?? meta?.metrics,
+    lastRetrainAt: entry?.lastRetrainAt ?? entry?.promotedAt,
+  };
+}
+
+function buildClaimRiskInsight(metaInfo: Awaited<ReturnType<typeof resolveRegistryMeta>>): AdminMlModelInsight {
+  const loaded = artifactLoaded(`${metaInfo.version}.json`);
+  const meta = metaInfo.metrics;
   return {
     id: 'claim-risk',
     title: 'Claim fraud & risk scoring',
-    subtitle: 'Flags high-risk claims before insurers approve payouts',
+    subtitle: `Active model: ${metaInfo.version}`,
     status: loaded ? 'active' : 'missing',
     statusLabel: loaded ? 'Live on platform' : 'Model not deployed',
     useCase:
@@ -127,30 +164,30 @@ function buildClaimRiskInsight(): AdminMlModelInsight {
     metrics: [
       {
         label: 'Overall correctness',
-        value: formatMetricPct(meta?.metrics?.accuracy),
+        value: formatMetricPct(meta?.accuracy),
         description: 'How often the model’s risk prediction matched reality in practice tests.',
       },
       {
         label: 'Ranking quality',
-        value: formatMetricPct(meta?.metrics?.roc_auc),
+        value: formatMetricPct(meta?.roc_auc),
         description: 'How well the model separates risky claims from routine ones.',
       },
       {
         label: 'Practice dataset size',
-        value: meta?.metrics?.train_rows?.toLocaleString() ?? '—',
+        value: meta?.train_rows?.toLocaleString() ?? '—',
         description: 'Number of historical examples used to train this model.',
       },
     ],
   };
 }
 
-function buildFraudInsight(): AdminMlModelInsight {
-  const loaded = artifactLoaded('fraud_v1.json');
-  const meta = readMeta('fraud_v1.meta.json');
+function buildFraudInsight(metaInfo: Awaited<ReturnType<typeof resolveRegistryMeta>>): AdminMlModelInsight {
+  const loaded = artifactLoaded(`${metaInfo.version}.json`);
+  const meta = metaInfo.metrics;
   return {
     id: 'fraud-detection',
     title: 'Platform fraud detection',
-    subtitle: 'Monitors accounts, commerce, and catalog abuse patterns',
+    subtitle: `Active model: ${metaInfo.version}`,
     status: loaded ? 'active' : 'missing',
     statusLabel: loaded ? 'Live on platform' : 'Model not deployed',
     useCase:
@@ -161,32 +198,35 @@ function buildFraudInsight(): AdminMlModelInsight {
     metrics: [
       {
         label: 'Correct fraud alerts',
-        value: formatMetricPct(meta?.metrics?.precision),
+        value: formatMetricPct(meta?.precision),
         description: 'Of all fraud flags raised, how many were truly suspicious.',
       },
       {
         label: 'Fraud caught',
-        value: formatMetricPct(meta?.metrics?.recall),
+        value: formatMetricPct(meta?.recall),
         description: 'Of all actual fraud patterns, how much the model detected.',
       },
       {
         label: 'Overall balance',
-        value: formatMetricPct(meta?.metrics?.f1),
+        value: formatMetricPct(meta?.f1),
         description: 'Combined score when both precision and recall matter equally.',
       },
     ],
   };
 }
 
-function buildRankerInsights(): AdminMlModelInsight[] {
+function buildRankerInsights(
+  registryMeta: Record<PolicyRankerCategory, Awaited<ReturnType<typeof resolveRegistryMeta>>>
+): AdminMlModelInsight[] {
   const categories: PolicyRankerCategory[] = ['home', 'auto', 'life', 'pet'];
   return categories.map((category) => {
-    const loaded = artifactLoaded(`policy_ranker_${category}_v1.json`);
-    const meta = readMeta(`policy_ranker_${category}_v1.meta.json`);
+    const metaInfo = registryMeta[category];
+    const loaded = artifactLoaded(`${metaInfo.version}.json`);
+    const meta = metaInfo.metrics;
     return {
       id: `ranker-${category}`,
       title: `${CATEGORY_LABELS[category]} recommender`,
-      subtitle: 'Hybrid ML + rules ranking for policy comparison',
+      subtitle: `Active model: ${metaInfo.version}`,
       status: loaded ? 'active' : 'missing',
       statusLabel: loaded ? 'Ranking live' : 'Awaiting model export',
       useCase: `Ranks ${CATEGORY_LABELS[category].toLowerCase()} policies for each seeker based on questionnaire answers and engagement signals.`,
@@ -196,17 +236,17 @@ function buildRankerInsights(): AdminMlModelInsight[] {
       metrics: [
         {
           label: 'Overall correctness',
-          value: formatMetricPct(meta?.metrics?.accuracy),
+          value: formatMetricPct(meta?.accuracy),
           description: 'How often recommended policies matched seeker needs in test data.',
         },
         {
           label: 'Ranking quality',
-          value: formatMetricPct(meta?.metrics?.roc_auc),
+          value: formatMetricPct(meta?.roc_auc),
           description: 'How well the ranker separates strong matches from weak ones.',
         },
         {
           label: 'Validation dataset size',
-          value: meta?.metrics?.test_rows?.toLocaleString() ?? '—',
+          value: meta?.test_rows?.toLocaleString() ?? '—',
           description: 'Number of held-out examples used to validate recommendations.',
         },
       ],
@@ -269,6 +309,7 @@ async function buildTrendSeries(): Promise<AdminMlOverview['trends']> {
 }
 
 export async function buildAdminMlOverview(): Promise<AdminMlOverview> {
+  await ensureMlRegistryDefaults();
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const geminiUsage = getAssistantUsageSummary();
 
@@ -281,6 +322,15 @@ export async function buildAdminMlOverview(): Promise<AdminMlOverview> {
     completedPurchases,
     verifiedKyc,
     trends,
+    claimMeta,
+    fraudMeta,
+    homeMeta,
+    autoMeta,
+    lifeMeta,
+    petMeta,
+    calibration,
+    calibrationTrend,
+    registryDocs,
   ] = await Promise.all([
     ClaimRequest.countDocuments(),
     ClaimRequest.countDocuments({ intelligenceReport: { $exists: true, $ne: null } }),
@@ -293,11 +343,32 @@ export async function buildAdminMlOverview(): Promise<AdminMlOverview> {
     Purchase.countDocuments({ status: 'completed' }),
     KycVerification.countDocuments({ status: 'verified', identityVerified: true }),
     buildTrendSeries(),
+    resolveRegistryMeta('claim_risk'),
+    resolveRegistryMeta('fraud'),
+    resolveRegistryMeta('policy_ranker_home'),
+    resolveRegistryMeta('policy_ranker_auto'),
+    resolveRegistryMeta('policy_ranker_life'),
+    resolveRegistryMeta('policy_ranker_pet'),
+    getClaimRiskCalibrationSummary(30),
+    getClaimRiskCalibrationTrend(30),
+    Promise.all([
+      getRegistryEntry('claim_risk'),
+      getRegistryEntry('fraud'),
+      getRegistryEntry('policy_ranker_home'),
+      getRegistryEntry('policy_ranker_auto'),
+      getRegistryEntry('policy_ranker_life'),
+      getRegistryEntry('policy_ranker_pet'),
+    ]),
   ]);
 
   const uniqueQuestionnaireUsers = new Set(questionnaireDocs.map((doc) => String(doc.userId)));
-  const rankerInsights = buildRankerInsights();
-  const tabularModels = [buildClaimRiskInsight(), buildFraudInsight(), ...rankerInsights];
+  const rankerInsights = buildRankerInsights({
+    home: homeMeta,
+    auto: autoMeta,
+    life: lifeMeta,
+    pet: petMeta,
+  });
+  const tabularModels = [buildClaimRiskInsight(claimMeta), buildFraudInsight(fraudMeta), ...rankerInsights];
   const geminiInsight = buildGeminiInsight(geminiUsage);
   const models = [geminiInsight, ...tabularModels];
   const activeModels = tabularModels.filter((model) => model.status === 'active').length;
@@ -341,6 +412,12 @@ export async function buildAdminMlOverview(): Promise<AdminMlOverview> {
     },
   ];
 
+  const pendingCandidates = registryDocs.filter((doc) => doc?.candidateVersion).length;
+  const lastRetrainAt = registryDocs
+    .map((doc) => doc?.lastRetrainAt ?? doc?.promotedAt)
+    .filter(Boolean)
+    .sort((a, b) => (b?.getTime() ?? 0) - (a?.getTime() ?? 0))[0];
+
   return {
     geminiUsage,
     summary: {
@@ -371,5 +448,13 @@ export async function buildAdminMlOverview(): Promise<AdminMlOverview> {
     },
     trends,
     insights,
+    retrain: {
+      lastRetrainAt: lastRetrainAt ? lastRetrainAt.toISOString() : null,
+      pendingCandidates,
+    },
+    calibration: {
+      ...calibration,
+      trend: calibrationTrend,
+    },
   };
 }

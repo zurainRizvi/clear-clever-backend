@@ -19,7 +19,13 @@ import {
   rejectPolicy,
   revokeInsurer,
 } from '../controllers/adminController';
-import { getFraudSignals } from '../controllers/fraudSignalsController';
+import { getFraudSignals, resolveFraudSignalAdmin } from '../controllers/fraudSignalsController';
+import {
+  getAdminMlRetrainReport,
+  keepAdminMlRetrain,
+  promoteAdminMlRetrain,
+  triggerAdminMlRetrain,
+} from '../controllers/mlRetrainController';
 import { authenticate } from '../middleware/authenticate';
 import { authorize } from '../middleware/authorize';
 import { ADMIN_ROLES } from '../constants/roles';
@@ -30,6 +36,8 @@ import {
   adminUserIdValidator,
   rejectInsurerValidators,
   rejectPolicyValidators,
+  resolveFraudSignalValidators,
+  mlRetrainModelValidators,
 } from '../validators/adminValidators';
 
 export const adminRouter = Router();
@@ -71,6 +79,35 @@ adminRouter.get('/ml-overview', authorize('superadmin'), asyncHandler(getAdminMl
 adminRouter.get('/audit', authorize('superadmin'), asyncHandler(getAdminAuditLogs));
 adminRouter.delete('/audit', authorize('superadmin'), asyncHandler(clearAdminAuditLogs));
 adminRouter.get('/fraud-signals', asyncHandler(getFraudSignals));
+adminRouter.post(
+  '/fraud-signals/:category/resolve',
+  authorize('superadmin'),
+  validate(resolveFraudSignalValidators),
+  asyncHandler(resolveFraudSignalAdmin)
+);
+
+adminRouter.get(
+  '/ml-retrain/report',
+  authorize('superadmin'),
+  asyncHandler(getAdminMlRetrainReport)
+);
+adminRouter.post(
+  '/ml-retrain/promote',
+  authorize('superadmin'),
+  validate(mlRetrainModelValidators),
+  asyncHandler(promoteAdminMlRetrain)
+);
+adminRouter.post(
+  '/ml-retrain/keep',
+  authorize('superadmin'),
+  validate(mlRetrainModelValidators),
+  asyncHandler(keepAdminMlRetrain)
+);
+adminRouter.post(
+  '/ml-retrain/trigger',
+  authorize('superadmin'),
+  asyncHandler(triggerAdminMlRetrain)
+);
 
 adminRouter.get('/insurers', asyncHandler(listInsurers));
 adminRouter.post(

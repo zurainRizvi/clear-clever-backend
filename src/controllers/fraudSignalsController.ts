@@ -7,7 +7,8 @@ import { Policy } from '../models/Policy';
 import { Purchase } from '../models/Purchase';
 import type { AuthenticatedRequest } from '../middleware/authenticate';
 import { enrichFraudSignalsWithMl } from '../services/fraudMlService';
-import { successResponse } from '../utils/apiResponse';
+import { resolveFraudSignal } from '../services/mlTrainingSnapshotService';
+import { AppError, successResponse } from '../utils/apiResponse';
 
 export type FraudCategory = 'account' | 'claims' | 'commerce' | 'catalog';
 
@@ -245,6 +246,38 @@ export async function getFraudSignals(req: AuthenticatedRequest, res: Response):
       count: signals.length,
       signals,
       ...(mlSummary ? { mlSummary } : {}),
+    })
+  );
+}
+
+export async function collectFraudSignals(category: FraudCategory): Promise<FraudSignal[]> {
+  const collect = collectors[category] ?? accountSignals;
+  return collect();
+}
+
+export async function resolveFraudSignalAdmin(
+  req: AuthenticatedRequest,
+  res: Response
+): Promise<void> {
+  const category = req.params.category as FraudCategory;
+  const { signalId, resolution } = req.body as {
+    signalId: string;
+    resolution: 'confirmed_fraud' | 'false_positive' | 'dismissed';
+  };
+
+  const signals = await collectFraudSignals(category);
+  const signal = signals.find((item) => item.id === signalId);
+  if (!signal) {
+    throw new AppError(404, 'Fraud signal not found');
+  }
+
+  await resolveFraudSignal(signalId, category, resolution, req.user!._id, signal);
+
+  res.status(200).json(
+    successResponse('Fraud signal resolved', {
+      signalId,
+      category,
+      resolution,
     })
   );
 }

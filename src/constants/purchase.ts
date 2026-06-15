@@ -27,3 +27,14 @@ export type EmailLogStatus = (typeof EMAIL_LOG_STATUSES)[number];
 
 export const CALL_SCHEDULE_STATUSES = ['scheduled', 'completed', 'cancelled'] as const;
 export type CallScheduleStatus = (typeof CALL_SCHEDULE_STATUSES)[number];
+
+export const SCHEDULE_TYPES = ['agent_call', 'survey_visit'] as const;
+export type ScheduleType = (typeof SCHEDULE_TYPES)[number];
+
+export const PREFERRED_TIME_SLOTS = [
+  '9:00 AM – 12:00 PM',
+  '12:00 PM – 1:00 PM',
+  '1:00 PM – 5:00 PM',
+  '5:00 PM – 8:00 PM',
+] as const;
+export type PreferredTimeSlot = (typeof PREFERRED_TIME_SLOTS)[number];

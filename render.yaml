@@ -46,3 +46,5 @@ services:
         value: 15
       - key: GEMINI_UPSTREAM_RPM
         value: 18
+      - key: ML_RETRAIN_API_KEY
+        sync: false

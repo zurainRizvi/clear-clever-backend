@@ -14,6 +14,8 @@ async function main(): Promise<void> {
   const app = createApp(env);
 
   await connectDatabase(env);
+  const { ensureMlRegistryDefaults } = await import('./services/mlRegistryService');
+  await ensureMlRegistryDefaults();
   startReminderWorker(env);
 
   if (isOutboundEmailConfigured(env)) {

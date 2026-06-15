@@ -92,8 +92,8 @@ describe('Hybrid policy recommender (Module 4)', () => {
       .send({ category: 'home', answers: homeAnswers });
 
     const top = res.body.data.recommendations[0];
-    expect(top.policy.slug).toBe('igi-home-basic');
-    expect(top.policy.premiumMonthlyPkr).toBe(3200);
+    expect(top.policy.slug).toBe('askari-home-shield');
+    expect(top.policy.premiumMonthlyPkr).toBe(2800);
   });
 
   it('produces stable hybrid ordering for seeded policies', async () => {

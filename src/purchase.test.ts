@@ -339,7 +339,7 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
       const emailLog = await EmailLog.findOne({ purchaseId });
       expect(emailLog?.status).toBe('sent');
 
-      const callSchedule = await CallSchedule.findOne({ purchaseId });
+      const callSchedule = await CallSchedule.findOne({ purchaseId, scheduleType: 'agent_call' });
       expect(callSchedule?.status).toBe('scheduled');
 
       const lead = await Lead.findOne({ type: 'purchase', policyId: purchase!.policyId });
@@ -434,7 +434,7 @@ describe('Module 7 — Purchase, affiliate & post-purchase artifacts', () => {
       expect(res.status).toBe(200);
       expect(res.body.data.purchase.timeline.callScheduled.agentLabel).toBe('ClearClever agent');
 
-      const schedule = await CallSchedule.findOne({ purchaseId });
+      const schedule = await CallSchedule.findOne({ purchaseId, scheduleType: 'agent_call' });
       expect(schedule?.notes).toBe('Rescheduled by policy seeker');
 
       const notification = await Notification.findOne({ type: 'call_rescheduled' });

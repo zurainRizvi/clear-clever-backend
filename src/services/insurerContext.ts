@@ -84,6 +84,7 @@ export function toInsurerPolicyDetail(policy: {
   premiumYearlyPkr: number;
   coverageSummary: string;
   features: string[];
+  featureSections?: unknown[];
   deductiblePkr: number;
   questions: unknown[];
   status: string;
@@ -97,6 +98,7 @@ export function toInsurerPolicyDetail(policy: {
     description: policy.description,
     coverageSummary: policy.coverageSummary,
     features: policy.features,
+    featureSections: policy.featureSections ?? [],
     deductiblePkr: policy.deductiblePkr,
     questions: policy.questions,
   };

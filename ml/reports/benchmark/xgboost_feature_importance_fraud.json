@@ -1,0 +1,19 @@
+{
+  "related_entity_count": 0.480298,
+  "severity_encoded": 0.319492,
+  "account_age_days": 0.054072,
+  "signal_type__claim_burst": 0.040276,
+  "signal_type__lead_spike": 0.038984,
+  "signal_type__duplicate_email": 0.038488,
+  "signal_type__inactive_spike": 0.003524,
+  "fraud_category__claims": 0.003282,
+  "fraud_category__catalog": 0.003091,
+  "signal_type__other": 0.003002,
+  "signal_type__rejected_claims_volume": 0.002955,
+  "fraud_category__commerce": 0.0029,
+  "fraud_category__account": 0.002723,
+  "signal_type__stale_pending_policies": 0.002229,
+  "signal_type__unverified_provider": 0.001629,
+  "signal_type__pending_purchases": 0.001605,
+  "signal_type__reject_rate": 0.00145
+}

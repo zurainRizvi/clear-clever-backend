@@ -3,9 +3,13 @@ import { InsurerProfile } from '../models/InsurerProfile';
 import { Policy } from '../models/Policy';
 import { User } from '../models/User';
 import { seedDerivedAuditEvents } from '../services/auditLogService';
-import { SEED_INSURERS } from './insurerSeedData';
+import { SEED_INSURERS, SEED_INSURER_BY_KEY } from './insurerSeedData';
 import { SEED_POLICIES } from './policySeedData';
 import { enrichPolicyFeatures } from './policyFeatureEnrichment';
+import {
+  buildPolicyFeatureSections,
+  buildPolicyFeaturesFromSections,
+} from './policyFeatureSeedBuilder';
 import { seedUsers, type SeedUsersResult } from './seedUsers';
 import { seedKyc, type SeedKycResult } from './seedKyc';
 
@@ -47,6 +51,10 @@ export async function seedCatalog(): Promise<SeedCatalogResult> {
       existing.contactPhone = record.contactPhone;
       existing.description = record.description;
       existing.websiteUrl = record.websiteUrl;
+      existing.pacraRating = record.pacraRating;
+      existing.jcrVisRating = record.jcrVisRating;
+      existing.operationalSince = record.operationalSince;
+      existing.policyType = record.policyType;
       await existing.save();
       insurersUpdated += 1;
       insurerIdBySeedKey.set(record.seedKey, String(existing._id));
@@ -59,6 +67,10 @@ export async function seedCatalog(): Promise<SeedCatalogResult> {
         contactPhone: record.contactPhone,
         description: record.description,
         websiteUrl: record.websiteUrl,
+        pacraRating: record.pacraRating,
+        jcrVisRating: record.jcrVisRating,
+        operationalSince: record.operationalSince,
+        policyType: record.policyType,
       });
       insurersCreated += 1;
       insurerIdBySeedKey.set(record.seedKey, String(created._id));
@@ -74,6 +86,16 @@ export async function seedCatalog(): Promise<SeedCatalogResult> {
       throw new AppError(500, `Missing insurer profile for seed key ${record.insurerSeedKey}`);
     }
 
+    const insurerRecord = SEED_INSURER_BY_KEY.get(record.insurerSeedKey);
+    const featureSections = insurerRecord
+      ? buildPolicyFeatureSections(record, insurerRecord)
+      : [];
+    const derivedFeatures = buildPolicyFeaturesFromSections(featureSections);
+    const features = enrichPolicyFeatures(
+      record.category,
+      derivedFeatures.length > 0 ? derivedFeatures : record.features
+    );
+
     const payload = {
       insurerProfileId,
       slug: record.slug,
@@ -83,7 +105,8 @@ export async function seedCatalog(): Promise<SeedCatalogResult> {
       premiumMonthlyPkr: record.premiumMonthlyPkr,
       premiumYearlyPkr: record.premiumYearlyPkr,
       coverageSummary: record.coverageSummary,
-      features: enrichPolicyFeatures(record.category, record.features),
+      features,
+      featureSections,
       deductiblePkr: record.deductiblePkr,
       questions: record.questions,
       status: record.status,
