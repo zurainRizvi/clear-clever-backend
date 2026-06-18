@@ -101,6 +101,48 @@ describe('Module 6 — Insurer & admin modules', () => {
       expect(res.status).toBe(200);
       expect(res.body.data.profile.contactEmail).toBe('updated@tplinsurance.com.pk');
     });
+
+    it('lets insurers add and remove a public profile photo', async () => {
+      const profilePhotoDataUrl = 'data:image/png;base64,aW5zdXJlci1sb2dv';
+      const updateRes = await request(app)
+        .patch('/api/insurer/profile')
+        .set('Authorization', `Bearer ${tplToken}`)
+        .send({ profilePhotoDataUrl });
+
+      expect(updateRes.status).toBe(200);
+      expect(updateRes.body.data.profile.profilePhotoDataUrl).toBe(profilePhotoDataUrl);
+
+      const policy = await Policy.findOne({ insurerProfileId: updateRes.body.data.profile.id });
+      expect(policy).toBeTruthy();
+
+      const publicPolicyRes = await request(app).get(`/api/policies/${policy!._id}`);
+      expect(publicPolicyRes.status).toBe(200);
+      expect(publicPolicyRes.body.data.policy.insurer.profilePhotoDataUrl).toBe(
+        profilePhotoDataUrl
+      );
+
+      const conversationRes = await request(app)
+        .post('/api/conversations')
+        .set('Authorization', `Bearer ${seekerToken}`)
+        .send({
+          type: 'user_insurer',
+          insurerProfileId: updateRes.body.data.profile.id,
+          initialMessage: 'I want to confirm the provider photo is visible.',
+        });
+
+      expect(conversationRes.status).toBe(201);
+      expect(conversationRes.body.data.conversation.insurer.profilePhotoDataUrl).toBe(
+        profilePhotoDataUrl
+      );
+
+      const removeRes = await request(app)
+        .patch('/api/insurer/profile')
+        .set('Authorization', `Bearer ${tplToken}`)
+        .send({ profilePhotoDataUrl: null });
+
+      expect(removeRes.status).toBe(200);
+      expect(removeRes.body.data.profile.profilePhotoDataUrl).toBeUndefined();
+    });
   });
 
   describe('Insurer policy CRUD', () => {

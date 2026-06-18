@@ -4,6 +4,20 @@ import { POLICY_QUESTION_TYPES } from '../models/Policy';
 
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
+function validateProfilePhotoDataUrl(value: string | null): boolean {
+  if (value === null || value === '') return true;
+  if (typeof value !== 'string') {
+    throw new Error('profilePhotoDataUrl must be a string');
+  }
+  if (!value.startsWith('data:image/')) {
+    throw new Error('profilePhotoDataUrl must be an image data URL');
+  }
+  if (value.length > 7_000_000) {
+    throw new Error('profilePhotoDataUrl must be smaller than 7 MB');
+  }
+  return true;
+}
+
 export const insurerPolicyIdValidator = param('id')
   .trim()
   .notEmpty()
@@ -102,6 +116,9 @@ export const createInsurerProfileValidators = [
     .withMessage('Contact phone must be at most 20 characters'),
   body('description').optional().trim().isLength({ max: 2000 }),
   body('websiteUrl').optional().trim().isLength({ max: 500 }),
+  body('profilePhotoDataUrl')
+    .optional({ nullable: true })
+    .custom(validateProfilePhotoDataUrl),
 ];
 
 export const updateInsurerProfileValidators = [
@@ -113,6 +130,9 @@ export const updateInsurerProfileValidators = [
     .withMessage('Contact phone is required')
     .isLength({ max: 20 }),
   body('description').optional().trim().isLength({ max: 2000 }),
+  body('profilePhotoDataUrl')
+    .optional({ nullable: true })
+    .custom(validateProfilePhotoDataUrl),
 ];
 
 export const updateInsurerPolicyValidators = [

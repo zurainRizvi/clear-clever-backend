@@ -113,6 +113,7 @@ async function presentConversation(
           id: String(insurer._id),
           slug: insurer.slug,
           companyName: insurer.companyName,
+          profilePhotoDataUrl: insurer.profilePhotoDataUrl,
         }
       : undefined,
     purchaseId: conversation.purchaseId ? String(conversation.purchaseId) : undefined,

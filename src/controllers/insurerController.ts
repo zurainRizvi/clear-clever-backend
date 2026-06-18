@@ -102,6 +102,7 @@ export async function createInsurerProfile(
     contactPhone: string;
     description?: string;
     websiteUrl?: string;
+    profilePhotoDataUrl?: string | null;
   };
 
   const slug = body.slug.toLowerCase().trim();
@@ -118,6 +119,7 @@ export async function createInsurerProfile(
     contactPhone: body.contactPhone.trim(),
     description: body.description?.trim(),
     websiteUrl: body.websiteUrl?.trim(),
+    profilePhotoDataUrl: body.profilePhotoDataUrl || undefined,
   });
 
   const policiesCreated = await createStarterPoliciesForInsurer(profile);
@@ -151,11 +153,15 @@ export async function updateInsurerProfile(
     contactEmail: string;
     contactPhone: string;
     description: string;
+    profilePhotoDataUrl: string | null;
   }>;
 
   if (body.contactEmail !== undefined) profile.contactEmail = body.contactEmail.trim().toLowerCase();
   if (body.contactPhone !== undefined) profile.contactPhone = body.contactPhone.trim();
   if (body.description !== undefined) profile.description = body.description.trim();
+  if (body.profilePhotoDataUrl !== undefined) {
+    profile.profilePhotoDataUrl = body.profilePhotoDataUrl || undefined;
+  }
 
   await profile.save();
 

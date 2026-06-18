@@ -13,6 +13,7 @@ export interface PublicInsurerSummary {
   id: string;
   slug: string;
   companyName: string;
+  profilePhotoDataUrl?: string;
   pacraRating?: string;
   jcrVisRating?: string;
   operationalSince?: number;
@@ -73,6 +74,7 @@ export function toPublicInsurerSummary(profile: IInsurerProfileDocument): Public
     id: String(profile._id),
     slug: profile.slug,
     companyName: profile.companyName,
+    profilePhotoDataUrl: profile.profilePhotoDataUrl,
     pacraRating: profile.pacraRating,
     jcrVisRating: profile.jcrVisRating,
     operationalSince: profile.operationalSince,

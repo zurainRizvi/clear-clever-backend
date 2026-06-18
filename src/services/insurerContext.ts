@@ -59,6 +59,7 @@ export function toInsurerProfileSummary(profile: {
   contactEmail: string;
   contactPhone: string;
   description?: string;
+  profilePhotoDataUrl?: string;
   createdAt: Date;
   updatedAt: Date;
 }) {
@@ -69,6 +70,7 @@ export function toInsurerProfileSummary(profile: {
     contactEmail: profile.contactEmail,
     contactPhone: profile.contactPhone,
     description: profile.description,
+    profilePhotoDataUrl: profile.profilePhotoDataUrl,
     createdAt: profile.createdAt.toISOString(),
     updatedAt: profile.updatedAt.toISOString(),
   };

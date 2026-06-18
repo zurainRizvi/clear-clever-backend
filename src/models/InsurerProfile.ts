@@ -11,6 +11,7 @@ export interface IInsurerProfile {
   contactPhone: string;
   description?: string;
   websiteUrl?: string;
+  profilePhotoDataUrl?: string;
   pacraRating?: string;
   jcrVisRating?: string;
   operationalSince?: number;
@@ -30,6 +31,7 @@ const insurerProfileSchema = new Schema<IInsurerProfileDocument>(
     contactPhone: { type: String, required: true, trim: true, maxlength: 20 },
     description: { type: String, trim: true, maxlength: 2000 },
     websiteUrl: { type: String, trim: true, maxlength: 500 },
+    profilePhotoDataUrl: { type: String, trim: true, maxlength: 7_000_000 },
     pacraRating: { type: String, trim: true, maxlength: 20 },
     jcrVisRating: { type: String, trim: true, maxlength: 20 },
     operationalSince: { type: Number, min: 1900, max: 2100 },

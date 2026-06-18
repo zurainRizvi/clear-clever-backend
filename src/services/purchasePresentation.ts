@@ -73,6 +73,7 @@ export async function toPurchaseSummary(purchase: IPurchaseDocument) {
           id: String(insurer._id),
           slug: insurer.slug,
           companyName: insurer.companyName,
+          profilePhotoDataUrl: insurer.profilePhotoDataUrl,
           contactEmail: insurer.contactEmail,
           contactPhone: insurer.contactPhone,
           pacraRating: insurer.pacraRating,

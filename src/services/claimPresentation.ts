@@ -34,6 +34,7 @@ export async function toClaimSummary(claim: IClaimRequestDocument) {
       ? {
           id: String(insurer._id),
           companyName: insurer.companyName,
+          profilePhotoDataUrl: insurer.profilePhotoDataUrl,
           contactPhone: insurer.contactPhone,
         }
       : undefined,
