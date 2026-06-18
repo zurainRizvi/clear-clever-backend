@@ -3,6 +3,7 @@ import { loadEnv } from '../config/env';
 import { InsurerProfile } from '../models/InsurerProfile';
 import { Policy } from '../models/Policy';
 import { Purchase } from '../models/Purchase';
+import { isCheckoutTokenValid } from '../services/checkoutToken';
 import { renderAffiliateErrorPage, renderAffiliatePage } from '../views/affiliatePage';
 
 export async function renderAffiliateWizard(req: Request, res: Response): Promise<void> {
@@ -34,6 +35,20 @@ export async function renderAffiliateWizard(req: Request, res: Response): Promis
         renderAffiliateErrorPage(
           'Purchase not found',
           'We could not find this purchase. It may have expired or the link is invalid.',
+          env.CLIENT_URL
+        )
+      );
+    return;
+  }
+
+  if (!token || !isCheckoutTokenValid(purchase, token)) {
+    res
+      .status(401)
+      .type('html')
+      .send(
+        renderAffiliateErrorPage(
+          'Checkout link expired',
+          'This checkout link is invalid or expired. Start again from Compare Policies on ClearClever.',
           env.CLIENT_URL
         )
       );
