@@ -8,6 +8,8 @@ export interface IPurchase {
   affiliateSlug: string;
   answers: Record<string, unknown>;
   status: PurchaseStatus;
+  checkoutTokenHash?: string;
+  checkoutTokenExpiresAt?: Date;
   paymentProcessedAt?: Date;
   completedAt?: Date;
   completionArtifactsCreated: boolean;
@@ -30,6 +32,8 @@ const purchaseSchema = new Schema<IPurchaseDocument>(
     affiliateSlug: { type: String, required: true, trim: true, lowercase: true },
     answers: { type: Schema.Types.Mixed, default: {} },
     status: { type: String, enum: PURCHASE_STATUSES, default: 'pending', index: true },
+    checkoutTokenHash: { type: String, trim: true },
+    checkoutTokenExpiresAt: { type: Date },
     paymentProcessedAt: { type: Date },
     completedAt: { type: Date },
     completionArtifactsCreated: { type: Boolean, default: false },

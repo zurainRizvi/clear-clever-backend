@@ -65,6 +65,10 @@ export const completePurchaseQueryValidators = [
     .withMessage('purchaseId query parameter is required')
     .isMongoId()
     .withMessage('purchaseId must be a valid id'),
+  query('token')
+    .trim()
+    .notEmpty()
+    .withMessage('token query parameter is required'),
 ];
 
 export const rescheduleCallValidators = [

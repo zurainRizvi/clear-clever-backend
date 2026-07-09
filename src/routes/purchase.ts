@@ -7,7 +7,10 @@ import {
   updatePurchaseAnswers,
 } from '../controllers/purchaseController';
 import { authenticate } from '../middleware/authenticate';
-import { authenticateQueryToken } from '../middleware/authenticateQueryToken';
+import {
+  authenticateCheckoutToken,
+  authenticateSessionOrCheckoutToken,
+} from '../middleware/authenticateCheckoutToken';
 import { validate } from '../middleware/validate';
 import {
   completePurchaseQueryValidators,
@@ -27,21 +30,21 @@ purchaseRouter.post(
 
 purchaseRouter.patch(
   '/:id/answers',
-  authenticate,
   validate(updatePurchaseAnswersValidators),
+  authenticateSessionOrCheckoutToken('param'),
   asyncHandler(updatePurchaseAnswers)
 );
 
 purchaseRouter.post(
   '/:id/process-payment',
-  authenticate,
   validate(processPaymentValidators),
+  authenticateSessionOrCheckoutToken('param'),
   asyncHandler(processPayment)
 );
 
 purchaseRouter.get(
   '/complete',
-  authenticateQueryToken,
   validate(completePurchaseQueryValidators),
+  authenticateCheckoutToken('query'),
   asyncHandler(completePurchaseHandler)
 );

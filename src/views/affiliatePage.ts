@@ -787,7 +787,7 @@ export function renderAffiliatePage(input: AffiliatePageInput): string {
           method: 'PATCH',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + token,
+            'x-checkout-token': token,
           },
           body: JSON.stringify({ answers: data }),
         });
@@ -822,7 +822,7 @@ export function renderAffiliatePage(input: AffiliatePageInput): string {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + token,
+            'x-checkout-token': token,
           },
           body: JSON.stringify(data),
         });

@@ -7,7 +7,6 @@ import { Notification } from '../models/Notification';
 import { Policy } from '../models/Policy';
 import { Purchase } from '../models/Purchase';
 import { QuestionnaireResponse } from '../models/QuestionnaireResponse';
-import { signToken } from '../services/auth';
 import { getCategoryQuestions } from '../services/questionsService';
 import { saveQuestionnaireResponse } from '../services/questionnaireMemory';
 import {
@@ -18,6 +17,7 @@ import {
 import { trackCheckoutLead } from '../services/leadTrackingService';
 import { completePurchase } from '../services/purchaseCompletion';
 import { toPurchaseSummary } from '../services/purchasePresentation';
+import { createCheckoutToken } from '../services/checkoutToken';
 import { assignUserCnic } from '../services/userCnicService';
 import { assertUserKycVerified } from '../services/kycService';
 import { AppError, successResponse } from '../utils/apiResponse';
@@ -76,6 +76,7 @@ export async function createPurchase(req: AuthenticatedRequest, res: Response): 
     });
   }
 
+  const checkoutToken = createCheckoutToken();
   const purchase = await Purchase.create({
     userId: req.user!._id,
     policyId: policy._id,
@@ -83,6 +84,8 @@ export async function createPurchase(req: AuthenticatedRequest, res: Response): 
     affiliateSlug: insurer.slug,
     answers: purchaseAnswers,
     status: 'pending',
+    checkoutTokenHash: checkoutToken.checkoutTokenHash,
+    checkoutTokenExpiresAt: checkoutToken.checkoutTokenExpiresAt,
   });
 
   await trackCheckoutLead({
@@ -94,10 +97,9 @@ export async function createPurchase(req: AuthenticatedRequest, res: Response): 
     purchaseId: String(purchase._id),
   });
 
-  const token = signToken(env, req.user!);
   const redirectUrl = new URL(`${env.API_PUBLIC_URL}/affiliate/${insurer.slug}`);
   redirectUrl.searchParams.set('purchaseId', String(purchase._id));
-  redirectUrl.searchParams.set('token', token);
+  redirectUrl.searchParams.set('token', checkoutToken.token);
 
   res.status(201).json(
     successResponse('Purchase initiated', {

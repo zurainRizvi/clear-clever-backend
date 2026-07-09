@@ -103,6 +103,8 @@ describe('AI Claims Intelligence Engine', () => {
       });
     expect(createRes.status).toBe(201);
     const purchaseId = createRes.body.data.purchaseId as string;
+    const checkoutToken = new URL(createRes.body.data.redirectUrl as string).searchParams.get('token');
+    expect(checkoutToken).toBeTruthy();
 
     await request(app)
       .post(`/api/purchase/${purchaseId}/process-payment`)
@@ -115,7 +117,7 @@ describe('AI Claims Intelligence Engine', () => {
 
     await request(app)
       .get('/api/purchase/complete')
-      .query({ purchaseId, token: seekerToken })
+      .query({ purchaseId, token: checkoutToken })
       .set('Accept', 'application/json');
 
     return purchaseId;
