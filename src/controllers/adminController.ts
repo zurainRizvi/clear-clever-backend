@@ -192,6 +192,9 @@ export async function deactivateUser(req: AuthenticatedRequest, res: Response): 
   if (target.role === 'superadmin' && req.user!.role !== 'superadmin') {
     throw new AppError(403, 'Only a superadmin may deactivate a superadmin account');
   }
+  if (target.role === 'insurer' && req.user!.role !== 'superadmin') {
+    throw new AppError(403, 'Only a superadmin may deactivate an insurance provider account');
+  }
 
   target.status = 'inactive';
   await target.save();
@@ -217,6 +220,9 @@ export async function reactivateUser(req: AuthenticatedRequest, res: Response): 
 
   if (target.role === 'superadmin' && req.user!.role !== 'superadmin') {
     throw new AppError(403, 'Only a superadmin may reactivate a superadmin account');
+  }
+  if (target.role === 'insurer' && req.user!.role !== 'superadmin') {
+    throw new AppError(403, 'Only a superadmin may reactivate an insurance provider account');
   }
 
   target.status = 'active';
